@@ -1,9 +1,10 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_ENDPOINTS } from '../config';
 import Spinner from '../components/Spinner';
 import { resizeImageFile } from '../utils/image';
 import ThankYouModal from '../components/customer/ThankYouModal';
+import { useLineAuth } from '../contexts/LineAuthContext';
 
 type WarpOption = {
   seconds: number;
@@ -46,6 +47,7 @@ const customerEndpoint = () =>
 
 const SelfWarpPage = () => {
   const navigate = useNavigate();
+  const { user, login, isConfigured } = useLineAuth();
   const [form, setForm] = useState<FormState>(defaultState);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState<string>('');
@@ -58,6 +60,17 @@ const SelfWarpPage = () => {
   const handleChange = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
+
+  // Auto-fill form with LINE profile data when user logs in
+  useEffect(() => {
+    if (user) {
+      setForm((prev) => ({
+        ...prev,
+        customerName: user.displayName,
+        customerAvatar: user.pictureUrl || '', // Set LINE profile picture as default
+      }));
+    }
+  }, [user]);
 
   const handleSelectWarpOption = (option: WarpOption) => {
     setForm((prev) => ({
@@ -130,7 +143,7 @@ const SelfWarpPage = () => {
       const payload = {
         code: referenceCode,
         customerName: form.customerName,
-        customerAvatar: form.customerAvatar,
+        customerAvatar: form.customerAvatar || user?.pictureUrl, // Use uploaded image or LINE profile picture
         socialLink: form.socialLink,
         quote: form.quote,
         displaySeconds: form.seconds,
@@ -147,6 +160,11 @@ const SelfWarpPage = () => {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
+
+      // Add authorization header if user is logged in
+      if (user && localStorage.getItem('lineAuthToken')) {
+        headers.Authorization = `Bearer ${localStorage.getItem('lineAuthToken')}`;
+      }
 
       const response = await fetch(customerEndpoint(), {
         method: 'POST',
@@ -324,15 +342,23 @@ const SelfWarpPage = () => {
               {/* Additional Info */}
               <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
                 <div>
-                  <label className="block text-xs uppercase tracking-[0.3em] text-indigo-300">ชื่อของคุณ</label>
+                  <label className="block text-xs uppercase tracking-[0.3em] text-indigo-300">
+                    ชื่อของคุณ {user ? '(จาก LINE)' : ''}
+                  </label>
                   <input
                     type="text"
                     value={form.customerName}
                     onChange={(event) => handleChange('customerName', event.target.value)}
-                    placeholder="ชื่อเล่น / นามแฝง"
+                    placeholder={user ? user.displayName : "ชื่อเล่น / นามแฝง"}
+                    disabled={!!user}
                     required
-                    className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900/80 px-4 py-3 text-sm text-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/30 sm:rounded-xl"
+                    className={`mt-2 w-full rounded-lg border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/30 sm:rounded-xl ${
+                      user ? 'bg-slate-800/50 cursor-not-allowed opacity-70' : 'bg-slate-900/80'
+                    }`}
                   />
+                  {user && (
+                    <p className="mt-1 text-xs text-emerald-300">ใช้ชื่อจาก LINE: {user.displayName}</p>
+                  )}
                   {fieldErrors.customerName ? (
                     <p className="mt-1 text-xs text-rose-300">{fieldErrors.customerName}</p>
                   ) : null}
@@ -475,19 +501,47 @@ const SelfWarpPage = () => {
                   >
                     ยกเลิก
                   </button>
-                  <button
-                    type="submit"
-                    disabled={status === 'loading'}
-                    className="rounded-lg bg-indigo-500 px-4 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-white shadow-[0_18px_60px_rgba(99,102,241,0.35)] transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-xl sm:px-8"
-                  >
-                    {status === 'loading' ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <Spinner /> กำลังบันทึก…
-                      </span>
-                    ) : (
-                      'ยืนยัน Warp'
-                    )}
-                  </button>
+                  
+                  {!user ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await login();
+                        } catch (error) {
+                          setMessage('ไม่สามารถเข้าสู่ระบบ LINE ได้ กรุณาลองใหม่อีกครั้ง');
+                          setStatus('error');
+                        }
+                      }}
+                      disabled={!isConfigured}
+                      className="rounded-lg bg-green-500 px-4 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-white shadow-[0_18px_60px_rgba(34,197,94,0.35)] transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-xl sm:px-8"
+                    >
+                      {!isConfigured ? (
+                        'LINE Login ไม่พร้อมใช้งาน'
+                      ) : (
+                        <span className="flex items-center justify-center gap-2">
+                          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.281.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/>
+                          </svg>
+                          เข้าสู่ระบบ LINE
+                        </span>
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={status === 'loading'}
+                      className="rounded-lg bg-indigo-500 px-4 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-white shadow-[0_18px_60px_rgba(99,102,241,0.35)] transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-xl sm:px-8"
+                    >
+                      {status === 'loading' ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <Spinner /> กำลังบันทึก…
+                        </span>
+                      ) : (
+                        'ยืนยัน Warp'
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
             </form>

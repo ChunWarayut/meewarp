@@ -4,6 +4,7 @@ import { API_ENDPOINTS } from '../../config';
 import Spinner from '../Spinner';
 import { resizeImageFile } from '../../utils/image';
 import ThankYouModal from './ThankYouModal';
+import { useLineAuth } from '../../contexts/LineAuthContext';
 
 type WarpOption = {
   seconds: number;
@@ -63,6 +64,7 @@ const customerEndpoint = () =>
   API_ENDPOINTS.topSupporters.replace('/leaderboard/top-supporters', '/public/transactions');
 
 const CustomerWarpModal = ({ isOpen, onClose, profiles = [], closeLabel }: CustomerWarpModalProps) => {
+  const { user, login, isConfigured } = useLineAuth();
   const [form, setForm] = useState<FormState>(defaultState);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState<string>('');
@@ -77,8 +79,11 @@ const CustomerWarpModal = ({ isOpen, onClose, profiles = [], closeLabel }: Custo
       ...prev,
       mode: 'self',
       profileCode: '',
+      customerName: user?.displayName || '',
+      customerAvatar: user?.pictureUrl || '', // Set LINE profile picture as default
+      selfDisplayName: user?.displayName || '',
     }));
-  }, [isOpen]);
+  }, [isOpen, user]);
 
   const handleChange = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -185,7 +190,7 @@ const CustomerWarpModal = ({ isOpen, onClose, profiles = [], closeLabel }: Custo
       const payload = {
         code: referenceCode,
         customerName: form.customerName,
-        customerAvatar: form.customerAvatar,
+        customerAvatar: form.customerAvatar || user?.pictureUrl, // Use uploaded image or LINE profile picture
         socialLink: form.socialLink,
         quote: form.quote,
         displaySeconds: form.seconds,
@@ -205,6 +210,11 @@ const CustomerWarpModal = ({ isOpen, onClose, profiles = [], closeLabel }: Custo
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
+
+      // Add authorization header if user is logged in
+      if (user && localStorage.getItem('lineAuthToken')) {
+        headers.Authorization = `Bearer ${localStorage.getItem('lineAuthToken')}`;
+      }
 
       const response = await fetch(customerEndpoint(), {
         method: 'POST',
@@ -262,20 +272,30 @@ const CustomerWarpModal = ({ isOpen, onClose, profiles = [], closeLabel }: Custo
             <div className="mt-4 space-y-5 rounded-3xl border border-white/10 bg-gradient-to-br from-white/5 via-white/10 to-white/5 p-6 shadow-[0_30px_80px_rgba(14,23,42,0.6)]">
               <div className="grid gap-6 lg:grid-cols-2">
                 <div>
-                  <label className="text-xs uppercase tracking-[0.4em] text-indigo-300">ชื่อที่จะโชว์</label>
+                  <label className="text-xs uppercase tracking-[0.4em] text-indigo-300">
+                    ชื่อที่จะโชว์ {user ? '(จาก LINE)' : ''}
+                  </label>
                   <input
                     type="text"
                     value={form.selfDisplayName}
                     onChange={(event) => handleChange('selfDisplayName', event.target.value)}
-                    placeholder="ชื่อที่จะขึ้นจอ"
-                    className="mt-3 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/30"
+                    placeholder={user ? user.displayName : "ชื่อที่จะขึ้นจอ"}
+                    disabled={!!user}
+                    className={`mt-3 w-full rounded-2xl border border-white/10 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/30 ${
+                      user ? 'bg-slate-800/50 cursor-not-allowed opacity-70' : 'bg-slate-950/70'
+                    }`}
                   />
+                  {user && (
+                    <p className="mt-1 text-xs text-emerald-300">ใช้ชื่อจาก LINE: {user.displayName}</p>
+                  )}
                   {fieldErrors.selfDisplayName ? (
                     <p className="mt-1 text-xs text-rose-300">{fieldErrors.selfDisplayName}</p>
                   ) : null}
                 </div>
                 <div>
-                  <label className="text-xs uppercase tracking-[0.4em] text-indigo-300">อัปโหลดรูปของคุณ</label>
+                  <label className="text-xs uppercase tracking-[0.4em] text-indigo-300">
+                    รูปโปรไฟล์ {user ? '(ใช้จาก LINE หรืออัปโหลดใหม่)' : ''}
+                  </label>
                   <div className="mt-3 flex flex-col gap-4 rounded-2xl border border-dashed border-indigo-300/30 bg-slate-950/60 p-4 text-center transition hover:border-indigo-300/60">
                     <input
                       id="warp-self-upload"
@@ -299,15 +319,6 @@ const CustomerWarpModal = ({ isOpen, onClose, profiles = [], closeLabel }: Custo
                         }
                       }}
                     />
-                    <label
-                      htmlFor="warp-self-upload"
-                      className="mx-auto flex w-full max-w-xs cursor-pointer flex-col items-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 text-sm font-medium text-indigo-100 transition hover:bg-indigo-500/20"
-                    >
-                      <span className="rounded-full border border-indigo-400/50 bg-indigo-500/20 px-3 py-1 text-xs uppercase tracking-[0.3em] text-indigo-100">
-                        Upload
-                      </span>
-                      <span className="text-xs text-slate-200">กดเพื่อเลือกไฟล์ (รองรับ png, jpg)</span>
-                    </label>
                     {form.selfImage ? (
                       <div className="relative mx-auto flex h-32 w-32 items-center justify-center overflow-hidden rounded-2xl border border-white/20 bg-white/5 shadow-[0_10px_30px_rgba(15,23,42,0.45)]">
                         <img
@@ -315,9 +326,45 @@ const CustomerWarpModal = ({ isOpen, onClose, profiles = [], closeLabel }: Custo
                           alt="preview"
                           className="h-full w-full object-cover"
                         />
+                        <button
+                          type="button"
+                          onClick={() => handleChange('selfImage', '')}
+                          className="absolute -right-2 -top-2 rounded-full bg-rose-500 p-1 text-white hover:bg-rose-600"
+                        >
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
                       </div>
-                    ) : (
-                      <p className="text-xs text-slate-400"></p>
+                    ) : user && user.pictureUrl ? (
+                      <div className="relative mx-auto flex h-32 w-32 items-center justify-center overflow-hidden rounded-2xl border border-emerald-500/30 bg-emerald-500/10 shadow-[0_10px_30px_rgba(16,185,129,0.25)]">
+                        <img
+                          src={user.pictureUrl}
+                          alt="LINE Profile"
+                          className="h-full w-full object-cover"
+                        />
+                        <div className="absolute -right-2 -top-2 rounded-full bg-emerald-500 p-1">
+                          <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      </div>
+                    ) : null}
+                    
+                    <label
+                      htmlFor="warp-self-upload"
+                      className="mx-auto flex w-full max-w-xs cursor-pointer flex-col items-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 text-sm font-medium text-indigo-100 transition hover:bg-indigo-500/20"
+                    >
+                      <span className="rounded-full border border-indigo-400/50 bg-indigo-500/20 px-3 py-1 text-xs uppercase tracking-[0.3em] text-indigo-100">
+                        {form.selfImage ? 'เปลี่ยนรูป' : user && user.pictureUrl ? 'อัปโหลดรูปใหม่' : 'Upload'}
+                      </span>
+                      <span className="text-xs text-slate-200">
+                        {user && user.pictureUrl ? 'กดเพื่ออัปโหลดรูปใหม่ (รองรับ png, jpg)' : 'กดเพื่อเลือกไฟล์ (รองรับ png, jpg)'}
+                      </span>
+                    </label>
+                    
+                    {user && user.pictureUrl && !form.selfImage && (
+                      <p className="text-xs text-emerald-300">ใช้รูปโปรไฟล์จาก LINE: {user.displayName}</p>
                     )}
                   </div>
                 </div>
@@ -410,7 +457,6 @@ const CustomerWarpModal = ({ isOpen, onClose, profiles = [], closeLabel }: Custo
             {fieldErrors.quote ? (
               <p className="mt-1 text-xs text-rose-300">{fieldErrors.quote}</p>
             ) : null}
-          </section>
             <div>
               <label className="text-xs uppercase tracking-[0.3em] text-indigo-300">ลิงก์ Avatar</label>
               <input
@@ -530,19 +576,46 @@ const CustomerWarpModal = ({ isOpen, onClose, profiles = [], closeLabel }: Custo
             ยกเลิก
           </button>
 
-          <button
-            type="submit"
-            disabled={status === 'loading'}
-            className="rounded-xl bg-indigo-500 px-6 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-white shadow-[0_18px_60px_rgba(99,102,241,0.35)] transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {status === 'loading' ? (
-              <span className="flex items-center gap-2">
-                <Spinner /> กำลังบันทึก…
-              </span>
-            ) : (
-              'ยืนยัน Warp'
-            )}
-          </button>
+          {!user ? (
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await login();
+                } catch (error) {
+                  setMessage('ไม่สามารถเข้าสู่ระบบ LINE ได้ กรุณาลองใหม่อีกครั้ง');
+                  setStatus('error');
+                }
+              }}
+              disabled={!isConfigured}
+              className="rounded-xl bg-green-500 px-6 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-white shadow-[0_18px_60px_rgba(34,197,94,0.35)] transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {!isConfigured ? (
+                'LINE Login ไม่พร้อมใช้งาน'
+              ) : (
+                <span className="flex items-center gap-2">
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.281.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/>
+                  </svg>
+                  เข้าสู่ระบบ LINE
+                </span>
+              )}
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={status === 'loading'}
+              className="rounded-xl bg-indigo-500 px-6 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-white shadow-[0_18px_60px_rgba(99,102,241,0.35)] transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {status === 'loading' ? (
+                <span className="flex items-center gap-2">
+                  <Spinner /> กำลังบันทึก…
+                </span>
+              ) : (
+                'ยืนยัน Warp'
+              )}
+            </button>
+          )}
         </div>
         </form>
       </Modal>

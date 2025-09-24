@@ -4,7 +4,9 @@ import AdminLogin from './components/AdminLogin';
 import WarpRedirect from './pages/WarpRedirect';
 import LandingPage from './pages/LandingPage';
 import SelfWarpPage from './pages/SelfWarpPage';
+import LineCallback from './pages/LineCallback';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { LineAuthProvider } from './contexts/LineAuthContext';
 import AdminActivity from './pages/AdminActivity';
 
 const AdminShell = () => {
@@ -51,6 +53,7 @@ const AppRoutes = () => (
     <Route path="/admin/activity" element={<AdminActivity />} />
     <Route path="/self-warp" element={<SelfWarpPage />} />
     <Route path="/warp/:code" element={<WarpRedirect />} />
+    <Route path="/line/callback" element={<LineCallback />} />
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes>
 );
@@ -58,7 +61,9 @@ const AppRoutes = () => (
 const App = () => {
   return (
     <AuthProvider>
-      <AppRoutes />
+      <LineAuthProvider>
+        <AppRoutes />
+      </LineAuthProvider>
     </AuthProvider>
   );
 };

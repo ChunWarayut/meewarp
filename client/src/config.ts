@@ -9,4 +9,9 @@ export const API_ENDPOINTS = {
   displayStream: `${API_BASE_URL}/v1/display/stream`,
   displayNext: `${API_BASE_URL}/v1/public/display/next`,
   displayComplete: (id: string) => `${API_BASE_URL}/v1/public/display/${encodeURIComponent(id)}/complete`,
+  // LINE Auth endpoints
+  lineLogin: `${API_BASE_URL}/v1/auth/line/login`,
+  lineCallback: `${API_BASE_URL}/v1/auth/line/callback`,
+  authVerify: `${API_BASE_URL}/v1/auth/verify`,
+  authLogout: `${API_BASE_URL}/v1/auth/logout`,
 };

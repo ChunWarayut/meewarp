@@ -87,6 +87,11 @@ const LandingPage = () => {
     return `${minutes}:${seconds}`;
   }, []);
 
+  const sanitizeName = useCallback((name: string) => {
+    // Remove special characters, keep only Thai characters, English letters, numbers, and basic punctuation
+    return name.replace(/[^\u0E00-\u0E7F\u0020-\u007E]/g, '').trim();
+  }, []);
+
   const fetchNextWarp = useCallback(async () => {
     if (isFetchingWarpRef.current || currentWarpRef.current) {
       return;
@@ -364,14 +369,17 @@ const LandingPage = () => {
                 <div className="absolute inset-0 rounded-[24px] ring-2 ring-emerald-400/20 pointer-events-none sm:rounded-[32px]"></div>
               </div>
               <div className="space-y-5 lg:space-y-6 xl:space-y-8 text-left">
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm lg:text-base xl:text-lg uppercase tracking-[0.4em] text-emerald-300 font-bold">Warp Spotlight</p>
-                  <h2 className="mt-3 text-4xl lg:text-6xl xl:text-7xl font-black text-white drop-shadow-lg sm:text-5xl">
-                    {currentWarp.customerName}
+                  <h2 
+                    className="mt-3 text-[clamp(2rem,8vw,7rem)] font-black text-white drop-shadow-lg truncate max-w-full"
+                    title={currentWarp.customerName}
+                  >
+                    {sanitizeName(currentWarp.customerName)}
                   </h2>
                   {currentWarp.quote ? (
                     <div className="mt-4 rounded-xl border border-emerald-400/20 bg-gradient-to-r from-emerald-500/5 to-emerald-600/5 p-4 lg:p-5 xl:p-6 backdrop-blur-sm">
-                      <p className="text-base lg:text-lg xl:text-xl font-medium text-emerald-100 italic text-center leading-relaxed">
+                      <p className="text-base lg:text-lg xl:text-xl font-medium text-emerald-100 italic text-center leading-relaxed line-clamp-3">
                         "{currentWarp.quote}"
                       </p>
                     </div>
@@ -434,9 +442,9 @@ const LandingPage = () => {
       </div>
 
       {/* Bottom-left QR Code Section */}
-      <div className="pointer-events-auto absolute left-[4vw] bottom-[4vh] rounded-3xl p-[1.6vw] lg:p-[2vw] xl:p-[2.5vw]">
+      <div className="pointer-events-auto absolute left-[2vw] bottom-[2vh] z-10 max-w-[85vw] sm:left-[4vw] sm:bottom-[4vh] rounded-3xl p-[1.6vw] lg:p-[2vw] xl:p-[2.5vw]">
         <div className="flex items-center gap-4 lg:gap-6 xl:gap-8">
-          <div className="h-[12vw] w-[12vw] min-h-[120px] min-w-[120px] max-w-[160px] lg:max-w-[200px] xl:max-w-[240px] overflow-hidden rounded-2xl p-3 lg:p-4 xl:p-5 shadow-[0_35px_100px_rgba(15,23,42,0.55)] backdrop-blur">
+          <div className="h-[12vw] w-[12vw] min-h-[100px] min-w-[100px] max-h-[180px] max-w-[160px] lg:max-w-[200px] xl:max-w-[240px] overflow-hidden rounded-2xl p-2 lg:p-4 xl:p-5 shadow-[0_35px_100px_rgba(15,23,42,0.55)] backdrop-blur">
             {selfWarpUrl ? (
               <img
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(selfWarpUrl)}`}
@@ -445,11 +453,11 @@ const LandingPage = () => {
               />
             ) : null}
           </div>
-          <div className="flex-1">
-            <p className="text-[clamp(14px,1.1vw,20px)] lg:text-xl xl:text-2xl font-semibold text-white">
+          <div className="flex-1 max-w-[60vw]">
+            <p className="text-[clamp(12px,1.1vw,20px)] lg:text-xl xl:text-2xl font-semibold text-white">
               สแกนเพื่อแจกวาร์ป
             </p>
-            <p className="mt-1 text-[clamp(11px,0.9vw,16px)] lg:text-lg xl:text-xl text-slate-300">
+            <p className="mt-1 text-[clamp(10px,0.9vw,16px)] lg:text-lg xl:text-xl text-slate-300">
               เลือกเวลาและชำระเงินได้ทันที
             </p>
           </div>
@@ -488,7 +496,7 @@ const LandingPage = () => {
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[clamp(12px,0.9vw,16px)] lg:text-lg xl:text-xl font-semibold text-white truncate">{supporter.customerName}</p>
+                  <p className="text-[clamp(12px,0.9vw,16px)] lg:text-lg xl:text-xl font-semibold text-white truncate">{sanitizeName(supporter.customerName)}</p>
                   <p className="text-[clamp(10px,0.8vw,14px)] lg:text-base xl:text-lg text-slate-300">{amountLabel}</p>
                 </div>
               </li>

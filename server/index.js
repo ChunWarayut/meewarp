@@ -6,6 +6,7 @@ const rateLimit = require('express-rate-limit');
 const config = require('./config/env');
 const warpRoutes = require('./routes/warpRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
+const authRoutes = require('./routes/authRoutes');
 const { startTransactionPolling } = require('./jobs/transactionPolling');
 
 const app = express();
@@ -45,6 +46,7 @@ app.use((req, res, next) => {
   return express.json()(req, res, next);
 });
 app.use('/api', apiLimiter);
+app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1', warpRoutes);
 app.use('/api/v1', transactionRoutes);
 

@@ -2,6 +2,7 @@ const express = require('express');
 const WarpTransaction = require('../models/WarpTransaction');
 const WarpProfile = require('../models/WarpProfile');
 const adminAuth = require('../middlewares/adminAuth');
+const userAuth = require('../middlewares/userAuth');
 const leaderboardEmitter = require('../lib/leaderboardEmitter');
 const displayEmitter = require('../lib/displayEmitter');
 const { getTopSupporters } = require('../services/leaderboardService');
@@ -259,8 +260,8 @@ router.post('/transactions/:id/check-status', adminAuth, async (req, res) => {
   }
 });
 
-// Public endpoint for customers to create transactions (no auth required)
-router.post('/public/transactions', async (req, res) => {
+// Public endpoint for customers to create transactions (requires LINE login)
+router.post('/public/transactions', userAuth, async (req, res) => {
   try {
     const {
       code,
@@ -284,8 +285,8 @@ router.post('/public/transactions', async (req, res) => {
     const transaction = await WarpTransaction.create({
       warpProfile: profile ? profile._id : undefined,
       code,
-      customerName,
-      customerAvatar,
+      customerName: req.user.displayName, // Always use LINE display name
+      customerAvatar: customerAvatar || req.user.pictureUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(req.user.displayName)}&background=6366f1&color=ffffff&size=200`, // Use uploaded image, then LINE profile picture, then generated avatar
       socialLink,
       quote,
       displaySeconds,
@@ -295,12 +296,16 @@ router.post('/public/transactions', async (req, res) => {
       metadata: {
         ...metadata,
         source: metadata?.source || 'public-customer',
+        lineUserId: req.user.lineUserId,
+        userId: req.user._id,
+        lineDisplayName: req.user.displayName,
+        linePictureUrl: req.user.pictureUrl,
       },
     });
 
     await appendActivity(transaction._id, {
       action: 'created',
-      description: `Transaction created by customer: ${customerName}`,
+      description: `Transaction created by customer: ${req.user.displayName}`,
       actor: 'customer',
     });
 
