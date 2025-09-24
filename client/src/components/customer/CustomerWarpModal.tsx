@@ -29,6 +29,7 @@ type FormState = {
   profileCode: string;
   customerName: string;
   socialLink: string;
+  quote: string;
   seconds: number;
   price: number;
   customSeconds?: string;
@@ -42,6 +43,7 @@ const defaultState: FormState = {
   profileCode: '',
   customerName: '',
   socialLink: '',
+  quote: '',
   seconds: 30,
   price: 20,
   customSeconds: '',
@@ -185,6 +187,7 @@ const CustomerWarpModal = ({ isOpen, onClose, profiles = [], closeLabel }: Custo
         customerName: form.customerName,
         customerAvatar: form.customerAvatar,
         socialLink: form.socialLink,
+        quote: form.quote,
         displaySeconds: form.seconds,
         amount: form.price,
         metadata: {
@@ -388,6 +391,26 @@ const CustomerWarpModal = ({ isOpen, onClose, profiles = [], closeLabel }: Custo
                 <p className="mt-1 text-xs text-rose-300">{fieldErrors.socialLink}</p>
               ) : null}
             </div>
+          </section>
+
+          <section>
+            <label className="text-xs uppercase tracking-[0.3em] text-indigo-300">คำคม / ข้อความ</label>
+            <textarea
+              value={form.quote}
+              onChange={(event) => handleChange('quote', event.target.value)}
+              placeholder="ใส่คำคมหรือข้อความที่อยากให้แสดงบนจอ..."
+              maxLength={200}
+              rows={3}
+              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/80 px-4 py-3 text-sm text-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/30 resize-none"
+            />
+            <div className="mt-1 flex justify-between">
+              <p className="text-xs text-slate-400">คำคมนี้จะแสดงบนจอพร้อมกับวาร์ปของคุณ</p>
+              <p className="text-xs text-slate-400">{form.quote.length}/200</p>
+            </div>
+            {fieldErrors.quote ? (
+              <p className="mt-1 text-xs text-rose-300">{fieldErrors.quote}</p>
+            ) : null}
+          </section>
             <div>
               <label className="text-xs uppercase tracking-[0.3em] text-indigo-300">ลิงก์ Avatar</label>
               <input

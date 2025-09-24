@@ -31,6 +31,7 @@ type DisplayWarp = {
   customerName: string;
   customerAvatar?: string | null;
   socialLink: string;
+  quote?: string | null;
   displaySeconds: number;
   productImage?: string | null;
 };
@@ -116,6 +117,7 @@ const LandingPage = () => {
           customerName: data.customerName || 'Mee Warp',
           customerAvatar: data.customerAvatar || null,
           socialLink: data.socialLink || '',
+          quote: data.quote || null,
           displaySeconds,
           productImage: data.metadata?.productImage || null,
         });
@@ -367,6 +369,13 @@ const LandingPage = () => {
                   <h2 className="mt-3 text-4xl lg:text-6xl xl:text-7xl font-black text-white drop-shadow-lg sm:text-5xl">
                     {currentWarp.customerName}
                   </h2>
+                  {currentWarp.quote ? (
+                    <div className="mt-4 rounded-xl border border-emerald-400/20 bg-gradient-to-r from-emerald-500/5 to-emerald-600/5 p-4 lg:p-5 xl:p-6 backdrop-blur-sm">
+                      <p className="text-base lg:text-lg xl:text-xl font-medium text-emerald-100 italic text-center leading-relaxed">
+                        "{currentWarp.quote}"
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
                 {currentWarp.socialLink ? (
                   <div className="flex flex-col items-center gap-4 lg:gap-6 xl:gap-8 rounded-2xl border-2 border-emerald-400/30 bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 p-6 lg:p-8 xl:p-10 backdrop-blur-sm">
@@ -394,7 +403,7 @@ const LandingPage = () => {
               </div>
             </div>
             {selfWarpUrl ? (
-              <div className="mt-4 lg:mt-6 xl:mt-8 flex items-center justify-center gap-3 lg:gap-4 xl:gap-5 rounded-lg border border-indigo-400/15 bg-indigo-500/3 p-3 lg:p-4 xl:p-5">
+              <div className="hidden mt-4 lg:mt-6 xl:mt-8 flex items-center justify-center gap-3 lg:gap-4 xl:gap-5 rounded-lg border border-indigo-400/15 bg-indigo-500/3 p-3 lg:p-4 xl:p-5">
                 <div className="h-14 w-14 lg:h-18 lg:w-18 xl:h-20 xl:w-20 overflow-hidden rounded-lg border border-indigo-400/25 bg-white/95 shadow-sm">
                   <img
                     src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(selfWarpUrl)}`}

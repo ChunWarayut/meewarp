@@ -25,6 +25,11 @@ const WarpTransactionSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    quote: {
+      type: String,
+      trim: true,
+      maxlength: 200,
+    },
     displaySeconds: {
       type: Number,
       required: true,
