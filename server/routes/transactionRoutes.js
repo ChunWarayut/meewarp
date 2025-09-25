@@ -515,6 +515,7 @@ router.post('/public/display/next', async (req, res) => {
         quote: currentDisplaying.quote,
         displaySeconds: currentDisplaying.displaySeconds,
         metadata: currentDisplaying.metadata || {},
+        selfDisplayName: currentDisplaying.metadata?.selfDisplayName || currentDisplaying.customerName,
       });
     }
 
@@ -562,6 +563,7 @@ router.post('/public/display/next', async (req, res) => {
       quote: transaction.quote,
       displaySeconds: transaction.displaySeconds,
       metadata: transaction.metadata || {},
+      selfDisplayName: transaction.metadata?.selfDisplayName || transaction.customerName,
     });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to lock next display warp' });

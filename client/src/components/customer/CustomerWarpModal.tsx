@@ -221,6 +221,7 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
               : form.socialLink,
           paymentLimit: form.mode === 'self' ? 0 : undefined,
           expiresInMinutes: form.mode === 'self' ? 120 : undefined,
+          selfDisplayName: form.selfDisplayName,
         },
       };
 

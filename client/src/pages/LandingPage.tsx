@@ -42,6 +42,7 @@ type DisplayWarp = {
   quote?: string | null;
   displaySeconds: number;
   productImage?: string | null;
+  selfDisplayName?: string | null;
 };
 
 const LandingPage = () => {
@@ -274,6 +275,7 @@ const LandingPage = () => {
           quote: data.quote || null,
           displaySeconds,
           productImage: data.metadata?.productImage || null,
+          selfDisplayName: data.selfDisplayName || null,
         });
       }
     } catch (error) {
@@ -637,9 +639,9 @@ const LandingPage = () => {
                   <p className="text-sm lg:text-base xl:text-lg uppercase tracking-[0.4em] text-emerald-300 font-bold">Warp Spotlight</p>
                   <h2 
                     className="mt-3 text-[clamp(2rem,8vw,7rem)] font-black text-white drop-shadow-lg truncate max-w-full"
-                    title={currentWarp.customerName}
+                    title={currentWarp.selfDisplayName || currentWarp.customerName}
                   >
-                    {sanitizeName(currentWarp.customerName)}
+                    {sanitizeName(currentWarp.selfDisplayName || currentWarp.customerName)}
                   </h2>
                 </div>
                 {currentWarp.socialLink ? (
