@@ -1,4 +1,3 @@
-const cron = require('node-cron');
 const mongoose = require('mongoose');
 const config = require('../config/env');
 const WarpTransaction = require('../models/WarpTransaction');
@@ -8,6 +7,24 @@ const { checkTransactionStatus } = require('../services/transactionStatusService
 const POLL_ENABLED = process.env.CHILLPAY_AUTO_POLL !== 'false';
 const POLL_CRON = process.env.CHILLPAY_POLL_CRON || '*/15 * * * * *';
 const MAX_BATCH = parseInt(process.env.CHILLPAY_POLL_BATCH || '5', 10);
+
+let cronModule;
+function loadCronModule() {
+  if (cronModule) {
+    return cronModule;
+  }
+
+  try {
+    cronModule = require('node-cron');
+  } catch (error) {
+    console.warn(
+      'node-cron is not installed; automatic transaction polling is disabled. Install node-cron to enable scheduling.'
+    );
+    cronModule = null;
+  }
+
+  return cronModule;
+}
 
 async function processPendingTransactions() {
   if (!POLL_ENABLED) {
@@ -48,11 +65,11 @@ async function processPendingTransactions() {
         console.log('ChillPay unconfigured, stopping polling');
         break;
       }
-      
+
       console.log(`Transaction ${transaction._id} status: ${result.status}`);
     } catch (error) {
       console.error(`Error checking transaction ${transaction._id}:`, error.message);
-      
+
       // If it's a ChillPay API error, mark transaction for manual review
       if (error.response?.status === 400) {
         await appendActivity(transaction._id, {
@@ -60,7 +77,7 @@ async function processPendingTransactions() {
           description: `ChillPay API error (400): ${error.message}. Manual review required.`,
           actor: 'system',
         });
-        
+
         // Update transaction metadata to indicate API error
         await WarpTransaction.findByIdAndUpdate(transaction._id, {
           $set: {
@@ -86,21 +103,26 @@ function startTransactionPolling() {
     return;
   }
 
+  const cron = loadCronModule();
+  if (!cron) {
+    return;
+  }
+
   console.log(`Starting transaction polling with cron: ${POLL_CRON}`);
-  
+
   cron.schedule(POLL_CRON, async () => {
     if (mongoose.connection.readyState !== 1) {
       console.log('MongoDB not connected, skipping polling');
       return;
     }
-    
+
     try {
       await processPendingTransactions();
     } catch (error) {
       console.error('Error in transaction polling:', error);
     }
   });
-  
+
   console.log('Transaction polling started successfully');
 }
 
