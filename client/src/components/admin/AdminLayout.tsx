@@ -33,12 +33,15 @@ const AdminLayout = () => {
   }, [admin?.role]);
 
   return (
-    <div className="flex min-h-screen bg-slate-950 text-slate-100">
-      {/* Background with theme colors */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_#6366f1_0%,_transparent_55%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom,_#f472b6_0%,_transparent_60%)] opacity-80" />
-      
-      <aside className="relative z-10 flex w-72 flex-col border-r border-white/10 bg-slate-950/80 p-6 backdrop-blur-sm">
+    <div className="relative flex min-h-screen bg-slate-950 text-slate-100 font-th">
+      {/* Global admin gradients */}
+      <div className="pointer-events-none fixed inset-0 -z-40 opacity-70" aria-hidden>
+        <div className="absolute inset-0 bg-[radial-gradient(120%_120%_at_15%_15%,_rgba(99,102,241,0.4)_0%,_transparent_70%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(120%_120%_at_85%_85%,_rgba(244,114,182,0.35)_0%,_transparent_72%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(160%_160%_at_50%_120%,_rgba(192,132,252,0.3)_0%,_transparent_65%)] mix-blend-screen" />
+      </div>
+
+      <aside className="fixed inset-y-0 left-0 z-30 flex w-72 flex-col border-r border-white/10 bg-slate-950/85 p-6 backdrop-blur-xl">
         <div className="mb-8">
           <p className="text-xs uppercase tracking-[0.5em] text-indigo-300">meeWarp Admin</p>
           <h1 className="mt-2 text-2xl font-bold text-white drop-shadow-[0_0_20px_rgba(99,102,241,0.5)]">Control Center</h1>
@@ -99,7 +102,20 @@ const AdminLayout = () => {
         </div>
       </aside>
 
-      <main className="relative z-10 flex-1 overflow-y-auto bg-slate-900/40 p-8">
+      <main className="relative z-10 ml-72 flex-1 overflow-y-auto bg-slate-900/40 p-8">
+        <div
+          className="pointer-events-none fixed inset-x-1/2 -top-32 h-72 w-72 -translate-x-1/2 -z-10 rounded-full bg-indigo-500/30 blur-3xl"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none fixed -left-28 top-1/3 -z-10 h-[28rem] w-[28rem] rounded-full bg-pink-500/25 blur-3xl"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none fixed -right-32 bottom-0 -z-10 h-[28rem] w-[28rem] rounded-full bg-purple-500/25 blur-3xl"
+          aria-hidden
+        />
+
         <Outlet />
       </main>
     </div>

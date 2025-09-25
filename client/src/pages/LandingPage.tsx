@@ -518,19 +518,46 @@ const LandingPage = () => {
     return imageUrl;
   }, [settings?.backgroundImage, resolveMediaSource, extractImageColors]);
 
+  const defaultPrimary = '#6366f1';
+  const defaultSecondary = '#f472b6';
+  const gradientPrimary = imageColors?.primary || defaultPrimary;
+  const gradientSecondary = imageColors?.secondary || defaultSecondary;
+
+  const toRgba = (color: string, alpha: number) => {
+    if (color.startsWith('rgb(')) {
+      return color.replace('rgb(', 'rgba(').replace(')', `, ${alpha})`);
+    }
+    if (color.startsWith('#')) {
+      let hex = color.slice(1);
+      if (hex.length === 3) {
+        hex = hex
+          .split('')
+          .map((char) => char + char)
+          .join('');
+      }
+      const numeric = parseInt(hex, 16);
+      const r = (numeric >> 16) & 255;
+      const g = (numeric >> 8) & 255;
+      const b = numeric & 255;
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+    return color;
+  };
+
   return (
     <div
-      className="relative flex h-screen w-screen overflow-hidden bg-slate-950 text-slate-100"
+      className="relative flex min-h-screen w-screen overflow-hidden bg-slate-950 text-slate-100"
       style={
         backgroundImage
           ? {
               backgroundImage: `url(${backgroundImage})`,
-              backgroundSize: 'contain',
+              backgroundSize: 'cover',
               backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat',
-              backgroundColor: imageColors?.primary || '#0f172a', // Use extracted color or fallback
+              backgroundColor: gradientPrimary || '#0f172a',
               backgroundClip: 'padding-box',
               backgroundOrigin: 'padding-box',
+              backgroundAttachment: 'fixed',
             }
           : undefined
       }
@@ -538,7 +565,7 @@ const LandingPage = () => {
       {/* Blurred background image overlay */}
       {backgroundImage && (
         <div 
-          className="pointer-events-none absolute inset-0"
+          className="pointer-events-none fixed inset-0 -z-20"
           style={{
             backgroundImage: `url(${backgroundImage})`,
             backgroundSize: 'cover',
@@ -556,31 +583,27 @@ const LandingPage = () => {
       {/* Smooth edge transition overlay */}
       {backgroundImage && (
         <div 
-          className="pointer-events-none absolute inset-0"
+          className="pointer-events-none fixed inset-0 -z-20"
           style={{
-            background: `radial-gradient(ellipse at center, transparent 0%, transparent 40%, ${imageColors?.primary || '#0f172a'} 70%, ${imageColors?.primary || '#0f172a'} 100%)`,
+            background: `radial-gradient(ellipse at center, transparent 0%, transparent 40%, ${toRgba(gradientPrimary, 0.9)} 70%, ${toRgba(gradientPrimary, 1)} 100%)`,
             opacity: 0.8,
           }}
         />
       )}
 
-      {/* Dynamic gradient overlay using extracted colors */}
-      {imageColors && (
-        <>
-          <div 
-            className="pointer-events-none absolute inset-0 opacity-15"
-            style={{
-              background: `radial-gradient(circle at top, ${imageColors.primary} 0%, transparent 55%)`
-            }}
-          />
-          <div 
-            className="pointer-events-none absolute inset-0 opacity-25"
-            style={{
-              background: `radial-gradient(circle at bottom, ${imageColors.secondary} 0%, transparent 60%)`
-            }}
-          />
-        </>
-      )}
+      {/* Gradient backdrops tuned to the hero palette (works with or without an uploaded image) */}
+      <div
+        className="pointer-events-none fixed inset-0 -z-30 opacity-70"
+        style={{
+          background: `radial-gradient(120% 120% at 15% 20%, ${toRgba(gradientPrimary, 0.55)} 0%, transparent 70%), radial-gradient(120% 120% at 85% 80%, ${toRgba(gradientSecondary, 0.5)} 0%, transparent 72%)`,
+        }}
+      />
+      <div
+        className="pointer-events-none fixed inset-0 -z-30 opacity-60 mix-blend-screen"
+        style={{
+          background: `radial-gradient(140% 140% at 50% 120%, ${toRgba(gradientSecondary, 0.35)} 0%, transparent 65%)`,
+        }}
+      />
 
       {currentWarp ? (
         <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center px-6">

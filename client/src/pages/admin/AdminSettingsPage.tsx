@@ -180,36 +180,53 @@ const AdminSettingsPage = () => {
   };
 
   if (!settings) {
-    return <p className="text-sm text-slate-300">Loading settings…</p>;
+    return <p className="font-th text-sm text-slate-300">Loading settings…</p>;
   }
 
   return (
-    <div className="min-h-screen bg-slate-950">
-      {/* Background with theme colors */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_#6366f1_0%,_transparent_55%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom,_#f472b6_0%,_transparent_60%)] opacity-80" />
-      
-      <div className="relative z-10 p-6 space-y-6">
+    <div className="relative min-h-screen overflow-hidden text-slate-100 font-th">
+      {/* <div
+        className="pointer-events-none absolute inset-x-1/2 -top-48 h-96 w-96 -translate-x-1/2 rounded-full bg-indigo-500/25 blur-3xl"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute -left-32 top-1/3 h-[28rem] w-[28rem] rounded-full bg-pink-500/20 blur-3xl"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute -right-40 bottom-0 h-[32rem] w-[32rem] rounded-full bg-purple-500/25 blur-3xl"
+        aria-hidden
+      /> */}
+
+      <div className="relative z-10 mx-auto max-w-5xl px-6 py-10 sm:px-8 sm:py-12">
         <header className="text-center">
-          <p className="text-xs uppercase tracking-[0.4em] text-indigo-300">Admin Panel</p>
-          <h1 className="mt-2 text-4xl font-bold text-white drop-shadow-[0_0_20px_rgba(99,102,241,0.5)]">Site Settings</h1>
-          <p className="mt-2 text-sm text-slate-300 max-w-2xl mx-auto">
+          <p className="font-en text-xs uppercase tracking-[0.5em] text-indigo-300">Admin Panel</p>
+          <h1
+            lang="th"
+            className="mt-2 text-4xl font-semibold text-white drop-shadow-[0_0_35px_rgba(99,102,241,0.45)] sm:text-5xl"
+          >
+            ตั้งค่าหน้าไซต์
+          </h1>
+          <p lang="th" className="mx-auto mt-3 max-w-2xl text-sm text-slate-300">
             ข้อมูลเหล่านี้จะอัปเดตหน้า Landing Page และจอหลักแบบเรียลไทม์
           </p>
         </header>
-
-      <div className="space-y-8">
+        <div className="mt-10 space-y-10">
         {/* Brand & Visual Identity */}
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-[0_25px_60px_rgba(15,23,42,0.45)] backdrop-blur-sm">
-          <h2 className="mb-6 text-xl font-semibold text-white flex items-center gap-3">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-              <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <section className="rounded-[32px] border border-white/10 bg-slate-900/70 p-8 shadow-[0_30px_90px_rgba(8,12,24,0.6)] backdrop-blur-xl">
+          <header className="mb-6 flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
+              <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4h4a2 2 0 002-2V5z" />
               </svg>
+            </span>
+            <div>
+              <p className="font-en text-[11px] uppercase tracking-[0.45em] text-indigo-300">Visuals</p>
+              <h2 lang="th" className="text-lg font-semibold text-white">ภาพรวมแบรนด์และพื้นหลัง</h2>
             </div>
-            Brand & Visual Identity
-          </h2>
-          <div className="grid gap-6 lg:grid-cols-1">
+          </header>
+
+          <div className="space-y-4">
             {/* <div className="space-y-4">
               <div>
                 <label className="text-xs uppercase tracking-[0.3em] text-indigo-200">Brand Name</label>
@@ -249,7 +266,7 @@ const AdminSettingsPage = () => {
               />
             </div>
           </div>
-        </div>
+        </section>
 
         {/* Contact Information */}
         {/* <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-[0_25px_60px_rgba(15,23,42,0.45)] backdrop-blur-sm">
@@ -387,46 +404,44 @@ const AdminSettingsPage = () => {
           <button
             type="button"
             onClick={() => handleSubmit()}
-            className="group relative rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-12 py-4 text-sm font-bold uppercase tracking-[0.3em] text-white shadow-[0_20px_50px_rgba(99,102,241,0.4)] transition-all duration-300 hover:shadow-[0_25px_60px_rgba(99,102,241,0.6)] hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
+            className="group relative inline-flex items-center justify-center gap-3 overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-12 py-4 text-sm font-semibold uppercase tracking-[0.35em] text-white shadow-[0_22px_55px_rgba(99,102,241,0.45)] transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
             disabled={status === 'saving'}
           >
-            <div className="flex items-center gap-3">
-              {status === 'saving' ? (
-                <>
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-                  <span>Saving…</span>
-                </>
-              ) : (
-                <>
-                  <svg className="h-5 w-5 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span>Save All Changes</span>
-                </>
-              )}
-            </div>
+            {status === 'saving' ? (
+              <>
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <span className="font-en">Saving…</span>
+              </>
+            ) : (
+              <>
+                <svg className="h-5 w-5 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span lang="th">บันทึกการตั้งค่า</span>
+              </>
+            )}
           </button>
         </div>
       </div>
 
         {status !== 'idle' && message ? (
-          <div className={`fixed top-4 right-4 z-50 rounded-xl border p-4 shadow-lg backdrop-blur-sm ${
-            status === 'error' 
-              ? 'border-rose-500/20 bg-rose-500/10 text-rose-300' 
-              : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
-          }`}>
-            <div className="flex items-center gap-3">
-              {status === 'error' ? (
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              ) : (
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              )}
-              <span className="text-sm font-medium">{message}</span>
-            </div>
+          <div
+            className={`fixed top-6 right-6 z-50 flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm shadow-[0_18px_45px_rgba(8,12,24,0.45)] backdrop-blur-xl ${
+              status === 'error'
+                ? 'border-rose-500/30 bg-rose-500/10 text-rose-200'
+                : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
+            }`}
+          >
+            {status === 'error' ? (
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            ) : (
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+            <span lang="th" className="font-medium">{message}</span>
           </div>
         ) : null}
       </div>

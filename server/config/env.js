@@ -3,14 +3,26 @@ const dotenv = require('dotenv');
 
 dotenv.config({ path: process.env.SERVER_ENV_PATH || path.resolve(__dirname, '../.env') });
 
+const nodeEnv = process.env.NODE_ENV || 'development';
+const isProduction = nodeEnv === 'production';
+
 const config = {
+  env: nodeEnv,
   port: parseInt(process.env.PORT || process.env.SERVER_PORT || '5000', 10),
   mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/meewarp',
   rateLimit: {
+    enabled:
+      typeof process.env.RATE_LIMIT_ENABLED === 'string'
+        ? process.env.RATE_LIMIT_ENABLED === 'true'
+        : isProduction,
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || `${15 * 60 * 1000}`, 10),
     max: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
   },
   loginRateLimit: {
+    enabled:
+      typeof process.env.LOGIN_RATE_LIMIT_ENABLED === 'string'
+        ? process.env.LOGIN_RATE_LIMIT_ENABLED === 'true'
+        : isProduction,
     windowMs: parseInt(process.env.LOGIN_RATE_LIMIT_WINDOW_MS || `${5 * 60 * 1000}`, 10),
     max: parseInt(process.env.LOGIN_RATE_LIMIT_MAX || '10', 10),
   },

@@ -10,6 +10,7 @@ type FormValues = {
 type AdminFormProps = {
   authToken: string;
   onSuccess?: () => void;
+  onLogout?: () => void;
 };
 
 const defaultValues: FormValues = {
@@ -18,7 +19,7 @@ const defaultValues: FormValues = {
   socialLink: '',
 };
 
-const AdminForm = ({ authToken, onSuccess }: AdminFormProps) => {
+const AdminForm = ({ authToken, onSuccess, onLogout }: AdminFormProps) => {
   const [values, setValues] = useState<FormValues>(defaultValues);
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState<string>('');
@@ -46,7 +47,7 @@ const AdminForm = ({ authToken, onSuccess }: AdminFormProps) => {
       if (response.status === 401) {
         setStatus('error');
         setMessage('Session expired. Please log in again.');
-        onLogout();
+        onLogout?.();
         return;
       }
 
@@ -67,81 +68,95 @@ const AdminForm = ({ authToken, onSuccess }: AdminFormProps) => {
 
   const isSubmitting = status === 'submitting';
 
+  const inputClassName =
+    'w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 shadow-[0_15px_35px_rgba(15,23,42,0.35)] transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/40';
+
   return (
-    <section className="mx-auto w-full max-w-xl rounded-xl bg-white p-8 shadow-sm">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-slate-900">Create Warp Profile</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          สร้างโปรไฟล์เพื่อให้ลูกค้าเลือกจากหน้าจอหลักได้อย่างรวดเร็ว
-        </p>
+    <section className="relative mx-auto w-full max-w-2xl overflow-hidden rounded-3xl border border-white/10 bg-slate-900/70 p-10 text-slate-100 shadow-[0_35px_80px_rgba(15,23,42,0.65)] backdrop-blur-xl">
+      <div className="pointer-events-none absolute -top-32 -right-16 h-64 w-64 rounded-full bg-indigo-500/40 blur-3xl" aria-hidden />
+      <div className="pointer-events-none absolute -bottom-40 -left-10 h-72 w-72 rounded-full bg-pink-500/30 blur-3xl" aria-hidden />
+
+      <div className="relative z-10 space-y-8">
+        <header className="space-y-2">
+          <p className="text-xs uppercase tracking-[0.4em] text-indigo-300">New Profile</p>
+          <h2 className="text-3xl font-semibold text-white drop-shadow-[0_10px_30px_rgba(79,70,229,0.45)]">
+            Create Warp Profile
+          </h2>
+          <p className="text-sm text-slate-300">
+            ระบุรหัส ชื่อ และลิงก์โซเชียลเพื่อเปิดให้ลูกค้าเลือกศิลปินจากหน้าจอหลัก
+          </p>
+        </header>
+
+        <form className="space-y-6" onSubmit={handleSubmit}>
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold uppercase tracking-[0.3em] text-slate-300" htmlFor="code">
+              Code
+            </label>
+            <input
+              id="code"
+              name="code"
+              type="text"
+              value={values.code}
+              onChange={handleChange('code')}
+              required
+              placeholder="e.g. DJ001"
+              className={inputClassName}
+            />
+            <p className="text-xs text-slate-400">ใช้รหัสสั้น ๆ เพื่ออ้างอิงในระบบและแสดงบนหน้า Self Warp</p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold uppercase tracking-[0.3em] text-slate-300" htmlFor="name">
+              Name
+            </label>
+            <input
+              id="name"
+              name="name"
+              type="text"
+              value={values.name}
+              onChange={handleChange('name')}
+              required
+              placeholder="Staff member name"
+              className={inputClassName}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold uppercase tracking-[0.3em] text-slate-300" htmlFor="socialLink">
+              Social Link
+            </label>
+            <input
+              id="socialLink"
+              name="socialLink"
+              type="url"
+              value={values.socialLink}
+              onChange={handleChange('socialLink')}
+              required
+              placeholder="https://instagram.com/username"
+              className={inputClassName}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="group relative flex w-full items-center justify-center overflow-hidden rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-5 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-white transition focus:outline-none focus:ring-2 focus:ring-pink-400/40 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="absolute inset-0 -translate-y-full bg-white/20 transition group-hover:translate-y-0" aria-hidden />
+            <span className="relative">{isSubmitting ? 'Submitting…' : 'Create Warp Profile'}</span>
+          </button>
+        </form>
+
+        {status !== 'idle' && message && (
+          <p
+            className={`text-sm font-medium ${
+              status === 'success' ? 'text-emerald-300' : 'text-rose-300'
+            }`}
+          >
+            {message}
+          </p>
+        )}
       </div>
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="code">
-            Code
-          </label>
-          <input
-            id="code"
-            name="code"
-            type="text"
-            value={values.code}
-            onChange={handleChange('code')}
-            required
-            placeholder="e.g. DJ001"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-          />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="name">
-            Name
-          </label>
-          <input
-            id="name"
-            name="name"
-            type="text"
-            value={values.name}
-            onChange={handleChange('name')}
-            required
-            placeholder="Staff member name"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-          />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="socialLink">
-            Social Link
-          </label>
-          <input
-            id="socialLink"
-            name="socialLink"
-            type="url"
-            value={values.socialLink}
-            onChange={handleChange('socialLink')}
-            required
-            placeholder="https://instagram.com/username"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="w-full rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:opacity-70"
-        >
-          {isSubmitting ? 'Submitting…' : 'Create Warp Profile'}
-        </button>
-      </form>
-
-      {status !== 'idle' && message && (
-        <p
-          className={`mt-4 text-sm ${
-            status === 'success' ? 'text-emerald-600' : 'text-rose-600'
-          }`}
-        >
-          {message}
-        </p>
-      )}
     </section>
   );
 };

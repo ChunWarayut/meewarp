@@ -270,25 +270,53 @@ const SelfWarpPage = () => {
   };
 
   return (
-    <>
-      <div className="min-h-screen bg-slate-950 text-slate-100">
-        <div className="relative mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
-          {/* Header */}
-          <div className="mb-6 flex items-center justify-between sm:mb-8">
-            <h1 className="text-2xl font-bold text-white sm:text-3xl">สร้าง Warp</h1>
-          </div>
+    <div className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100 font-th">
+      <div
+        className="pointer-events-none absolute inset-x-1/3 -top-32 h-72 w-72 rounded-full bg-indigo-500/30 blur-3xl"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute -left-12 top-1/2 h-96 w-96 -translate-y-1/2 rounded-full bg-pink-500/20 blur-3xl"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute -right-32 bottom-0 h-[28rem] w-[28rem] rounded-full bg-purple-500/25 blur-3xl"
+        aria-hidden
+      />
 
-          {/* Main Content */}
-          <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 via-white/10 to-white/5 p-4 shadow-[0_30px_80px_rgba(14,23,42,0.6)] sm:rounded-3xl sm:p-8">
+      <div className="relative z-10 mx-auto max-w-4xl px-4 py-10 sm:px-6 sm:py-12">
+        {/* Header */}
+        <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-en text-xs uppercase tracking-[0.5em] text-indigo-300">Self Warp</p>
+            <h1
+              lang="th"
+              className="mt-2 text-4xl font-semibold text-white drop-shadow-[0_0_35px_rgba(99,102,241,0.45)] sm:text-5xl"
+            >
+              สร้าง Warp
+            </h1>
+            <p lang="th" className="mt-2 max-w-xl text-sm text-slate-300 sm:text-base">
+              กรอกข้อมูลและอัปโหลดรูปเพื่อให้ทีมงานแสดงวาร์ปของคุณบนจอ พร้อมลิงก์ชำระเงินแบบ Realtime
+            </p>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="rounded-[32px] border border-white/10 bg-slate-900/70 p-6 shadow-[0_30px_90px_rgba(8,12,24,0.65)] backdrop-blur-xl sm:p-10">
             <form className="space-y-6 sm:space-y-8" onSubmit={handleSubmit}>
               {/* Step 1 */}
               <section>
-                <h3 className="text-xs uppercase tracking-[0.4em] text-indigo-300 sm:text-sm">Step 1</h3>
-                <p className="mt-2 text-base font-semibold text-white sm:text-lg">แจกวาร์ปตัวเอง</p>
+                <h3 className="font-en text-xs uppercase tracking-[0.45em] text-indigo-300 sm:text-sm">Step 1</h3>
+                <p lang="th" className="mt-2 text-base font-semibold text-white sm:text-lg">
+                  แจกวาร์ปตัวเอง
+                </p>
 
                 <div className="mt-4 grid gap-4 sm:mt-6 sm:gap-6 lg:grid-cols-2">
                   <div>
-                    <label className="block text-xs uppercase tracking-[0.4em] text-indigo-300">
+                    <label
+                      lang="th"
+                      className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
+                    >
                       ชื่อที่จะโชว์
                     </label>
                     <input
@@ -296,7 +324,7 @@ const SelfWarpPage = () => {
                       value={form.selfDisplayName}
                       onChange={(event) => handleChange('selfDisplayName', event.target.value)}
                       placeholder="ชื่อที่จะขึ้นจอ"
-                      className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/30 sm:mt-3 sm:rounded-2xl"
+                      className="mt-2 w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] transition focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20 sm:mt-3"
                     />
                     {fieldErrors.selfDisplayName ? (
                       <p className="mt-1 text-xs text-rose-300">{fieldErrors.selfDisplayName}</p>
@@ -304,10 +332,13 @@ const SelfWarpPage = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs uppercase tracking-[0.4em] text-indigo-300">
+                    <label
+                      lang="th"
+                      className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
+                    >
                       อัปโหลดรูปของคุณ
                     </label>
-                    <div className="mt-2 rounded-xl border border-dashed border-indigo-300/30 bg-slate-950/60 p-4 text-center transition hover:border-indigo-300/60 sm:mt-3 sm:rounded-2xl sm:p-6">
+                    <div className="mt-2 rounded-2xl border border-dashed border-indigo-300/30 bg-slate-950/60 p-4 text-center shadow-[0_20px_45px_rgba(8,12,24,0.5)] transition hover:border-indigo-300/60 sm:mt-3 sm:p-6">
                       <input
                         id="warp-self-upload"
                         type="file"
@@ -332,12 +363,14 @@ const SelfWarpPage = () => {
                       />
                       <label
                         htmlFor="warp-self-upload"
-                        className="mx-auto flex w-full max-w-xs cursor-pointer flex-col items-center gap-2 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 text-sm font-medium text-indigo-100 transition hover:bg-indigo-500/20 sm:gap-3 sm:rounded-xl sm:px-6 sm:py-4"
+                        className="mx-auto flex w-full max-w-xs cursor-pointer flex-col items-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 text-sm font-medium text-indigo-100 transition hover:border-indigo-300/70 hover:bg-indigo-500/20 sm:gap-3 sm:px-6 sm:py-4"
                       >
-                        <span className="rounded-full border border-indigo-400/50 bg-indigo-500/20 px-3 py-1 text-xs uppercase tracking-[0.3em] text-indigo-100 sm:px-4 sm:py-2">
+                        <span className="font-en rounded-full border border-indigo-400/50 bg-indigo-500/20 px-3 py-1 text-xs uppercase tracking-[0.35em] text-indigo-100 sm:px-4 sm:py-2">
                           Upload
                         </span>
-                        <span className="text-xs text-slate-200">กดเพื่อเลือกไฟล์ (รองรับ png, jpg)</span>
+                        <span lang="th" className="text-xs text-slate-200">
+                          กดเพื่อเลือกไฟล์ (รองรับ png, jpg)
+                        </span>
                       </label>
                       {form.selfImage ? (
                         <div className="relative mx-auto mt-3 flex h-24 w-24 items-center justify-center overflow-hidden rounded-xl border border-white/20 bg-white/5 shadow-[0_10px_30px_rgba(15,23,42,0.45)] sm:mt-4 sm:h-32 sm:w-32 sm:rounded-2xl">
@@ -358,7 +391,7 @@ const SelfWarpPage = () => {
 
               {/* Step 2 */}
               <section>
-                <h3 className="text-xs uppercase tracking-[0.4em] text-pink-300 sm:text-sm">Step 2</h3>
+                <h3 className="font-en text-xs uppercase tracking-[0.45em] text-pink-300 sm:text-sm">Step 2</h3>
 
                 <div className="mt-4 grid grid-cols-3 gap-2 sm:mt-6 sm:gap-4">
                   {options.map((option) => {
@@ -368,13 +401,14 @@ const SelfWarpPage = () => {
                         type="button"
                         key={`${option.id ?? option.seconds}`}
                         onClick={() => handleSelectWarpOption(option)}
-                        className={`rounded-xl border px-3 py-3 text-center transition sm:rounded-2xl sm:px-6 sm:py-4 ${isActive
-                          ? 'border-pink-400 bg-pink-500/15'
-                          : 'border-white/10 bg-white/5 hover:border-pink-300/60 hover:bg-pink-500/10'
-                          }`}
+                        className={`group rounded-2xl border px-3 py-3 text-center shadow-[0_18px_45px_rgba(8,12,24,0.45)] transition sm:px-6 sm:py-4 ${
+                          isActive
+                            ? 'border-pink-400/80 bg-gradient-to-br from-pink-500/20 via-purple-500/20 to-indigo-500/20 text-white'
+                            : 'border-white/10 bg-white/5 text-white/80 hover:border-pink-300/60 hover:bg-pink-500/10 hover:text-white'
+                        }`}
                       >
                         <p className="text-sm font-semibold text-white sm:text-lg">{option.label}</p>
-                        <p className="mt-1 text-xs text-slate-300 sm:text-sm">
+                        <p lang="th" className="mt-1 text-xs text-slate-300 sm:text-sm">
                           {new Intl.NumberFormat('th-TH').format(option.price)} บาท
                         </p>
                       </button>
@@ -389,7 +423,10 @@ const SelfWarpPage = () => {
               {/* Additional Info */}
               <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
                 <div>
-                  <label className="block text-xs uppercase tracking-[0.3em] text-indigo-300">
+                  <label
+                    lang="th"
+                    className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
+                  >
                     ชื่อของคุณ {user ? '(จาก LINE)' : ''}
                   </label>
                   <input
@@ -399,8 +436,8 @@ const SelfWarpPage = () => {
                     placeholder={user ? user.displayName : "ชื่อเล่น / นามแฝง"}
                     disabled={!!user}
                     required
-                    className={`mt-2 w-full rounded-lg border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/30 sm:rounded-xl ${
-                      user ? 'bg-slate-800/50 cursor-not-allowed opacity-70' : 'bg-slate-900/80'
+                    className={`mt-2 w-full rounded-2xl border border-white/15 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20 ${
+                      user ? 'cursor-not-allowed bg-slate-800/50 opacity-70' : 'bg-slate-950/60'
                     }`}
                   />
                   {user && (
@@ -411,25 +448,35 @@ const SelfWarpPage = () => {
                   ) : null}
                 </div>
                 <div>
-                  <label className="block text-xs uppercase tracking-[0.3em] text-indigo-300">ลิงก์ Social</label>
+                  <label
+                    lang="th"
+                    className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
+                  >
+                    ลิงก์ Social
+                  </label>
                   <input
                     type="url"
                     value={form.socialLink}
                     onChange={(event) => handleChange('socialLink', event.target.value)}
                     placeholder="https://instagram.com/..."
                     required
-                    className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900/80 px-4 py-3 text-sm text-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/30 sm:rounded-xl"
+                    className="mt-2 w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
                   />
                   {fieldErrors.socialLink ? (
                     <p className="mt-1 text-xs text-rose-300">{fieldErrors.socialLink}</p>
                   ) : null}
                 </div>
                 <div>
-                  <label className="block text-xs uppercase tracking-[0.3em] text-indigo-300">เพศ</label>
+                  <label
+                    lang="th"
+                    className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
+                  >
+                    เพศ
+                  </label>
                   <select
                     value={form.gender}
                     onChange={(event) => handleChange('gender', event.target.value)}
-                    className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900/80 px-4 py-3 text-sm text-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/30 sm:rounded-xl"
+                    className="mt-2 w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
                   >
                     {genderOptions.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -439,11 +486,16 @@ const SelfWarpPage = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs uppercase tracking-[0.3em] text-indigo-300">ช่วงอายุ</label>
+                  <label
+                    lang="th"
+                    className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
+                  >
+                    ช่วงอายุ
+                  </label>
                   <select
                     value={form.ageRange}
                     onChange={(event) => handleChange('ageRange', event.target.value)}
-                    className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900/80 px-4 py-3 text-sm text-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/30 sm:rounded-xl"
+                    className="mt-2 w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
                   >
                     {ageOptions.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -456,18 +508,25 @@ const SelfWarpPage = () => {
 
               {/* Quote Section */}
               <section>
-                <label className="block text-xs uppercase tracking-[0.3em] text-indigo-300">คำคม / ข้อความ</label>
+                <label
+                  lang="th"
+                  className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
+                >
+                  คำคม / ข้อความ
+                </label>
                 <textarea
                   value={form.quote}
                   onChange={(event) => handleChange('quote', event.target.value)}
                   placeholder="ใส่คำคมหรือข้อความที่อยากให้แสดงบนจอ..."
                   maxLength={200}
                   rows={3}
-                  className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900/80 px-4 py-3 text-sm text-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/30 resize-none sm:rounded-xl"
+                  className="mt-2 w-full resize-none rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
                 />
                 <div className="mt-1 flex justify-between">
-                  <p className="text-xs text-slate-400">คำคมนี้จะแสดงบนจอพร้อมกับวาร์ปของคุณ</p>
-                  <p className="text-xs text-slate-400">{form.quote.length}/200</p>
+                  <p lang="th" className="text-xs text-slate-400">
+                    คำคมนี้จะแสดงบนจอพร้อมกับวาร์ปของคุณ
+                  </p>
+                  <p className="font-en text-xs text-slate-400">{form.quote.length}/200</p>
                 </div>
                 {fieldErrors.quote ? (
                   <p className="mt-1 text-xs text-rose-300">{fieldErrors.quote}</p>
@@ -475,12 +534,14 @@ const SelfWarpPage = () => {
               </section>
 
               {/* Price Summary */}
-              <section className="rounded-xl border border-white/10 bg-white/5 p-4 sm:rounded-2xl sm:p-6">
+              <section className="rounded-2xl border border-indigo-400/30 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 p-5 shadow-[0_18px_45px_rgba(8,12,24,0.5)] sm:rounded-3xl sm:p-6">
                 <div className="flex items-center justify-between">
-                  <p className="text-base font-semibold text-white sm:text-lg">รวมทั้งสิ้น</p>
-                  <p className="text-xl font-bold text-indigo-300 sm:text-2xl">{priceLabel}</p>
+                  <p lang="th" className="text-base font-semibold text-white sm:text-lg">
+                    รวมทั้งสิ้น
+                  </p>
+                  <p className="font-en text-xl font-bold tracking-wide text-indigo-200 sm:text-2xl">{priceLabel}</p>
                 </div>
-                <p className="mt-2 text-xs text-slate-300">
+                <p lang="th" className="mt-2 text-xs text-slate-300">
                   * ราคาใช้สำหรับจำลองประสบการณ์ ยังไม่ผูกกับ Payment Gateway จริง
                 </p>
               </section>
@@ -502,12 +563,14 @@ const SelfWarpPage = () => {
                 {paymentLink ? (
                   <button
                     type="button"
-                    onClick={() => window.location.href = paymentLink.url}
-                    className="flex items-center justify-center gap-2 rounded-lg border border-emerald-300/40 bg-emerald-500/20 px-4 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-emerald-100 hover:bg-emerald-500/30 sm:rounded-xl sm:px-6"
+                    onClick={() => {
+                      window.location.href = paymentLink.url;
+                    }}
+                    className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-400 px-4 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-emerald-950 shadow-[0_20px_40px_rgba(16,185,129,0.4)] transition hover:scale-[1.01] sm:px-6"
                   >
-                    ไปหน้าชำระเงิน
+                    <span lang="th">ไปหน้าชำระเงิน</span>
                     {paymentLink.reference ? (
-                      <span className="rounded-full bg-emerald-500/30 px-2 py-0.5 text-[10px] tracking-widest">
+                      <span className="font-en rounded-full bg-emerald-500/30 px-2 py-0.5 text-[10px] tracking-widest text-emerald-100">
                         Ref: {paymentLink.reference}
                       </span>
                     ) : null}
@@ -556,7 +619,7 @@ const SelfWarpPage = () => {
                       }
                     }}
                     disabled={isCheckingStatus}
-                    className="flex items-center justify-center gap-2 rounded-lg border border-indigo-300/40 bg-indigo-500/15 px-4 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-indigo-100 transition hover:bg-indigo-500/25 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-xl sm:px-6"
+                    className="flex items-center justify-center gap-2 rounded-2xl border border-indigo-300/50 bg-indigo-500/15 px-4 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-indigo-100 transition hover:border-indigo-200/70 hover:bg-indigo-500/25 disabled:cursor-not-allowed disabled:opacity-60 sm:px-6"
                   >
                     {isCheckingStatus ? (
                       <>
@@ -572,11 +635,11 @@ const SelfWarpPage = () => {
                   <button
                     type="button"
                     onClick={() => navigate('/')}
-                    className="rounded-lg border border-white/20 px-4 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-slate-200 transition hover:border-white/40 hover:text-white sm:rounded-xl sm:px-6"
+                    className="rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-slate-200 transition hover:border-white/40 hover:bg-white/10 hover:text-white sm:px-6"
                   >
                     ยกเลิก
                   </button>
-                  
+
                   {!user ? (
                     <button
                       type="button"
@@ -589,7 +652,7 @@ const SelfWarpPage = () => {
                         }
                       }}
                       disabled={!isConfigured}
-                      className="rounded-lg bg-green-500 px-4 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-white shadow-[0_18px_60px_rgba(34,197,94,0.35)] transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-xl sm:px-8"
+                      className="rounded-2xl bg-gradient-to-r from-emerald-400 via-green-400 to-lime-300 px-4 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-emerald-950 shadow-[0_20px_45px_rgba(34,197,94,0.4)] transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 sm:px-8"
                     >
                       {!isConfigured ? (
                         'LINE Login ไม่พร้อมใช้งาน'
@@ -606,7 +669,7 @@ const SelfWarpPage = () => {
                     <button
                       type="submit"
                       disabled={status === 'loading'}
-                      className="rounded-lg bg-indigo-500 px-4 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-white shadow-[0_18px_60px_rgba(99,102,241,0.35)] transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-xl sm:px-8"
+                      className="rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-4 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-white shadow-[0_22px_55px_rgba(99,102,241,0.4)] transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 sm:px-8"
                     >
                       {status === 'loading' ? (
                         <span className="flex items-center justify-center gap-2">
@@ -624,7 +687,6 @@ const SelfWarpPage = () => {
         </div>
         <ThankYouModal isOpen={showThankYouModal} onClose={() => setShowThankYouModal(false)} />
       </div>
-    </>
   );
 };
 

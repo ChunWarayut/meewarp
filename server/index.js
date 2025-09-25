@@ -33,13 +33,6 @@ function ensureRequiredConfig() {
 
 ensureRequiredConfig();
 
-const apiLimiter = rateLimit({
-  windowMs: config.rateLimit.windowMs,
-  max: config.rateLimit.max,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
 app.use(morgan('combined'));
 app.use((req, res, next) => {
   if (req.path === '/api/v1/payments/webhook') {
@@ -50,7 +43,16 @@ app.use((req, res, next) => {
 // Serve uploaded images
 app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
 
-app.use('/api', apiLimiter);
+if (config.rateLimit.enabled) {
+  const apiLimiter = rateLimit({
+    windowMs: config.rateLimit.windowMs,
+    max: config.rateLimit.max,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  app.use('/api', apiLimiter);
+}
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1', warpRoutes);
 app.use('/api/v1', transactionRoutes);

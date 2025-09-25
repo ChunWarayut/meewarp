@@ -9,12 +9,14 @@ const { getSettings } = require('../services/settingsService');
 
 const router = express.Router();
 
-const loginLimiter = rateLimit({
-  windowMs: config.loginRateLimit.windowMs,
-  max: config.loginRateLimit.max,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+const loginLimiter = config.loginRateLimit.enabled
+  ? rateLimit({
+      windowMs: config.loginRateLimit.windowMs,
+      max: config.loginRateLimit.max,
+      standardHeaders: true,
+      legacyHeaders: false,
+    })
+  : (req, res, next) => next();
 
 router.post('/admin/login', loginLimiter, async (req, res) => {
   try {
