@@ -264,7 +264,7 @@ const SelfWarpPage = () => {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100 font-th">
+    <div className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100 font-th" style={{ letterSpacing: '-0.02em' }}>
       <div
         className="pointer-events-none absolute inset-x-1/3 -top-32 h-72 w-72 rounded-full bg-indigo-500/30 blur-3xl"
         aria-hidden
@@ -310,6 +310,7 @@ const SelfWarpPage = () => {
                     <label
                       lang="th"
                       className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
+                      style={{ letterSpacing: '-0.02em' }}
                     >
                       ชื่อที่จะโชว์
                     </label>
@@ -319,6 +320,7 @@ const SelfWarpPage = () => {
                       onChange={(event) => handleChange('selfDisplayName', event.target.value)}
                       placeholder="ชื่อที่จะขึ้นจอ"
                       className="mt-2 w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] transition focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20 sm:mt-3"
+                      style={{ letterSpacing: '-0.02em' }}
                     />
                     {fieldErrors.selfDisplayName ? (
                       <p className="mt-1 text-xs text-rose-300">{fieldErrors.selfDisplayName}</p>
@@ -329,6 +331,7 @@ const SelfWarpPage = () => {
                     <label
                       lang="th"
                       className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
+                      style={{ letterSpacing: '-0.02em' }}
                     >
                       อัปโหลดรูปของคุณ
                     </label>
@@ -420,6 +423,7 @@ const SelfWarpPage = () => {
                   <label
                     lang="th"
                     className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
+                    style={{ letterSpacing: '-0.02em' }}
                   >
                     ชื่อของคุณ {user ? '(จาก LINE)' : ''}
                   </label>
@@ -430,9 +434,10 @@ const SelfWarpPage = () => {
                     placeholder={user ? user.displayName : "ชื่อเล่น / นามแฝง"}
                     disabled={!!user}
                     required
-                    className={`mt-2 w-full rounded-2xl border border-white/15 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20 ${
-                      user ? 'cursor-not-allowed bg-slate-800/50 opacity-70' : 'bg-slate-950/60'
-                    }`}
+                      className={`mt-2 w-full rounded-2xl border border-white/15 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20 ${
+                        user ? 'cursor-not-allowed bg-slate-800/50 opacity-70' : 'bg-slate-950/60'
+                      }`}
+                      style={{ letterSpacing: '-0.02em' }}
                   />
                   {user && (
                     <p className="mt-1 text-xs text-emerald-300">ใช้ชื่อจาก LINE: {user.displayName}</p>
@@ -445,6 +450,7 @@ const SelfWarpPage = () => {
                   <label
                     lang="th"
                     className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
+                    style={{ letterSpacing: '-0.02em' }}
                   >
                     ลิงก์ Social
                   </label>
@@ -455,6 +461,7 @@ const SelfWarpPage = () => {
                     placeholder="https://instagram.com/..."
                     required
                     className="mt-2 w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
+                    style={{ letterSpacing: '-0.02em' }}
                   />
                   {fieldErrors.socialLink ? (
                     <p className="mt-1 text-xs text-rose-300">{fieldErrors.socialLink}</p>
@@ -467,6 +474,7 @@ const SelfWarpPage = () => {
                 <label
                   lang="th"
                   className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
+                  style={{ letterSpacing: '-0.02em' }}
                 >
                   คำคม / ข้อความ
                 </label>
@@ -477,6 +485,7 @@ const SelfWarpPage = () => {
                   maxLength={200}
                   rows={3}
                   className="mt-2 w-full resize-none rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
+                  style={{ letterSpacing: '-0.02em' }}
                 />
                 <div className="mt-1 flex justify-between">
                   <p lang="th" className="text-xs text-slate-400">
@@ -589,6 +598,7 @@ const SelfWarpPage = () => {
                     type="button"
                     onClick={() => navigate('/')}
                     className="rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-slate-200 transition hover:border-white/40 hover:bg-white/10 hover:text-white sm:px-6"
+                    style={{ letterSpacing: '-0.02em' }}
                   >
                     ยกเลิก
                   </button>
@@ -606,6 +616,7 @@ const SelfWarpPage = () => {
                       }}
                       disabled={!isConfigured}
                       className="rounded-2xl bg-gradient-to-r from-emerald-400 via-green-400 to-lime-300 px-4 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-emerald-950 shadow-[0_20px_45px_rgba(34,197,94,0.4)] transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 sm:px-8"
+                      style={{ letterSpacing: '-0.02em' }}
                     >
                       {!isConfigured ? (
                         'LINE Login ไม่พร้อมใช้งาน'
@@ -623,6 +634,7 @@ const SelfWarpPage = () => {
                       type="submit"
                       disabled={status === 'loading'}
                       className="rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-4 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-white shadow-[0_22px_55px_rgba(99,102,241,0.4)] transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 sm:px-8"
+                      style={{ letterSpacing: '-0.02em' }}
                     >
                       {status === 'loading' ? (
                         <span className="flex items-center justify-center gap-2">
