@@ -202,6 +202,7 @@ const SelfWarpPage = () => {
           paymentLimit: 0,
           expiresInMinutes: 120,
           packageName: options.find(opt => opt.id === form.packageId)?.label || `${form.seconds} วินาที`,
+          selfDisplayName: form.selfDisplayName,
         },
       };
 
@@ -297,361 +298,359 @@ const SelfWarpPage = () => {
 
         {/* Main Content */}
         <div className="rounded-[32px] border border-white/10 bg-slate-900/70 p-6 shadow-[0_30px_90px_rgba(8,12,24,0.65)] backdrop-blur-xl sm:p-10">
-            <form className="space-y-6 sm:space-y-8" onSubmit={handleSubmit}>
-              {/* Step 1 */}
-              <section>
-                <h3 className="font-en text-xs uppercase tracking-[0.45em] text-indigo-300 sm:text-sm">Step 1</h3>
-                <p lang="th" className="mt-2 text-base font-semibold text-white sm:text-lg">
-                  แจกวาร์ปตัวเอง
-                </p>
+          <form className="space-y-6 sm:space-y-8" onSubmit={handleSubmit}>
+            {/* Step 1 */}
+            <section>
+              <h3 className="font-en text-xs uppercase tracking-[0.45em] text-indigo-300 sm:text-sm">Step 1</h3>
+              <p lang="th" className="mt-2 text-base font-semibold text-white sm:text-lg">
+                แจกวาร์ปตัวเอง
+              </p>
 
-                <div className="mt-4 grid gap-4 sm:mt-6 sm:gap-6 lg:grid-cols-2">
-                  <div>
-                    <label
-                      lang="th"
-                      className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
-                      style={{ letterSpacing: '-0.02em' }}
-                    >
-                      ชื่อที่จะโชว์
-                    </label>
-                    <input
-                      type="text"
-                      value={form.selfDisplayName}
-                      onChange={(event) => handleChange('selfDisplayName', event.target.value)}
-                      placeholder="ชื่อที่จะขึ้นจอ"
-                      className="mt-2 w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] transition focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20 sm:mt-3"
-                      style={{ letterSpacing: '-0.02em' }}
-                    />
-                    {fieldErrors.selfDisplayName ? (
-                      <p className="mt-1 text-xs text-rose-300">{fieldErrors.selfDisplayName}</p>
-                    ) : null}
-                  </div>
-
-                  <div>
-                    <label
-                      lang="th"
-                      className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
-                      style={{ letterSpacing: '-0.02em' }}
-                    >
-                      อัปโหลดรูปของคุณ
-                    </label>
-                    <div className="mt-2 rounded-2xl border border-dashed border-indigo-300/30 bg-slate-950/60 p-4 text-center shadow-[0_20px_45px_rgba(8,12,24,0.5)] transition hover:border-indigo-300/60 sm:mt-3 sm:p-6">
-                      <input
-                        id="warp-self-upload"
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={async (event) => {
-                          const file = event.target.files?.[0];
-                          if (!file) {
-                            handleChange('selfImage', '');
-                            return;
-                          }
-                          setStatus('loading');
-                          try {
-                            const base64 = await resizeImageFile(file, { maxSize: 720, quality: 0.82 });
-                            handleChange('selfImage', base64);
-                            setStatus('idle');
-                          } catch {
-                            setStatus('error');
-                            setMessage('อัปโหลดรูปไม่สำเร็จ กรุณาลองอีกครั้ง');
-                          }
-                        }}
-                      />
-                      <label
-                        htmlFor="warp-self-upload"
-                        className="mx-auto flex w-full max-w-xs cursor-pointer flex-col items-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 text-sm font-medium text-indigo-100 transition hover:border-indigo-300/70 hover:bg-indigo-500/20 sm:gap-3 sm:px-6 sm:py-4"
-                      >
-                        <span className="font-en rounded-full border border-indigo-400/50 bg-indigo-500/20 px-3 py-1 text-xs uppercase tracking-[0.35em] text-indigo-100 sm:px-4 sm:py-2">
-                          Upload
-                        </span>
-                        <span lang="th" className="text-xs text-slate-200">
-                          กดเพื่อเลือกไฟล์ (รองรับ png, jpg)
-                        </span>
-                      </label>
-                      {form.selfImage ? (
-                        <div className="relative mx-auto mt-3 flex h-24 w-24 items-center justify-center overflow-hidden rounded-xl border border-white/20 bg-white/5 shadow-[0_10px_30px_rgba(15,23,42,0.45)] sm:mt-4 sm:h-32 sm:w-32 sm:rounded-2xl">
-                          <img
-                            src={`data:image/jpeg;base64,${form.selfImage}`}
-                            alt="preview"
-                            className="h-full w-full object-cover"
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                    {fieldErrors.profileCode ? (
-                      <p className="mt-1 text-xs text-rose-300">{fieldErrors.profileCode}</p>
-                    ) : null}
-                  </div>
-                </div>
-              </section>
-
-              {/* Step 2 */}
-              <section>
-                <h3 className="font-en text-xs uppercase tracking-[0.45em] text-pink-300 sm:text-sm">Step 2</h3>
-
-                <div className="mt-4 grid grid-cols-3 gap-2 sm:mt-6 sm:gap-4">
-                  {options.map((option) => {
-                    const isActive = form.packageId ? form.packageId === option.id : form.seconds === option.seconds;
-                    return (
-                      <button
-                        type="button"
-                        key={`${option.id ?? option.seconds}`}
-                        onClick={() => handleSelectWarpOption(option)}
-                        className={`group rounded-2xl border px-3 py-3 text-center shadow-[0_18px_45px_rgba(8,12,24,0.45)] transition sm:px-6 sm:py-4 ${
-                          isActive
-                            ? 'border-pink-400/80 bg-gradient-to-br from-pink-500/20 via-purple-500/20 to-indigo-500/20 text-white'
-                            : 'border-white/10 bg-white/5 text-white/80 hover:border-pink-300/60 hover:bg-pink-500/10 hover:text-white'
-                        }`}
-                      >
-                        <p className="text-sm font-semibold text-white sm:text-lg">{option.label}</p>
-                        <p lang="th" className="mt-1 text-xs text-slate-300 sm:text-sm">
-                          {new Intl.NumberFormat('th-TH').format(option.price)} บาท
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
-                {fieldErrors.packageId ? (
-                  <p className="mt-2 text-xs text-rose-300">{fieldErrors.packageId}</p>
-                ) : null}
-              </section>
-
-              {/* Additional Info */}
-              <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
+              <div className="mt-4 grid gap-4 sm:mt-6 sm:gap-6 lg:grid-cols-2">
                 <div>
                   <label
                     lang="th"
                     className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
                     style={{ letterSpacing: '-0.02em' }}
                   >
-                    ชื่อของคุณ {user ? '(จาก LINE)' : ''}
+                    ชื่อที่จะโชว์
                   </label>
                   <input
                     type="text"
-                    value={form.customerName}
-                    onChange={(event) => handleChange('customerName', event.target.value)}
-                    placeholder={user ? user.displayName : "ชื่อเล่น / นามแฝง"}
-                    disabled={!!user}
-                    required
-                      className={`mt-2 w-full rounded-2xl border border-white/15 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20 ${
-                        user ? 'cursor-not-allowed bg-slate-800/50 opacity-70' : 'bg-slate-950/60'
-                      }`}
-                      style={{ letterSpacing: '-0.02em' }}
+                    value={form.selfDisplayName}
+                    onChange={(event) => handleChange('selfDisplayName', event.target.value)}
+                    placeholder="ชื่อที่จะขึ้นจอ"
+                    className="mt-2 w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] transition focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20 sm:mt-3"
+                    style={{ letterSpacing: '-0.02em' }}
                   />
-                  {user && (
-                    <p className="mt-1 text-xs text-emerald-300">ใช้ชื่อจาก LINE: {user.displayName}</p>
-                  )}
-                  {fieldErrors.customerName ? (
-                    <p className="mt-1 text-xs text-rose-300">{fieldErrors.customerName}</p>
+                  {fieldErrors.selfDisplayName ? (
+                    <p className="mt-1 text-xs text-rose-300">{fieldErrors.selfDisplayName}</p>
                   ) : null}
                 </div>
+
                 <div>
                   <label
                     lang="th"
                     className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
                     style={{ letterSpacing: '-0.02em' }}
                   >
-                    ลิงก์ Social
+                    อัปโหลดรูปของคุณ
                   </label>
-                  <input
-                    type="url"
-                    value={form.socialLink}
-                    onChange={(event) => handleChange('socialLink', event.target.value)}
-                    placeholder="https://instagram.com/..."
-                    required
-                    className="mt-2 w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
-                    style={{ letterSpacing: '-0.02em' }}
-                  />
-                  {fieldErrors.socialLink ? (
-                    <p className="mt-1 text-xs text-rose-300">{fieldErrors.socialLink}</p>
+                  <div className="mt-2 rounded-2xl border border-dashed border-indigo-300/30 bg-slate-950/60 p-4 text-center shadow-[0_20px_45px_rgba(8,12,24,0.5)] transition hover:border-indigo-300/60 sm:mt-3 sm:p-6">
+                    <input
+                      id="warp-self-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (event) => {
+                        const file = event.target.files?.[0];
+                        if (!file) {
+                          handleChange('selfImage', '');
+                          return;
+                        }
+                        setStatus('loading');
+                        try {
+                          const base64 = await resizeImageFile(file, { maxSize: 720, quality: 0.82 });
+                          handleChange('selfImage', base64);
+                          setStatus('idle');
+                        } catch {
+                          setStatus('error');
+                          setMessage('อัปโหลดรูปไม่สำเร็จ กรุณาลองอีกครั้ง');
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor="warp-self-upload"
+                      className="mx-auto flex w-full max-w-xs cursor-pointer flex-col items-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 text-sm font-medium text-indigo-100 transition hover:border-indigo-300/70 hover:bg-indigo-500/20 sm:gap-3 sm:px-6 sm:py-4"
+                    >
+                      <span className="font-en rounded-full border border-indigo-400/50 bg-indigo-500/20 px-3 py-1 text-xs uppercase tracking-[0.35em] text-indigo-100 sm:px-4 sm:py-2">
+                        Upload
+                      </span>
+                      <span lang="th" className="text-xs text-slate-200">
+                        กดเพื่อเลือกไฟล์ (รองรับ png, jpg)
+                      </span>
+                    </label>
+                    {form.selfImage ? (
+                      <div className="relative mx-auto mt-3 flex h-24 w-24 items-center justify-center overflow-hidden rounded-xl border border-white/20 bg-white/5 shadow-[0_10px_30px_rgba(15,23,42,0.45)] sm:mt-4 sm:h-32 sm:w-32 sm:rounded-2xl">
+                        <img
+                          src={`data:image/jpeg;base64,${form.selfImage}`}
+                          alt="preview"
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                  {fieldErrors.profileCode ? (
+                    <p className="mt-1 text-xs text-rose-300">{fieldErrors.profileCode}</p>
                   ) : null}
                 </div>
-              </section>
+              </div>
+            </section>
 
-              {/* Quote Section */}
-              <section>
+            {/* Step 2 */}
+            <section>
+              <h3 className="font-en text-xs uppercase tracking-[0.45em] text-pink-300 sm:text-sm">Step 2</h3>
+
+              <div className="mt-4 grid grid-cols-3 gap-2 sm:mt-6 sm:gap-4">
+                {options.map((option) => {
+                  const isActive = form.packageId ? form.packageId === option.id : form.seconds === option.seconds;
+                  return (
+                    <button
+                      type="button"
+                      key={`${option.id ?? option.seconds}`}
+                      onClick={() => handleSelectWarpOption(option)}
+                      className={`group rounded-2xl border px-3 py-3 text-center shadow-[0_18px_45px_rgba(8,12,24,0.45)] transition sm:px-6 sm:py-4 ${isActive
+                        ? 'border-pink-400/80 bg-gradient-to-br from-pink-500/20 via-purple-500/20 to-indigo-500/20 text-white'
+                        : 'border-white/10 bg-white/5 text-white/80 hover:border-pink-300/60 hover:bg-pink-500/10 hover:text-white'
+                        }`}
+                    >
+                      <p className="text-sm font-semibold text-white sm:text-lg">{option.label}</p>
+                      <p lang="th" className="mt-1 text-xs text-slate-300 sm:text-sm">
+                        {new Intl.NumberFormat('th-TH').format(option.price)} บาท
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+              {fieldErrors.packageId ? (
+                <p className="mt-2 text-xs text-rose-300">{fieldErrors.packageId}</p>
+              ) : null}
+            </section>
+
+            {/* Additional Info */}
+            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
+              {user && <div>
                 <label
                   lang="th"
                   className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
                   style={{ letterSpacing: '-0.02em' }}
                 >
-                  คำคม / ข้อความ
+                  ชื่อของคุณ {user ? '(จาก LINE)' : ''}
                 </label>
-                <textarea
-                  value={form.quote}
-                  onChange={(event) => handleChange('quote', event.target.value)}
-                  placeholder="ใส่คำคมหรือข้อความที่อยากให้แสดงบนจอ..."
-                  maxLength={200}
-                  rows={3}
-                  className="mt-2 w-full resize-none rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
+                <input
+                  type="text"
+                  value={form.customerName}
+                  onChange={(event) => handleChange('customerName', event.target.value)}
+                  placeholder={user ? user.displayName : "ชื่อเล่น / นามแฝง"}
+                  disabled={!!user}
+                  required
+                  className={`mt-2 w-full rounded-2xl border border-white/15 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20 ${user ? 'cursor-not-allowed bg-slate-800/50 opacity-70' : 'bg-slate-950/60'
+                    }`}
                   style={{ letterSpacing: '-0.02em' }}
                 />
-                <div className="mt-1 flex justify-between">
-                  <p lang="th" className="text-xs text-slate-400">
-                    คำคมนี้จะแสดงบนจอพร้อมกับวาร์ปของคุณ
-                  </p>
-                  <p className="font-en text-xs text-slate-400">{form.quote.length}/200</p>
-                </div>
-                {fieldErrors.quote ? (
-                  <p className="mt-1 text-xs text-rose-300">{fieldErrors.quote}</p>
+                {user && (
+                  <p className="mt-1 text-xs text-emerald-300">ใช้ชื่อจาก LINE: {user.displayName}</p>
+                )}
+                {fieldErrors.customerName ? (
+                  <p className="mt-1 text-xs text-rose-300">{fieldErrors.customerName}</p>
                 ) : null}
-              </section>
-
-              {/* Price Summary */}
-              <section className="rounded-2xl border border-indigo-400/30 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 p-5 shadow-[0_18px_45px_rgba(8,12,24,0.5)] sm:rounded-3xl sm:p-6">
-                <div className="flex items-center justify-between">
-                  <p lang="th" className="text-base font-semibold text-white sm:text-lg">
-                    รวมทั้งสิ้น
-                  </p>
-                  <p className="font-en text-xl font-bold tracking-wide text-indigo-200 sm:text-2xl">{priceLabel}</p>
-                </div>
-              </section>
-
-              {/* Status Message */}
-              {status !== 'idle' && message ? (
-                <div
-                  className={`rounded-xl border px-4 py-3 text-sm sm:rounded-2xl sm:px-6 sm:py-4 ${status === 'success'
-                    ? 'border-emerald-300/60 bg-emerald-500/10 text-emerald-200'
-                    : 'border-rose-300/60 bg-rose-500/10 text-rose-200'
-                    }`}
+              </div>}
+              <div>
+                <label
+                  lang="th"
+                  className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
+                  style={{ letterSpacing: '-0.02em' }}
                 >
-                  {message}
-                </div>
+                  ลิงก์ Social
+                </label>
+                <input
+                  type="url"
+                  value={form.socialLink}
+                  onChange={(event) => handleChange('socialLink', event.target.value)}
+                  placeholder="https://instagram.com/..."
+                  required
+                  className="mt-2 w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
+                  style={{ letterSpacing: '-0.02em' }}
+                />
+                {fieldErrors.socialLink ? (
+                  <p className="mt-1 text-xs text-rose-300">{fieldErrors.socialLink}</p>
+                ) : null}
+              </div>
+            </section>
+
+            {/* Quote Section */}
+            <section>
+              <label
+                lang="th"
+                className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
+                style={{ letterSpacing: '-0.02em' }}
+              >
+                คำคม / ข้อความ
+              </label>
+              <textarea
+                value={form.quote}
+                onChange={(event) => handleChange('quote', event.target.value)}
+                placeholder="ใส่คำคมหรือข้อความที่อยากให้แสดงบนจอ..."
+                maxLength={200}
+                rows={3}
+                className="mt-2 w-full resize-none rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
+                style={{ letterSpacing: '-0.02em' }}
+              />
+              <div className="mt-1 flex justify-between">
+                <p lang="th" className="text-xs text-slate-400">
+                  คำคมนี้จะแสดงบนจอพร้อมกับวาร์ปของคุณ
+                </p>
+                <p className="font-en text-xs text-slate-400">{form.quote.length}/200</p>
+              </div>
+              {fieldErrors.quote ? (
+                <p className="mt-1 text-xs text-rose-300">{fieldErrors.quote}</p>
+              ) : null}
+            </section>
+
+            {/* Price Summary */}
+            <section className="rounded-2xl border border-indigo-400/30 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 p-5 shadow-[0_18px_45px_rgba(8,12,24,0.5)] sm:rounded-3xl sm:p-6">
+              <div className="flex items-center justify-between">
+                <p lang="th" className="text-base font-semibold text-white sm:text-lg">
+                  รวมทั้งสิ้น
+                </p>
+                <p className="font-en text-xl font-bold tracking-wide text-indigo-200 sm:text-2xl">{priceLabel}</p>
+              </div>
+            </section>
+
+            {/* Status Message */}
+            {status !== 'idle' && message ? (
+              <div
+                className={`rounded-xl border px-4 py-3 text-sm sm:rounded-2xl sm:px-6 sm:py-4 ${status === 'success'
+                  ? 'border-emerald-300/60 bg-emerald-500/10 text-emerald-200'
+                  : 'border-rose-300/60 bg-rose-500/10 text-rose-200'
+                  }`}
+              >
+                {message}
+              </div>
+            ) : null}
+
+            {/* Action Buttons */}
+            <div className="flex flex-col gap-4">
+              {paymentLink ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.location.href = paymentLink.url;
+                  }}
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-400 px-4 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-emerald-950 shadow-[0_20px_40px_rgba(16,185,129,0.4)] transition hover:scale-[1.01] sm:px-6"
+                >
+                  <span lang="th">ไปหน้าชำระเงิน</span>
+                  {paymentLink.reference ? (
+                    <span className="font-en rounded-full bg-emerald-500/30 px-2 py-0.5 text-[10px] tracking-widest text-emerald-100">
+                      Ref: {paymentLink.reference}
+                    </span>
+                  ) : null}
+                </button>
               ) : null}
 
-              {/* Action Buttons */}
-              <div className="flex flex-col gap-4">
-                {paymentLink ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      window.location.href = paymentLink.url;
-                    }}
-                    className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-400 px-4 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-emerald-950 shadow-[0_20px_40px_rgba(16,185,129,0.4)] transition hover:scale-[1.01] sm:px-6"
-                  >
-                    <span lang="th">ไปหน้าชำระเงิน</span>
-                    {paymentLink.reference ? (
-                      <span className="font-en rounded-full bg-emerald-500/30 px-2 py-0.5 text-[10px] tracking-widest text-emerald-100">
-                        Ref: {paymentLink.reference}
-                      </span>
-                    ) : null}
-                  </button>
-                ) : null}
+              {transactionId && paymentLink ? (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!transactionId) return;
+                    setIsCheckingStatus(true);
+                    setMessage('กำลังตรวจสอบสถานะการชำระเงิน...');
+                    try {
+                      const response = await fetch('/api/v1/public/transactions/check-status', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ transactionId }),
+                      });
 
-                {transactionId && paymentLink ? (
+                      const body = await response.json();
+
+                      if (!response.ok) {
+                        throw new Error(body?.message || 'ตรวจสอบสถานะไม่สำเร็จ');
+                      }
+
+                      if (body?.status === 'paid') {
+                        setStatus('success');
+                        setMessage('ชำระเงินเรียบร้อยแล้ว! ทีมงานจะดัน Warp ของคุณขึ้นจอทันที');
+                        setShowThankYouModal(true);
+                      } else {
+                        setStatus('success');
+                        setMessage(
+                          body?.note
+                            ? `${body.note} (สถานะ: ${body?.chillpayStatus || 'กำลังตรวจสอบ'})`
+                            : `สถานะปัจจุบัน: ${body?.chillpayStatus || 'กำลังตรวจสอบ'}`
+                        );
+                      }
+                    } catch (error) {
+                      setStatus('error');
+                      setMessage(error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการตรวจสอบสถานะ');
+                    } finally {
+                      setIsCheckingStatus(false);
+                    }
+                  }}
+                  disabled={isCheckingStatus}
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-indigo-300/50 bg-indigo-500/15 px-4 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-indigo-100 transition hover:border-indigo-200/70 hover:bg-indigo-500/25 disabled:cursor-not-allowed disabled:opacity-60 sm:px-6"
+                >
+                  {isCheckingStatus ? (
+                    <>
+                      <Spinner /> กำลังตรวจสอบ...
+                    </>
+                  ) : (
+                    'ตรวจสอบสถานะการชำระ'
+                  )}
+                </button>
+              ) : null}
+
+              <div className="grid grid-cols-2 gap-3 sm:flex sm:gap-4">
+                <button
+                  type="button"
+                  onClick={() => navigate('/')}
+                  className="rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-slate-200 transition hover:border-white/40 hover:bg-white/10 hover:text-white sm:px-6"
+                  style={{ letterSpacing: '-0.02em' }}
+                >
+                  ยกเลิก
+                </button>
+
+                {!user ? (
                   <button
                     type="button"
                     onClick={async () => {
-                      if (!transactionId) return;
-                      setIsCheckingStatus(true);
-                      setMessage('กำลังตรวจสอบสถานะการชำระเงิน...');
                       try {
-                        const response = await fetch('/api/v1/public/transactions/check-status', {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                          },
-                          body: JSON.stringify({ transactionId }),
-                        });
-
-                        const body = await response.json();
-
-                        if (!response.ok) {
-                          throw new Error(body?.message || 'ตรวจสอบสถานะไม่สำเร็จ');
-                        }
-
-                        if (body?.status === 'paid') {
-                          setStatus('success');
-                          setMessage('ชำระเงินเรียบร้อยแล้ว! ทีมงานจะดัน Warp ของคุณขึ้นจอทันที');
-                          setShowThankYouModal(true);
-                        } else {
-                          setStatus('success');
-                          setMessage(
-                            body?.note
-                              ? `${body.note} (สถานะ: ${body?.chillpayStatus || 'กำลังตรวจสอบ'})`
-                              : `สถานะปัจจุบัน: ${body?.chillpayStatus || 'กำลังตรวจสอบ'}`
-                          );
-                        }
-                      } catch (error) {
+                        await login(form);
+                      } catch {
+                        setMessage('ไม่สามารถเข้าสู่ระบบ LINE ได้ กรุณาลองใหม่อีกครั้ง');
                         setStatus('error');
-                        setMessage(error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการตรวจสอบสถานะ');
-                      } finally {
-                        setIsCheckingStatus(false);
                       }
                     }}
-                    disabled={isCheckingStatus}
-                    className="flex items-center justify-center gap-2 rounded-2xl border border-indigo-300/50 bg-indigo-500/15 px-4 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-indigo-100 transition hover:border-indigo-200/70 hover:bg-indigo-500/25 disabled:cursor-not-allowed disabled:opacity-60 sm:px-6"
-                  >
-                    {isCheckingStatus ? (
-                      <>
-                        <Spinner /> กำลังตรวจสอบ...
-                      </>
-                    ) : (
-                      'ตรวจสอบสถานะการชำระ'
-                    )}
-                  </button>
-                ) : null}
-
-                <div className="grid grid-cols-2 gap-3 sm:flex sm:gap-4">
-                  <button
-                    type="button"
-                    onClick={() => navigate('/')}
-                    className="rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-slate-200 transition hover:border-white/40 hover:bg-white/10 hover:text-white sm:px-6"
+                    disabled={!isConfigured}
+                    className="rounded-2xl bg-gradient-to-r from-emerald-400 via-green-400 to-lime-300 px-4 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-emerald-950 shadow-[0_20px_45px_rgba(34,197,94,0.4)] transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 sm:px-8"
                     style={{ letterSpacing: '-0.02em' }}
                   >
-                    ยกเลิก
+                    {!isConfigured ? (
+                      'LINE Login ไม่พร้อมใช้งาน'
+                    ) : (
+                      <span className="flex items-center justify-center gap-2">
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.281.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314" />
+                        </svg>
+                        เข้าสู่ระบบ LINE
+                      </span>
+                    )}
                   </button>
-
-                  {!user ? (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          await login(form);
-                        } catch {
-                          setMessage('ไม่สามารถเข้าสู่ระบบ LINE ได้ กรุณาลองใหม่อีกครั้ง');
-                          setStatus('error');
-                        }
-                      }}
-                      disabled={!isConfigured}
-                      className="rounded-2xl bg-gradient-to-r from-emerald-400 via-green-400 to-lime-300 px-4 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-emerald-950 shadow-[0_20px_45px_rgba(34,197,94,0.4)] transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 sm:px-8"
-                      style={{ letterSpacing: '-0.02em' }}
-                    >
-                      {!isConfigured ? (
-                        'LINE Login ไม่พร้อมใช้งาน'
-                      ) : (
-                        <span className="flex items-center justify-center gap-2">
-                          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.281.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/>
-                          </svg>
-                          เข้าสู่ระบบ LINE
-                        </span>
-                      )}
-                    </button>
-                  ) : (
-                    <button
-                      type="submit"
-                      disabled={status === 'loading'}
-                      className="rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-4 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-white shadow-[0_22px_55px_rgba(99,102,241,0.4)] transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 sm:px-8"
-                      style={{ letterSpacing: '-0.02em' }}
-                    >
-                      {status === 'loading' ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <Spinner /> กำลังบันทึก…
-                        </span>
-                      ) : (
-                        'ยืนยัน Warp'
-                      )}
-                    </button>
-                  )}
-                </div>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={status === 'loading'}
+                    className="rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-4 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-white shadow-[0_22px_55px_rgba(99,102,241,0.4)] transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 sm:px-8"
+                    style={{ letterSpacing: '-0.02em' }}
+                  >
+                    {status === 'loading' ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Spinner /> กำลังบันทึก…
+                      </span>
+                    ) : (
+                      'ยืนยัน Warp'
+                    )}
+                  </button>
+                )}
               </div>
-            </form>
-          </div>
+            </div>
+          </form>
         </div>
-        <ThankYouModal isOpen={showThankYouModal} onClose={() => setShowThankYouModal(false)} />
       </div>
+      <ThankYouModal isOpen={showThankYouModal} onClose={() => setShowThankYouModal(false)} />
+    </div>
   );
 };
 
