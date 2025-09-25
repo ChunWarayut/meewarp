@@ -429,17 +429,23 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
             </div>
           </section>
 
-          <section className="grid grid-cols-2 gap-4">
+          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="text-xs uppercase tracking-[0.3em] text-indigo-300">ชื่อของคุณ</label>
+              <label className="text-xs uppercase tracking-[0.3em] text-indigo-300">ชื่อของคุณ {user ? '(จาก LINE)' : ''}</label>
               <input
                 type="text"
                 value={form.customerName}
                 onChange={(event) => handleChange('customerName', event.target.value)}
-                placeholder="ชื่อเล่น / นามแฝง"
+                placeholder={user ? user.displayName : "ชื่อเล่น / นามแฝง"}
+                disabled={!!user}
                 required
-                className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/80 px-4 py-3 text-sm text-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/30"
+                className={`mt-2 w-full rounded-xl border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/30 ${
+                  user ? 'bg-slate-800/50 cursor-not-allowed opacity-70' : 'bg-slate-900/80'
+                }`}
               />
+              {user && (
+                <p className="mt-1 text-xs text-emerald-300">ใช้ชื่อจาก LINE: {user.displayName}</p>
+              )}
               {fieldErrors.customerName ? (
                 <p className="mt-1 text-xs text-rose-300">{fieldErrors.customerName}</p>
               ) : null}
@@ -507,9 +513,7 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
               <p className="text-sm text-white">รวมทั้งสิ้น</p>
               <p className="text-lg font-semibold text-indigo-300">{priceLabel}</p>
             </div>
-            <p className="mt-2 text-xs text-slate-300">
-              * ราคาใช้สำหรับจำลองประสบการณ์ ยังไม่ผูกกับ Payment Gateway จริง
-            </p>
+
           </section>
 
         {status !== 'idle' && message ? (

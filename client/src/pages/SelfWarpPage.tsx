@@ -13,22 +13,6 @@ type WarpOption = {
   price: number;
 };
 
-const genderOptions = [
-  { label: 'เลือกเพศ', value: '' },
-  { label: 'ชาย', value: 'male' },
-  { label: 'หญิง', value: 'female' },
-  { label: 'Non-binary', value: 'nonbinary' },
-  { label: 'ไม่ระบุ', value: 'prefer_not_to_say' },
-];
-
-const ageOptions = [
-  { label: 'เลือกช่วงอายุ', value: '' },
-  { label: '13-17', value: '13-17' },
-  { label: '18-24', value: '18-24' },
-  { label: '25-34', value: '25-34' },
-  { label: '35-44', value: '35-44' },
-  { label: '45+', value: '45+' },
-];
 
 type FormState = {
   customerName: string;
@@ -40,8 +24,6 @@ type FormState = {
   selfImage?: string;
   selfDisplayName?: string;
   packageId?: string;
-  gender?: string;
-  ageRange?: string;
   quote: string;
 };
 
@@ -56,8 +38,6 @@ const defaultState: FormState = {
   selfImage: '',
   selfDisplayName: '',
   packageId: '',
-  gender: '',
-  ageRange: '',
 };
 
 const customerEndpoint = () =>
@@ -210,8 +190,6 @@ const SelfWarpPage = () => {
         code: referenceCode,
         customerName: form.customerName,
         customerAvatar: form.customerAvatar || user?.pictureUrl,
-        customerGender: form.gender,
-        customerAgeRange: form.ageRange,
         socialLink: form.socialLink,
         quote: form.quote,
         displaySeconds: form.seconds,
@@ -482,44 +460,6 @@ const SelfWarpPage = () => {
                     <p className="mt-1 text-xs text-rose-300">{fieldErrors.socialLink}</p>
                   ) : null}
                 </div>
-                <div>
-                  <label
-                    lang="th"
-                    className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
-                  >
-                    เพศ
-                  </label>
-                  <select
-                    value={form.gender}
-                    onChange={(event) => handleChange('gender', event.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
-                  >
-                    {genderOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label
-                    lang="th"
-                    className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
-                  >
-                    ช่วงอายุ
-                  </label>
-                  <select
-                    value={form.ageRange}
-                    onChange={(event) => handleChange('ageRange', event.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
-                  >
-                    {ageOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
               </section>
 
               {/* Quote Section */}
@@ -557,9 +497,6 @@ const SelfWarpPage = () => {
                   </p>
                   <p className="font-en text-xl font-bold tracking-wide text-indigo-200 sm:text-2xl">{priceLabel}</p>
                 </div>
-                <p lang="th" className="mt-2 text-xs text-slate-300">
-                  * ราคาใช้สำหรับจำลองประสบการณ์ ยังไม่ผูกกับ Payment Gateway จริง
-                </p>
               </section>
 
               {/* Status Message */}

@@ -96,7 +96,7 @@ async function getDashboardOverview() {
   };
 }
 
-async function getStatistics({ range = 'week', from, to, gender, ageRange }) {
+async function getStatistics({ range = 'week', from, to }) {
   const dateRange = computeRange(range, from, to);
 
   const match = {
@@ -105,14 +105,6 @@ async function getStatistics({ range = 'week', from, to, gender, ageRange }) {
 
   if (dateRange) {
     match.createdAt = { $gte: dateRange.start, $lte: dateRange.end };
-  }
-
-  if (gender) {
-    match.customerGender = gender;
-  }
-
-  if (ageRange) {
-    match.customerAgeRange = ageRange;
   }
 
   const pipeline = [
@@ -145,27 +137,6 @@ async function getStatistics({ range = 'week', from, to, gender, ageRange }) {
     { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } },
   ]);
 
-  const byGender = await WarpTransaction.aggregate([
-    { $match: match },
-    {
-      $group: {
-        _id: '$customerGender',
-        revenue: { $sum: '$amount' },
-        warps: { $sum: 1 },
-      },
-    },
-  ]);
-
-  const byAgeRange = await WarpTransaction.aggregate([
-    { $match: match },
-    {
-      $group: {
-        _id: '$customerAgeRange',
-        revenue: { $sum: '$amount' },
-        warps: { $sum: 1 },
-      },
-    },
-  ]);
 
   return {
     summary: {
@@ -175,16 +146,6 @@ async function getStatistics({ range = 'week', from, to, gender, ageRange }) {
     },
     timeline: timeline.map((item) => ({
       date: `${item._id.year}-${String(item._id.month).padStart(2, '0')}-${String(item._id.day).padStart(2, '0')}`,
-      revenue: item.revenue,
-      warps: item.warps,
-    })),
-    gender: byGender.map((item) => ({
-      gender: item._id || 'unknown',
-      revenue: item.revenue,
-      warps: item.warps,
-    })),
-    ageRanges: byAgeRange.map((item) => ({
-      ageRange: item._id || 'unknown',
       revenue: item.revenue,
       warps: item.warps,
     })),
@@ -207,8 +168,6 @@ async function getCustomerDirectory({ page = 1, limit = 20, search }) {
         _id: '$customerName',
         customerAvatar: { $last: '$customerAvatar' },
         socialLink: { $last: '$socialLink' },
-        customerGender: { $last: '$customerGender' },
-        customerAgeRange: { $last: '$customerAgeRange' },
         totalWarps: { $sum: 1 },
         totalSeconds: { $sum: '$displaySeconds' },
         totalAmount: { $sum: '$amount' },
@@ -235,8 +194,6 @@ async function getCustomerDirectory({ page = 1, limit = 20, search }) {
       customerName: item._id,
       customerAvatar: item.customerAvatar,
       socialLink: item.socialLink,
-      customerGender: item.customerGender,
-      customerAgeRange: item.customerAgeRange,
       totalWarps: item.totalWarps,
       totalSeconds: item.totalSeconds,
       totalAmount: item.totalAmount,

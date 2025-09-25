@@ -32,8 +32,8 @@ router.get('/admin/dashboard/overview', async (req, res) => {
 
 router.get('/admin/statistics', async (req, res) => {
   try {
-    const { range, from, to, gender, ageRange } = req.query;
-    const statistics = await getStatistics({ range, from, to, gender, ageRange });
+    const { range, from, to } = req.query;
+    const statistics = await getStatistics({ range, from, to });
     return res.status(200).json(statistics);
   } catch (error) {
     return res.status(400).json({ message: error.message || 'Failed to load statistics' });
