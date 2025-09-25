@@ -20,15 +20,6 @@ const WarpTransactionSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    customerGender: {
-      type: String,
-      enum: ['male', 'female', 'nonbinary', 'prefer_not_to_say', 'other'],
-      trim: true,
-    },
-    customerAgeRange: {
-      type: String,
-      trim: true,
-    },
     socialLink: {
       type: String,
       required: true,
