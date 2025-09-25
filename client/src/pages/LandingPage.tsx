@@ -608,22 +608,31 @@ const LandingPage = () => {
       {currentWarp ? (
         <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center px-6">
           <div className="pointer-events-auto w-full max-w-[800px] lg:max-w-[1200px] xl:max-w-[1400px] rounded-[32px] border-2 border-emerald-400/20 bg-gradient-to-br from-white/15 to-emerald-500/5 p-6 shadow-[0_40px_120px_rgba(20,20,40,0.65)] backdrop-blur-2xl sm:p-10 lg:p-16 xl:p-20 ring-4 ring-emerald-400/10">
-            <div className="grid gap-8 sm:gap-10 lg:gap-12 xl:gap-16 sm:grid-cols-[400px_1fr] lg:grid-cols-[500px_1fr] xl:grid-cols-[600px_1fr] sm:items-center">
-              <div className="relative aspect-square overflow-hidden rounded-[24px] border-4 border-emerald-400/60 bg-slate-900/60 shadow-[0_35px_100px_rgba(15,23,42,0.75)] ring-8 ring-emerald-400/30 sm:rounded-[32px] transform hover:scale-[1.02] transition-all duration-500">
-                {warpImage ? (
-                  <img src={warpImage} alt={currentWarp.customerName} className="h-full w-full object-cover transition-transform duration-500 hover:scale-110" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-slate-900/70 text-slate-100">
-                    MeeWarp
+            <div className="grid gap-6 sm:gap-8 lg:gap-10 xl:gap-12 sm:grid-cols-[350px_1fr] lg:grid-cols-[450px_1fr] xl:grid-cols-[550px_1fr] sm:items-start">
+              <div className="space-y-4">
+                <div className="relative aspect-square overflow-hidden rounded-[24px] border-4 border-emerald-400/60 bg-slate-900/60 shadow-[0_35px_100px_rgba(15,23,42,0.75)] ring-8 ring-emerald-400/30 sm:rounded-[32px] transform hover:scale-[1.02] transition-all duration-500">
+                  {warpImage ? (
+                    <img src={warpImage} alt={currentWarp.customerName} className="h-full w-full object-cover transition-transform duration-500 hover:scale-110" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-slate-900/70 text-slate-100">
+                      MeeWarp
+                    </div>
+                  )}
+                  <span className="absolute left-4 top-4 lg:left-6 lg:top-6 xl:left-8 xl:top-8 rounded-full bg-emerald-500/90 backdrop-blur-sm px-4 py-2 lg:px-6 lg:py-3 xl:px-8 xl:py-4 text-sm lg:text-base xl:text-lg font-bold uppercase tracking-[0.3em] text-white shadow-xl ring-2 ring-emerald-300/50">
+                    {countdownLabel}
+                  </span>
+                  <div className="absolute inset-0 rounded-[24px] bg-gradient-to-t from-emerald-900/30 via-transparent to-emerald-500/10 pointer-events-none sm:rounded-[32px]"></div>
+                  <div className="absolute inset-0 rounded-[24px] ring-2 ring-emerald-400/20 pointer-events-none sm:rounded-[32px]"></div>
+                </div>
+                {currentWarp.quote ? (
+                  <div className="rounded-xl border border-emerald-400/20 bg-gradient-to-r from-emerald-500/5 to-emerald-600/5 p-4 lg:p-5 xl:p-6 backdrop-blur-sm">
+                    <p className="text-sm lg:text-base xl:text-lg font-medium text-emerald-100 italic text-center leading-relaxed line-clamp-3">
+                      "{currentWarp.quote}"
+                    </p>
                   </div>
-                )}
-                <span className="absolute left-4 top-4 lg:left-6 lg:top-6 xl:left-8 xl:top-8 rounded-full bg-emerald-500/90 backdrop-blur-sm px-4 py-2 lg:px-6 lg:py-3 xl:px-8 xl:py-4 text-sm lg:text-base xl:text-lg font-bold uppercase tracking-[0.3em] text-white shadow-xl ring-2 ring-emerald-300/50">
-                  {countdownLabel}
-                </span>
-                <div className="absolute inset-0 rounded-[24px] bg-gradient-to-t from-emerald-900/30 via-transparent to-emerald-500/10 pointer-events-none sm:rounded-[32px]"></div>
-                <div className="absolute inset-0 rounded-[24px] ring-2 ring-emerald-400/20 pointer-events-none sm:rounded-[32px]"></div>
+                ) : null}
               </div>
-              <div className="space-y-5 lg:space-y-6 xl:space-y-8 text-left">
+              <div className="space-y-4 lg:space-y-5 xl:space-y-6 text-left">
                 <div className="min-w-0">
                   <p className="text-sm lg:text-base xl:text-lg uppercase tracking-[0.4em] text-emerald-300 font-bold">Warp Spotlight</p>
                   <h2 
@@ -632,24 +641,17 @@ const LandingPage = () => {
                   >
                     {sanitizeName(currentWarp.customerName)}
                   </h2>
-                  {currentWarp.quote ? (
-                    <div className="mt-4 rounded-xl border border-emerald-400/20 bg-gradient-to-r from-emerald-500/5 to-emerald-600/5 p-4 lg:p-5 xl:p-6 backdrop-blur-sm">
-                      <p className="text-base lg:text-lg xl:text-xl font-medium text-emerald-100 italic text-center leading-relaxed line-clamp-3">
-                        "{currentWarp.quote}"
-                      </p>
-                    </div>
-                  ) : null}
                 </div>
                 {currentWarp.socialLink ? (
-                  <div className="flex flex-col items-center gap-4 lg:gap-6 xl:gap-8 rounded-2xl border-2 border-emerald-400/30 bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 p-6 lg:p-8 xl:p-10 backdrop-blur-sm">
-                    <div className="h-36 w-36 lg:h-48 lg:w-48 xl:h-56 xl:w-56 overflow-hidden rounded-2xl border-2 border-emerald-400/40 bg-white/95 shadow-[0_20px_60px_rgba(16,185,129,0.3)] ring-4 ring-emerald-400/20">
+                  <div className="flex flex-col items-center gap-2 lg:gap-3 xl:gap-4 rounded-xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/5 to-emerald-600/5 p-3 lg:p-4 xl:p-5 backdrop-blur-sm">
+                    <div className="h-16 w-16 lg:h-20 lg:w-20 xl:h-24 xl:w-24 overflow-hidden rounded-lg border border-emerald-400/30 bg-white/95 shadow-[0_8px_25px_rgba(16,185,129,0.2)]">
                       <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=512x512&data=${encodeURIComponent(currentWarp.socialLink)}`}
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=${encodeURIComponent(currentWarp.socialLink)}`}
                         alt="QR Code สำหรับลิงก์โซเชียล"
                         className="h-full w-full object-contain"
                       />
                     </div>
-                    <p className="text-sm lg:text-base xl:text-lg font-medium text-emerald-200 text-center">
+                    <p className="text-xs lg:text-sm font-medium text-emerald-200 text-center">
                       สแกนเพื่อไปยังลิงก์โซเชียล
                     </p>
                   </div>

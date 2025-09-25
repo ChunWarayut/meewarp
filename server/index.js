@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const cors = require('cors');
 const path = require('path');
 
 const config = require('./config/env');
@@ -32,6 +33,20 @@ function ensureRequiredConfig() {
 }
 
 ensureRequiredConfig();
+
+// Enable CORS for all routes
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://localhost:7064',
+    'https://meewarp.me-prompt-technology.com',
+    process.env.PUBLIC_BASE_URL || 'http://localhost:5173'
+  ].filter(Boolean),
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
+}));
 
 app.use(morgan('combined'));
 app.use((req, res, next) => {

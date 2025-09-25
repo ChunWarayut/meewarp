@@ -65,7 +65,7 @@ const customerEndpoint = () =>
 
 const SelfWarpPage = () => {
   const navigate = useNavigate();
-  const { user, login, isConfigured } = useLineAuth();
+  const { user, login, isConfigured, getStoredFormData, clearStoredFormData } = useLineAuth();
   const [form, setForm] = useState<FormState>(defaultState);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState<string>('');
@@ -90,6 +90,22 @@ const SelfWarpPage = () => {
       }));
     }
   }, [user]);
+
+  // Restore form data after LINE login
+  useEffect(() => {
+    const storedFormData = getStoredFormData();
+    if (storedFormData && user) {
+      setForm((prev) => ({
+        ...prev,
+        ...storedFormData,
+        // Override with LINE profile data if available
+        customerName: user.displayName || storedFormData.customerName,
+        customerAvatar: user.pictureUrl || storedFormData.customerAvatar || '',
+      }));
+      // Clear stored form data after restoring
+      clearStoredFormData();
+    }
+  }, [user, getStoredFormData, clearStoredFormData]);
 
   useEffect(() => {
     const loadPackages = async () => {
@@ -645,7 +661,7 @@ const SelfWarpPage = () => {
                       type="button"
                       onClick={async () => {
                         try {
-                          await login();
+                          await login(form);
                         } catch {
                           setMessage('ไม่สามารถเข้าสู่ระบบ LINE ได้ กรุณาลองใหม่อีกครั้ง');
                           setStatus('error');

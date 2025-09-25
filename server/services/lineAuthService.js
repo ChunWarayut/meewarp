@@ -33,16 +33,26 @@ class LineAuthService {
       throw new Error('LINE Login is not configured');
     }
 
+    const params = {
+      grant_type: 'authorization_code',
+      code: code,
+      redirect_uri: this.callbackUrl,
+      client_id: this.channelId,
+      client_secret: this.channelSecret,
+    };
+
+    console.log('LINE token exchange request:', {
+      url: 'https://api.line.me/oauth2/v2.1/token',
+      params: {
+        ...params,
+        client_secret: params.client_secret?.substring(0, 8) + '...'
+      }
+    });
+
     try {
       const response = await axios.post(
         'https://api.line.me/oauth2/v2.1/token',
-        new URLSearchParams({
-          grant_type: 'authorization_code',
-          code: code,
-          redirect_uri: this.callbackUrl,
-          client_id: this.channelId,
-          client_secret: this.channelSecret,
-        }).toString(),
+        new URLSearchParams(params).toString(),
         {
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -50,9 +60,15 @@ class LineAuthService {
         }
       );
 
+      console.log('LINE token exchange success:', response.data);
       return response.data;
     } catch (error) {
-      console.error('LINE token exchange error:', error.response?.data || error.message);
+      console.error('LINE token exchange error:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message,
+      });
       throw new Error('Failed to exchange code for token');
     }
   }

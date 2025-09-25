@@ -48,7 +48,68 @@ router.get('/line/login', (req, res) => {
   }
 });
 
-// LINE Login callback
+// LINE Login callback (GET - for LINE API redirect)
+router.get('/line/callback', async (req, res) => {
+  try {
+    if (!isLineConfigured()) {
+      return res.status(503).json({
+        message: 'LINE Login is not configured',
+      });
+    }
+
+    const { code, state } = req.query;
+
+    if (!code) {
+      return res.status(400).json({
+        message: 'Authorization code is required',
+      });
+    }
+
+    // Exchange code for token
+    const tokenResponse = await lineAuthService.exchangeCodeForToken(code);
+    const { access_token, id_token } = tokenResponse;
+
+    // Verify ID token and get user info
+    const idTokenData = await lineAuthService.verifyIdToken(id_token);
+    const { sub: lineUserId, name: displayName, picture: pictureUrl, email } = idTokenData;
+
+    // Find or create user
+    let user = await User.findOne({ lineUserId });
+
+    if (user) {
+      // Update existing user
+      user.displayName = displayName;
+      user.pictureUrl = pictureUrl;
+      user.email = email;
+      user.lastLoginAt = new Date();
+      await user.save();
+    } else {
+      // Create new user
+      user = await User.create({
+        lineUserId,
+        displayName,
+        pictureUrl,
+        email,
+        lastLoginAt: new Date(),
+      });
+    }
+
+    // Generate JWT token
+    const token = generateUserToken(user);
+
+    // Redirect to self-warp page with token
+    const redirectUrl = `${process.env.PUBLIC_BASE_URL || 'https://meewarp.me-prompt-technology.com'}/self-warp?token=${token}`;
+    res.redirect(redirectUrl);
+  } catch (error) {
+    console.error('LINE callback error:', error);
+    res.status(500).json({
+      message: 'LINE Login failed',
+      error: error.message,
+    });
+  }
+});
+
+// LINE Login callback (POST - for client requests)
 router.post('/line/callback', async (req, res) => {
   try {
     if (!isLineConfigured()) {

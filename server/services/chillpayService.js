@@ -10,12 +10,17 @@ function isChillPayConfigured() {
 
 function formatDate(date) {
   const pad = (n) => `${n}`.padStart(2, '0');
-  const dd = pad(date.getDate());
-  const mm = pad(date.getMonth() + 1);
-  const yyyy = date.getFullYear();
-  const hh = pad(date.getHours());
-  const mi = pad(date.getMinutes());
-  const ss = pad(date.getSeconds());
+  
+  // Convert to Thailand timezone (UTC+7)
+  const thaiDate = new Date(date.getTime() + (7 * 60 * 60 * 1000));
+  
+  const dd = pad(thaiDate.getUTCDate());
+  const mm = pad(thaiDate.getUTCMonth() + 1);
+  const yyyy = thaiDate.getUTCFullYear();
+  const hh = pad(thaiDate.getUTCHours());
+  const mi = pad(thaiDate.getUTCMinutes());
+  const ss = pad(thaiDate.getUTCSeconds());
+  
   return `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss}`;
 }
 
@@ -52,7 +57,7 @@ async function createPayLink({
     ProductImage: productImage || '',
     ProductName: description || `Warp ${referenceNo}`,
     ProductDescription: productDescription || description || 'Warp service',
-    PaymentLimit: typeof paymentLimit === 'number' ? String(paymentLimit) : '1',
+    PaymentLimit: typeof paymentLimit === 'number' && paymentLimit > 0 ? String(paymentLimit) : '1',
     StartDate: startDate,
     ExpiredDate: expireDate,
     Currency: 'THB',
@@ -81,6 +86,15 @@ async function createPayLink({
     payload,
     merchantCode: chillpayConfig.merchantId,
     apiKey: chillpayConfig.apiKey?.substring(0, 8) + '...',
+  });
+
+  // Debug date format
+  console.log('Date Debug:', {
+    now: now.toISOString(),
+    startDate,
+    expireDate,
+    expiresInMinutes: expiresInMinutes || 60,
+    calculatedExpireTime: new Date(now.getTime() + (expiresInMinutes || 60) * 60 * 1000).toISOString()
   });
 
   try {

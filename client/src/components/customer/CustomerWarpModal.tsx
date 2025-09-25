@@ -64,7 +64,7 @@ const customerEndpoint = () =>
   API_ENDPOINTS.topSupporters.replace('/leaderboard/top-supporters', '/public/transactions');
 
 const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalProps) => {
-  const { user, login, isConfigured } = useLineAuth();
+  const { user, login, isConfigured, getStoredFormData, clearStoredFormData } = useLineAuth();
   const [form, setForm] = useState<FormState>(defaultState);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState<string>('');
@@ -84,6 +84,23 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
       selfDisplayName: user?.displayName || '',
     }));
   }, [isOpen, user]);
+
+  // Restore form data after LINE login
+  useEffect(() => {
+    const storedFormData = getStoredFormData();
+    if (storedFormData && user && isOpen) {
+      setForm((prev) => ({
+        ...prev,
+        ...storedFormData,
+        // Override with LINE profile data if available
+        customerName: user.displayName || storedFormData.customerName,
+        customerAvatar: user.pictureUrl || storedFormData.customerAvatar || '',
+        selfDisplayName: user.displayName || storedFormData.selfDisplayName || storedFormData.customerName,
+      }));
+      // Clear stored form data after restoring
+      clearStoredFormData();
+    }
+  }, [user, isOpen, getStoredFormData, clearStoredFormData]);
 
   const handleChange = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -584,7 +601,7 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
               type="button"
               onClick={async () => {
                 try {
-                  await login();
+                  await login(form);
                 } catch {
                   setMessage('ไม่สามารถเข้าสู่ระบบ LINE ได้ กรุณาลองใหม่อีกครั้ง');
                   setStatus('error');
