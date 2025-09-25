@@ -66,12 +66,14 @@ const AdminActivity = () => {
   }, [token]);
 
   return (
-    <div className="min-h-screen bg-slate-950 px-4 py-10 text-slate-100">
-      <div className="mx-auto max-w-5xl">
-        <h1 className="text-3xl font-bold text-white">Warp Activity Log</h1>
+    <div className="space-y-6 text-slate-100">
+      <div>
+        <p className="text-xs uppercase tracking-[0.4em] text-indigo-300">Activity</p>
+        <h1 className="mt-2 text-3xl font-semibold text-white">Warp Activity Log</h1>
         <p className="mt-2 text-sm text-slate-300">
           ดูรายการธุรกรรม Warp ล่าสุด พร้อมสถานะการชำระเงินและบันทึกจากระบบ
         </p>
+      </div>
 
         {error ? (
           <div className="mt-6 rounded-2xl border border-rose-400/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
@@ -140,7 +142,6 @@ const AdminActivity = () => {
             </tbody>
           </table>
         </div>
-      </div>
     </div>
   );
 };

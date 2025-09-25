@@ -1,4 +1,4 @@
-import { FormEvent, useState, useEffect } from 'react';
+import { type FormEvent, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_ENDPOINTS } from '../config';
 import Spinner from '../components/Spinner';
@@ -7,21 +7,42 @@ import ThankYouModal from '../components/customer/ThankYouModal';
 import { useLineAuth } from '../contexts/LineAuthContext';
 
 type WarpOption = {
+  id?: string;
   seconds: number;
   label: string;
   price: number;
 };
 
+const genderOptions = [
+  { label: 'เลือกเพศ', value: '' },
+  { label: 'ชาย', value: 'male' },
+  { label: 'หญิง', value: 'female' },
+  { label: 'Non-binary', value: 'nonbinary' },
+  { label: 'ไม่ระบุ', value: 'prefer_not_to_say' },
+];
+
+const ageOptions = [
+  { label: 'เลือกช่วงอายุ', value: '' },
+  { label: '13-17', value: '13-17' },
+  { label: '18-24', value: '18-24' },
+  { label: '25-34', value: '25-34' },
+  { label: '35-44', value: '35-44' },
+  { label: '45+', value: '45+' },
+];
+
 type FormState = {
   customerName: string;
   socialLink: string;
-  quote: string;
   seconds: number;
   price: number;
   customSeconds?: string;
   customerAvatar?: string;
   selfImage?: string;
   selfDisplayName?: string;
+  packageId?: string;
+  gender?: string;
+  ageRange?: string;
+  quote: string;
 };
 
 const defaultState: FormState = {
@@ -34,13 +55,10 @@ const defaultState: FormState = {
   customerAvatar: '',
   selfImage: '',
   selfDisplayName: '',
+  packageId: '',
+  gender: '',
+  ageRange: '',
 };
-
-const warpOptions: WarpOption[] = [
-  { seconds: 30, price: 20, label: '30s' },
-  { seconds: 60, price: 40, label: '60s' },
-  { seconds: 90, price: 60, label: '90s' },
-];
 
 const customerEndpoint = () =>
   API_ENDPOINTS.topSupporters.replace('/leaderboard/top-supporters', '/public/transactions');
@@ -56,6 +74,7 @@ const SelfWarpPage = () => {
   const [transactionId, setTransactionId] = useState<string | null>(null);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [showThankYouModal, setShowThankYouModal] = useState(false);
+  const [options, setOptions] = useState<WarpOption[]>([]);
 
   const handleChange = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -72,29 +91,57 @@ const SelfWarpPage = () => {
     }
   }, [user]);
 
+  useEffect(() => {
+    const loadPackages = async () => {
+      try {
+        const response = await fetch(API_ENDPOINTS.publicPackages);
+        if (!response.ok) {
+          throw new Error('Failed to load packages');
+        }
+        const body = await response.json();
+        if (Array.isArray(body?.packages)) {
+          const mapped: WarpOption[] = body.packages.map((pkg: { _id: string; seconds: number; price: number; name: string }) => ({
+            id: pkg._id,
+            seconds: pkg.seconds,
+            price: pkg.price,
+            label: `${pkg.name} (${pkg.seconds}s)`,
+          }));
+          setOptions(mapped);
+          if (mapped.length > 0) {
+            setForm((prev) => ({
+              ...prev,
+              packageId: mapped[0].id,
+              seconds: mapped[0].seconds,
+              price: mapped[0].price,
+            }));
+          }
+        }
+      } catch {
+        const fallback: WarpOption[] = [
+          { seconds: 30, price: 199, label: '30 วินาที' },
+          { seconds: 60, price: 349, label: '60 วินาที' },
+          { seconds: 90, price: 499, label: '90 วินาที' },
+        ];
+        setOptions(fallback);
+        setForm((prev) => ({
+          ...prev,
+          packageId: undefined,
+          seconds: fallback[0].seconds,
+          price: fallback[0].price,
+        }));
+      }
+    };
+
+    loadPackages();
+  }, []);
+
   const handleSelectWarpOption = (option: WarpOption) => {
     setForm((prev) => ({
       ...prev,
+      packageId: option.id,
       seconds: option.seconds,
       price: option.price,
       customSeconds: '',
-    }));
-  };
-
-  const calculatePrice = (seconds: number) => {
-    const bucket = Math.max(1, Math.ceil(seconds / 30));
-    return bucket * 20;
-  };
-
-  const handleCustomSeconds = (value: string) => {
-    const seconds = Number.parseInt(value, 10);
-    const price = Number.isNaN(seconds) ? form.price : calculatePrice(seconds);
-
-    setForm((prev) => ({
-      ...prev,
-      customSeconds: value,
-      seconds: Number.isNaN(seconds) ? prev.seconds : seconds,
-      price,
     }));
   };
 
@@ -126,6 +173,9 @@ const SelfWarpPage = () => {
     if (!form.socialLink.trim()) {
       errors.socialLink = 'กรุณาระบุลิงก์ social';
     }
+    if (options.some((option) => option.id) && !form.packageId) {
+      errors.packageId = 'กรุณาเลือกแพ็กเกจ';
+    }
     if (!form.seconds || form.seconds < 10) {
       errors.seconds = 'เวลาต้องมากกว่า 10 วินาที';
     }
@@ -143,17 +193,21 @@ const SelfWarpPage = () => {
       const payload = {
         code: referenceCode,
         customerName: form.customerName,
-        customerAvatar: form.customerAvatar || user?.pictureUrl, // Use uploaded image or LINE profile picture
+        customerAvatar: form.customerAvatar || user?.pictureUrl,
+        customerGender: form.gender,
+        customerAgeRange: form.ageRange,
         socialLink: form.socialLink,
         quote: form.quote,
         displaySeconds: form.seconds,
         amount: form.price,
+        packageId: form.packageId,
         metadata: {
           source: 'self-warp-page',
           productImage: form.selfImage,
           productDescription: `${form.selfDisplayName || form.customerName} | ${form.socialLink}`,
           paymentLimit: 0,
           expiresInMinutes: 120,
+          packageName: options.find(opt => opt.id === form.packageId)?.label || `${form.seconds} วินาที`,
         },
       };
 
@@ -187,11 +241,14 @@ const SelfWarpPage = () => {
 
       if (linkUrl) {
         setPaymentLink({ url: linkUrl, reference });
-        try {
-          window.open(linkUrl, '_blank', 'noopener');
-        } catch (err) {
-          // ignore popup block
-        }
+        // Redirect to payment page directly
+        window.location.href = linkUrl;
+        return; // Exit early to prevent showing success message
+      } else if (newStatus === 'paid') {
+        // In simulation mode, transaction is already paid
+        setStatus('success');
+        setMessage('Warp ของคุณถูกบันทึกแล้ว! (โหมดจำลอง)');
+        return;
       }
 
       setStatus('success');
@@ -267,7 +324,7 @@ const SelfWarpPage = () => {
                             const base64 = await resizeImageFile(file, { maxSize: 720, quality: 0.82 });
                             handleChange('selfImage', base64);
                             setStatus('idle');
-                          } catch (err) {
+                          } catch {
                             setStatus('error');
                             setMessage('อัปโหลดรูปไม่สำเร็จ กรุณาลองอีกครั้ง');
                           }
@@ -304,12 +361,12 @@ const SelfWarpPage = () => {
                 <h3 className="text-xs uppercase tracking-[0.4em] text-pink-300 sm:text-sm">Step 2</h3>
 
                 <div className="mt-4 grid grid-cols-3 gap-2 sm:mt-6 sm:gap-4">
-                  {warpOptions.map((option) => {
-                    const isActive = form.seconds === option.seconds && form.customSeconds === '';
+                  {options.map((option) => {
+                    const isActive = form.packageId ? form.packageId === option.id : form.seconds === option.seconds;
                     return (
                       <button
                         type="button"
-                        key={option.seconds}
+                        key={`${option.id ?? option.seconds}`}
                         onClick={() => handleSelectWarpOption(option)}
                         className={`rounded-xl border px-3 py-3 text-center transition sm:rounded-2xl sm:px-6 sm:py-4 ${isActive
                           ? 'border-pink-400 bg-pink-500/15'
@@ -324,19 +381,9 @@ const SelfWarpPage = () => {
                     );
                   })}
                 </div>
-
-                <div className="mt-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 sm:mt-4 sm:rounded-2xl sm:px-6 sm:py-4">
-                  <label className="block text-xs uppercase tracking-[0.3em] text-white">กำหนดเอง</label>
-                  <input
-                    type="number"
-                    min={10}
-                    step={10}
-                    value={form.customSeconds}
-                    onChange={(event) => handleCustomSeconds(event.target.value)}
-                    placeholder="วินาที"
-                    className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-200/30 sm:px-4 sm:py-3"
-                  />
-                </div>
+                {fieldErrors.packageId ? (
+                  <p className="mt-2 text-xs text-rose-300">{fieldErrors.packageId}</p>
+                ) : null}
               </section>
 
               {/* Additional Info */}
@@ -376,6 +423,34 @@ const SelfWarpPage = () => {
                   {fieldErrors.socialLink ? (
                     <p className="mt-1 text-xs text-rose-300">{fieldErrors.socialLink}</p>
                   ) : null}
+                </div>
+                <div>
+                  <label className="block text-xs uppercase tracking-[0.3em] text-indigo-300">เพศ</label>
+                  <select
+                    value={form.gender}
+                    onChange={(event) => handleChange('gender', event.target.value)}
+                    className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900/80 px-4 py-3 text-sm text-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/30 sm:rounded-xl"
+                  >
+                    {genderOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs uppercase tracking-[0.3em] text-indigo-300">ช่วงอายุ</label>
+                  <select
+                    value={form.ageRange}
+                    onChange={(event) => handleChange('ageRange', event.target.value)}
+                    className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900/80 px-4 py-3 text-sm text-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/30 sm:rounded-xl"
+                  >
+                    {ageOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </section>
 
@@ -427,10 +502,10 @@ const SelfWarpPage = () => {
                 {paymentLink ? (
                   <button
                     type="button"
-                    onClick={() => window.open(paymentLink.url, '_blank', 'noopener')}
+                    onClick={() => window.location.href = paymentLink.url}
                     className="flex items-center justify-center gap-2 rounded-lg border border-emerald-300/40 bg-emerald-500/20 px-4 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-emerald-100 hover:bg-emerald-500/30 sm:rounded-xl sm:px-6"
                   >
-                    เปิดหน้าชำระเงินอีกครั้ง
+                    ไปหน้าชำระเงิน
                     {paymentLink.reference ? (
                       <span className="rounded-full bg-emerald-500/30 px-2 py-0.5 text-[10px] tracking-widest">
                         Ref: {paymentLink.reference}
@@ -439,7 +514,7 @@ const SelfWarpPage = () => {
                   </button>
                 ) : null}
 
-                {transactionId ? (
+                {transactionId && paymentLink ? (
                   <button
                     type="button"
                     onClick={async () => {
@@ -508,7 +583,7 @@ const SelfWarpPage = () => {
                       onClick={async () => {
                         try {
                           await login();
-                        } catch (error) {
+                        } catch {
                           setMessage('ไม่สามารถเข้าสู่ระบบ LINE ได้ กรุณาลองใหม่อีกครั้ง');
                           setStatus('error');
                         }

@@ -6,8 +6,14 @@ type LoginValues = {
   password: string;
 };
 
+type AdminLoginSuccess = {
+  token: string;
+  role?: string;
+  displayName?: string;
+};
+
 type AdminLoginProps = {
-  onSuccess: (token: string) => void;
+  onSuccess: (payload: AdminLoginSuccess) => void;
 };
 
 const defaultValues: LoginValues = {
@@ -48,7 +54,11 @@ const AdminLogin = ({ onSuccess }: AdminLoginProps) => {
         throw new Error('Login response missing token');
       }
 
-      onSuccess(data.token);
+      onSuccess({
+        token: data.token,
+        role: data.role,
+        displayName: data.displayName,
+      });
       setValues(defaultValues);
     } catch (error) {
       setStatus('error');

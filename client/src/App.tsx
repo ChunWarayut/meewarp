@@ -1,56 +1,43 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import AdminForm from './components/AdminForm';
-import AdminLogin from './components/AdminLogin';
 import WarpRedirect from './pages/WarpRedirect';
 import LandingPage from './pages/LandingPage';
 import SelfWarpPage from './pages/SelfWarpPage';
 import LineCallback from './pages/LineCallback';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContext';
 import { LineAuthProvider } from './contexts/LineAuthContext';
 import AdminActivity from './pages/AdminActivity';
-
-const AdminShell = () => {
-  const { token, setToken } = useAuth();
-
-  const handleLoginSuccess = (newToken: string) => {
-    setToken(newToken);
-  };
-
-  const handleLogout = () => {
-    setToken(null);
-  };
-
-  return (
-    <div className="flex min-h-screen flex-col bg-slate-100 p-6">
-      <header className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-900">meeWarp Admin</h1>
-        {token ? (
-          <div className="flex gap-3">
-            <a
-              href="/admin/activity"
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200"
-            >
-              Activity Log
-            </a>
-          </div>
-        ) : null}
-      </header>
-      <main className="flex flex-1 items-center justify-center">
-        {token ? (
-          <AdminForm authToken={token} onLogout={handleLogout} />
-        ) : (
-          <AdminLogin onSuccess={handleLoginSuccess} />
-        )}
-      </main>
-    </div>
-  );
-};
+import AdminLoginPage from './pages/AdminLoginPage';
+import AdminLayout from './components/admin/AdminLayout';
+import AdminGuard from './components/admin/AdminGuard';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminStatistics from './pages/admin/AdminStatistics';
+import AdminRevenue from './pages/admin/AdminRevenue';
+import AdminCustomers from './pages/admin/AdminCustomers';
+import AdminSettingsPage from './pages/admin/AdminSettingsPage';
+import AdminPackagesPage from './pages/admin/AdminPackagesPage';
+import AdminOrdersPage from './pages/admin/AdminOrdersPage';
+import AdminUsersPage from './pages/admin/AdminUsersPage';
+import AdminCreateWarpPage from './pages/admin/AdminCreateWarpPage';
 
 const AppRoutes = () => (
   <Routes>
     <Route path="/" element={<LandingPage />} />
-    <Route path="/admin" element={<AdminShell />} />
-    <Route path="/admin/activity" element={<AdminActivity />} />
+    <Route path="/admin/login" element={<AdminLoginPage />} />
+    <Route element={<AdminGuard />}>
+      <Route path="/admin" element={<AdminLayout />}>
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<AdminDashboard />} />
+        <Route path="statistics" element={<AdminStatistics />} />
+        <Route path="revenue" element={<AdminRevenue />} />
+        <Route path="customers" element={<AdminCustomers />} />
+        <Route path="packages" element={<AdminPackagesPage />} />
+        <Route path="settings" element={<AdminSettingsPage />} />
+        <Route path="orders" element={<AdminOrdersPage />} />
+        <Route path="users" element={<AdminUsersPage />} />
+        <Route path="create-warp" element={<AdminCreateWarpPage />} />
+        <Route path="activity" element={<AdminActivity />} />
+      </Route>
+    </Route>
     <Route path="/self-warp" element={<SelfWarpPage />} />
     <Route path="/warp/:code" element={<WarpRedirect />} />
     <Route path="/line/callback" element={<LineCallback />} />

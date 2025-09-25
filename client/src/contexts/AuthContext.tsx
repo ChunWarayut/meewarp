@@ -2,8 +2,15 @@ import { createContext, ReactNode, useContext, useMemo, useState, useEffect } fr
 
 const TOKEN_STORAGE_KEY = 'warpAdminToken';
 
+type AdminInfo = {
+  email?: string;
+  role?: string;
+  displayName?: string;
+};
+
 export type AuthContextValue = {
   token: string | null;
+  admin: AdminInfo | null;
   setToken: (token: string | null) => void;
   clearToken: () => void;
   isTokenValid: boolean;
@@ -12,14 +19,19 @@ export type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 // Helper function to check if token is expired
-const isTokenExpired = (token: string): boolean => {
+const decodeToken = (token: string): { exp: number; email?: string; role?: string; displayName?: string } | null => {
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    const currentTime = Date.now() / 1000;
-    return payload.exp < currentTime;
+    return JSON.parse(atob(token.split('.')[1]));
   } catch {
-    return true; // If we can't parse it, consider it expired
+    return null;
   }
+};
+
+const isTokenExpired = (token: string): boolean => {
+  const payload = decodeToken(token);
+  if (!payload) return true;
+  const currentTime = Date.now() / 1000;
+  return payload.exp < currentTime;
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -37,18 +49,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     return storedToken;
   });
+  const [admin, setAdmin] = useState<AdminInfo | null>(() => {
+    if (!token) return null;
+    const payload = decodeToken(token);
+    if (!payload) return null;
+    const { email, role, displayName } = payload;
+    return { email, role, displayName };
+  });
 
   const setToken = (value: string | null) => {
     setTokenState(value);
-    if (typeof window === 'undefined') {
+
+    if (typeof window !== 'undefined') {
+      if (value) {
+        localStorage.setItem(TOKEN_STORAGE_KEY, value);
+      } else {
+        localStorage.removeItem(TOKEN_STORAGE_KEY);
+      }
+    }
+
+    if (!value) {
+      setAdmin(null);
       return;
     }
 
-    if (value) {
-      localStorage.setItem(TOKEN_STORAGE_KEY, value);
-    } else {
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
+    const payload = decodeToken(value);
+    if (!payload) {
+      setAdmin(null);
+      return;
     }
+
+    const { email, role, displayName } = payload;
+    setAdmin({ email, role, displayName });
   };
 
   const clearToken = () => {
@@ -75,12 +107,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => clearInterval(interval);
   }, [token]);
 
-  const value = useMemo<AuthContextValue>(() => ({ 
-    token, 
-    setToken, 
-    clearToken, 
-    isTokenValid 
-  }), [token, isTokenValid]);
+  const value = useMemo<AuthContextValue>(() => ({
+    token,
+    admin,
+    setToken,
+    clearToken,
+    isTokenValid,
+  }), [token, admin, isTokenValid]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

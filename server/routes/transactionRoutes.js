@@ -1,6 +1,7 @@
 const express = require('express');
 const WarpTransaction = require('../models/WarpTransaction');
 const WarpProfile = require('../models/WarpProfile');
+const WarpPackage = require('../models/WarpPackage');
 const adminAuth = require('../middlewares/adminAuth');
 const userAuth = require('../middlewares/userAuth');
 const leaderboardEmitter = require('../lib/leaderboardEmitter');
@@ -106,37 +107,69 @@ router.get('/display/stream', async (req, res) => {
   });
 });
 
+router.get('/public/packages', async (req, res) => {
+  try {
+    const packages = await WarpPackage.find({ isActive: true }).sort({ seconds: 1 }).lean();
+    return res.status(200).json({ packages });
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to load packages' });
+  }
+});
+
 router.post('/transactions', adminAuth, async (req, res) => {
   try {
     const {
       code,
       customerName,
       customerAvatar,
+      customerGender,
+      customerAgeRange,
       socialLink,
       quote,
-      displaySeconds,
-      amount,
+      displaySeconds: displaySecondsInput,
+      amount: amountInput,
       currency,
       status,
       metadata,
+      packageId,
     } = req.body;
 
-    if (!code || !customerName || !socialLink || !displaySeconds || !amount) {
-      return res.status(400).json({ message: 'code, customerName, socialLink, displaySeconds, and amount are required' });
+    if (!code || !customerName || !socialLink) {
+      return res.status(400).json({ message: 'code, customerName, and socialLink are required' });
     }
 
     const profile = await WarpProfile.findOne({ code });
+
+    let displaySeconds = Number(displaySecondsInput);
+    let amount = Number(amountInput);
+    let packageRef = null;
+
+    if (packageId) {
+      packageRef = await WarpPackage.findOne({ _id: packageId, isActive: true }).lean();
+      if (!packageRef) {
+        return res.status(400).json({ message: 'Invalid packageId' });
+      }
+      displaySeconds = packageRef.seconds;
+      amount = packageRef.price;
+    }
+
+    if (!displaySeconds || !amount) {
+      return res.status(400).json({ message: 'displaySeconds and amount are required' });
+    }
 
     const transaction = await WarpTransaction.create({
       warpProfile: profile ? profile._id : undefined,
       code,
       customerName,
       customerAvatar,
+      customerGender,
+      customerAgeRange,
       socialLink,
       quote,
       displaySeconds,
       amount,
       currency,
+      packageId: packageRef?._id,
       status: status || (isChillPayConfigured() ? 'pending' : 'paid'),
       metadata,
     });
@@ -151,12 +184,18 @@ router.post('/transactions', adminAuth, async (req, res) => {
       id: transaction._id,
       code: transaction.code,
       customerName: transaction.customerName,
+      customerGender: transaction.customerGender,
+      customerAgeRange: transaction.customerAgeRange,
       totalAmount: transaction.amount,
       displaySeconds: transaction.displaySeconds,
       status: transaction.status,
+      packageId: transaction.packageId,
     };
 
+    console.log('isChillPayConfigured():', isChillPayConfigured());
+    
     if (isChillPayConfigured()) {
+      console.log('Creating ChillPay payment link...');
       try {
         const payLinkResponse = await createPayLink({
           referenceNo: `${transaction._id}`,
@@ -166,12 +205,15 @@ router.post('/transactions', adminAuth, async (req, res) => {
           customerPhone: metadata?.customerPhone || '',
           description: `Warp for ${code}`,
           returnUrl: metadata?.returnUrl || `${process.env.PUBLIC_BASE_URL || 'http://localhost:5173'}/warp/${code}`,
-          notifyUrl: metadata?.notifyUrl || `${process.env.PUBLIC_API_BASE_URL || 'http://localhost:5050'}/api/v1/payments/webhook`,
+          notifyUrl: metadata?.notifyUrl || `${process.env.PUBLIC_API_BASE_URL || 'http://localhost:7001'}/api/v1/payments/webhook`,
           productImage: metadata?.productImage,
           productDescription: metadata?.productDescription || socialLink,
           paymentLimit: metadata?.paymentLimit,
           expiresInMinutes: metadata?.expiresInMinutes,
         });
+
+        console.log('payLinkResponse', payLinkResponse.data);
+        
 
         const paymentUrl =
           payLinkResponse?.data?.paymentUrl ||
@@ -265,33 +307,60 @@ router.post('/public/transactions', userAuth, async (req, res) => {
   try {
     const {
       code,
-      customerName,
       customerAvatar,
+      customerGender,
+      customerAgeRange,
       socialLink,
       quote,
-      displaySeconds,
-      amount,
+      displaySeconds: displaySecondsInput,
+      amount: amountInput,
       metadata,
+      packageId,
     } = req.body;
+    const submittedCustomerName = req.body.customerName || req.user.displayName;
+    
+    console.log('PUBLIC: submittedCustomerName:', submittedCustomerName);
+    console.log('PUBLIC: req.body.customerName:', req.body.customerName);
+    console.log('PUBLIC: req.user.displayName:', req.user?.displayName);
 
-    if (!code || !customerName || !socialLink || !displaySeconds || !amount) {
+    if (!code || !submittedCustomerName || !socialLink) {
       return res.status(400).json({ 
-        message: 'code, customerName, socialLink, displaySeconds, and amount are required' 
+        message: 'code, customerName, and socialLink are required' 
       });
     }
 
     const profile = await WarpProfile.findOne({ code });
 
+    let displaySeconds = Number(displaySecondsInput);
+    let amount = Number(amountInput);
+    let packageRef = null;
+
+    if (packageId) {
+      packageRef = await WarpPackage.findOne({ _id: packageId, isActive: true }).lean();
+      if (!packageRef) {
+        return res.status(400).json({ message: 'Invalid packageId' });
+      }
+      displaySeconds = packageRef.seconds;
+      amount = packageRef.price;
+    }
+
+    if (!displaySeconds || !amount) {
+      return res.status(400).json({ message: 'displaySeconds and amount are required' });
+    }
+
     const transaction = await WarpTransaction.create({
       warpProfile: profile ? profile._id : undefined,
       code,
-      customerName: req.user.displayName, // Always use LINE display name
+      customerName: submittedCustomerName,
       customerAvatar: customerAvatar || req.user.pictureUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(req.user.displayName)}&background=6366f1&color=ffffff&size=200`, // Use uploaded image, then LINE profile picture, then generated avatar
+      customerGender,
+      customerAgeRange,
       socialLink,
       quote,
       displaySeconds,
       amount,
       currency: 'THB',
+      packageId: packageRef?._id,
       status: isChillPayConfigured() ? 'pending' : 'paid',
       metadata: {
         ...metadata,
@@ -313,34 +382,44 @@ router.post('/public/transactions', userAuth, async (req, res) => {
       id: transaction._id,
       code: transaction.code,
       customerName: transaction.customerName,
+      customerGender: transaction.customerGender,
+      customerAgeRange: transaction.customerAgeRange,
       totalAmount: transaction.amount,
       displaySeconds: transaction.displaySeconds,
       status: transaction.status,
+      packageId: transaction.packageId,
     };
 
+    console.log('PUBLIC: isChillPayConfigured():', isChillPayConfigured());
+    
     if (isChillPayConfigured()) {
+      console.log('PUBLIC: Creating ChillPay payment link...');
       try {
         const payLinkResponse = await createPayLink({
           referenceNo: `${transaction._id}`,
           amount,
-          customerName,
+          customerName: submittedCustomerName,
           customerEmail: metadata?.customerEmail || '',
           customerPhone: metadata?.customerPhone || '',
           description: `Warp for ${code}`,
           returnUrl: metadata?.returnUrl || `${process.env.PUBLIC_BASE_URL || 'http://localhost:5173'}/warp/${code}`,
-          notifyUrl: metadata?.notifyUrl || `${process.env.PUBLIC_API_BASE_URL || 'http://localhost:5050'}/api/v1/payments/webhook`,
+          notifyUrl: metadata?.notifyUrl || `${process.env.PUBLIC_API_BASE_URL || 'http://localhost:7001'}/api/v1/payments/webhook`,
           productImage: metadata?.productImage,
           productDescription: metadata?.productDescription || socialLink,
           paymentLimit: metadata?.paymentLimit,
           expiresInMinutes: metadata?.expiresInMinutes,
         });
 
+        console.log('PUBLIC: payLinkResponse', payLinkResponse.data);
+        
         const paymentUrl =
           payLinkResponse?.data?.paymentUrl ||
           payLinkResponse?.paymentUrl ||
           payLinkResponse?.result?.paymentUrl ||
           payLinkResponse?.data?.qrImage ||
           '';
+          
+        console.log('PUBLIC: paymentUrl', paymentUrl);
 
         await WarpTransaction.findByIdAndUpdate(transaction._id, {
           $set: {
@@ -363,7 +442,10 @@ router.post('/public/transactions', userAuth, async (req, res) => {
           paymentReference:
             payLinkResponse?.data?.payLinkToken || payLinkResponse?.referenceNo || transaction._id.toString(),
         };
+        
+        console.log('PUBLIC: Final responsePayload', responsePayload);
       } catch (err) {
+        console.log('PUBLIC: ChillPay error:', err.message);
         await appendActivity(transaction._id, {
           action: 'payment_link_error',
           description: `ChillPay error: ${err.message}`,
@@ -373,10 +455,12 @@ router.post('/public/transactions', userAuth, async (req, res) => {
     }
 
     if (!isChillPayConfigured()) {
+      console.log('PUBLIC: ChillPay not configured, emitting updates');
       leaderboardEmitter.emit('update');
       displayEmitter.emit('update');
     }
 
+    console.log('PUBLIC: Returning response:', responsePayload);
     return res.status(201).json(responsePayload);
   } catch (error) {
     return res.status(500).json({ 

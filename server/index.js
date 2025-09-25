@@ -2,11 +2,13 @@ const express = require('express');
 const mongoose = require('mongoose');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 
 const config = require('./config/env');
 const warpRoutes = require('./routes/warpRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const authRoutes = require('./routes/authRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 const { startTransactionPolling } = require('./jobs/transactionPolling');
 
 const app = express();
@@ -43,12 +45,16 @@ app.use((req, res, next) => {
   if (req.path === '/api/v1/payments/webhook') {
     return express.raw({ type: 'application/json' })(req, res, next);
   }
-  return express.json()(req, res, next);
+  return express.json({ limit: '10mb' })(req, res, next);
 });
+// Serve uploaded images
+app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
+
 app.use('/api', apiLimiter);
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1', warpRoutes);
 app.use('/api/v1', transactionRoutes);
+app.use('/api/v1', adminRoutes);
 
 async function start() {
   try {

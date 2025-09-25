@@ -4,6 +4,8 @@ const jwt = require('jsonwebtoken');
 const WarpProfile = require('../models/WarpProfile');
 const config = require('../config/env');
 const adminAuth = require('../middlewares/adminAuth');
+const Admin = require('../models/Admin');
+const { getSettings } = require('../services/settingsService');
 
 const router = express.Router();
 
@@ -14,26 +16,68 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-router.post('/admin/login', loginLimiter, (req, res) => {
-  const { email, password } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({ message: 'email and password are required' });
-  }
-
-  if (
-    email !== config.adminCredentials.email ||
-    password !== config.adminCredentials.password
-  ) {
-    return res.status(401).json({ message: 'Invalid credentials' });
-  }
-
+router.post('/admin/login', loginLimiter, async (req, res) => {
   try {
-    const token = jwt.sign({ email }, config.auth.jwtSecret, {
-      expiresIn: config.auth.tokenExpiresIn,
-    });
+    const { email, password } = req.body;
 
-    return res.status(200).json({ token, expiresIn: config.auth.tokenExpiresIn });
+    if (!email || !password) {
+      return res.status(400).json({ message: 'email and password are required' });
+    }
+
+    const normalizedEmail = email.toLowerCase();
+    const adminUser = await Admin.findOne({ email: normalizedEmail, isActive: true });
+
+    if (adminUser) {
+      const isValid = await adminUser.comparePassword(password);
+      if (!isValid) {
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+
+      adminUser.lastLoginAt = new Date();
+      await adminUser.save();
+
+      const token = jwt.sign(
+        {
+          id: adminUser._id,
+          email: adminUser.email,
+          role: adminUser.role,
+          displayName: adminUser.displayName || adminUser.email,
+        },
+        config.auth.jwtSecret,
+        { expiresIn: config.auth.tokenExpiresIn }
+      );
+
+      return res.status(200).json({
+        token,
+        role: adminUser.role,
+        displayName: adminUser.displayName || adminUser.email,
+        expiresIn: config.auth.tokenExpiresIn,
+      });
+    }
+
+    if (
+      normalizedEmail === config.adminCredentials.email.toLowerCase() &&
+      password === config.adminCredentials.password
+    ) {
+      const token = jwt.sign(
+        {
+          email: normalizedEmail,
+          role: 'superadmin',
+          displayName: 'Root Admin',
+        },
+        config.auth.jwtSecret,
+        { expiresIn: config.auth.tokenExpiresIn }
+      );
+
+      return res.status(200).json({
+        token,
+        role: 'superadmin',
+        displayName: 'Root Admin',
+        expiresIn: config.auth.tokenExpiresIn,
+      });
+    }
+
+    return res.status(401).json({ message: 'Invalid credentials' });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to generate token' });
   }
@@ -80,6 +124,15 @@ router.get('/warp/:code', async (req, res) => {
     return res.status(200).json({ socialLink: warpProfile.socialLink });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to retrieve Warp profile' });
+  }
+});
+
+router.get('/public/settings', async (req, res) => {
+  try {
+    const settings = await getSettings();
+    return res.status(200).json(settings);
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to load settings' });
   }
 });
 

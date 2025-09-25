@@ -6,7 +6,8 @@
   "scripts": {
     "test": "jest --runInBand",
     "start": "node index.js",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "seed": "node scripts/seedAdmin.js"
   },
   "keywords": [],
   "author": "",
@@ -15,15 +16,19 @@
   "dependencies": {
     "@line/bot-sdk": "^9.9.0",
     "axios": "^1.12.2",
+    "bcryptjs": "^3.0.2",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
     "express-rate-limit": "^8.1.0",
     "express-session": "^1.18.2",
+    "json2csv": "^6.0.0-alpha.2",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.18.2",
     "morgan": "^1.10.1",
+    "multer": "^2.0.2",
     "passport": "^0.7.0",
-    "passport-line-auth": "^0.2.9"
+    "passport-line-auth": "^0.2.9",
+    "pdfkit": "^0.17.2"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",

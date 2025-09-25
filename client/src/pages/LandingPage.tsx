@@ -8,6 +8,14 @@ type Supporter = {
   totalSeconds?: number;
 };
 
+type AppSettings = {
+  brandName?: string;
+  tagline?: string;
+  primaryColor?: string;
+  backgroundImage?: string;
+  logo?: string;
+};
+
 const fallbackSupporters: Supporter[] = [
   {
     customerName: 'รอการสนับสนุน',
@@ -39,8 +47,10 @@ type DisplayWarp = {
 const LandingPage = () => {
   const [supporters, setSupporters] = useState<Supporter[]>([]);
   const [selfWarpUrl, setSelfWarpUrl] = useState<string>('');
+  const [settings, setSettings] = useState<AppSettings | null>(null);
   const [currentWarp, setCurrentWarp] = useState<DisplayWarp | null>(null);
   const [countdown, setCountdown] = useState<number>(0);
+  const [imageColors, setImageColors] = useState<{ primary: string; secondary: string } | null>(null);
   const isFetchingWarpRef = useRef(false);
   const currentWarpRef = useRef<DisplayWarp | null>(null);
   const fetchNextWarpRef = useRef<() => void>(() => {});
@@ -59,6 +69,73 @@ const LandingPage = () => {
     currentWarpRef.current = currentWarp;
   }, [currentWarp]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchSettings = async () => {
+      try {
+        const response = await fetch('/api/v1/public/settings');
+        if (!response.ok) {
+          throw new Error('Failed to load settings');
+        }
+        const data = await response.json();
+        if (isMounted) {
+          console.log('Settings loaded:', data);
+          setSettings(data);
+        }
+      } catch {
+        // silent fallback
+      }
+    };
+
+    fetchSettings();
+
+    // Set up periodic refresh every 10 seconds to catch settings updates
+    const interval = setInterval(() => {
+      if (isMounted) {
+        fetchSettings();
+      }
+    }, 10000);
+
+    // Also refresh when the page becomes visible again (user switches back to tab)
+    const handleVisibilityChange = () => {
+      if (!document.hidden && isMounted) {
+        fetchSettings();
+      }
+    };
+
+    // Listen for settings updates via localStorage
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'settingsUpdated' && isMounted) {
+        console.log('Settings update detected, refreshing...');
+        fetchSettings();
+        // Clear the flag
+        localStorage.removeItem('settingsUpdated');
+      }
+    };
+
+    // Also listen for custom events (for same-tab updates)
+    const handleSettingsUpdate = () => {
+      if (isMounted) {
+        console.log('Settings update event received, refreshing...');
+        fetchSettings();
+      }
+    };
+
+    window.addEventListener('settingsUpdated', handleSettingsUpdate);
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('settingsUpdated', handleSettingsUpdate);
+    };
+  }, []);
+
   const resolveMediaSource = useCallback((raw?: string | null) => {
     if (!raw) {
       return null;
@@ -74,6 +151,78 @@ const LandingPage = () => {
     }
 
     return raw;
+  }, []);
+
+  const extractImageColors = useCallback((imageUrl: string) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        // Resize image for faster processing
+        const size = 50;
+        canvas.width = size;
+        canvas.height = size;
+        
+        ctx.drawImage(img, 0, 0, size, size);
+        const imageData = ctx.getImageData(0, 0, size, size);
+        const data = imageData.data;
+
+        // Sample colors from the image
+        const colors: { r: number; g: number; b: number; count: number }[] = [];
+        
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          
+          // Skip very light or very dark pixels
+          const brightness = (r + g + b) / 3;
+          if (brightness < 30 || brightness > 225) continue;
+          
+          // Find existing color or add new one
+          const existingColor = colors.find(c => 
+            Math.abs(c.r - r) < 20 && 
+            Math.abs(c.g - g) < 20 && 
+            Math.abs(c.b - b) < 20
+          );
+          
+          if (existingColor) {
+            existingColor.r = (existingColor.r * existingColor.count + r) / (existingColor.count + 1);
+            existingColor.g = (existingColor.g * existingColor.count + g) / (existingColor.count + 1);
+            existingColor.b = (existingColor.b * existingColor.count + b) / (existingColor.count + 1);
+            existingColor.count++;
+          } else {
+            colors.push({ r, g, b, count: 1 });
+          }
+        }
+
+        // Sort by frequency and get top colors
+        colors.sort((a, b) => b.count - a.count);
+        
+        if (colors.length > 0) {
+          const primary = colors[0];
+          const secondary = colors[1] || colors[0];
+          
+          const primaryColor = `rgb(${Math.round(primary.r)}, ${Math.round(primary.g)}, ${Math.round(primary.b)})`;
+          const secondaryColor = `rgb(${Math.round(secondary.r)}, ${Math.round(secondary.g)}, ${Math.round(secondary.b)})`;
+          
+          setImageColors({ primary: primaryColor, secondary: secondaryColor });
+        }
+      } catch (error) {
+        console.error('Error extracting colors:', error);
+      }
+    };
+    
+    img.onerror = () => {
+      console.error('Error loading image for color extraction');
+    };
+    
+    img.src = imageUrl;
   }, []);
 
   const formatSeconds = useCallback((value: number) => {
@@ -199,7 +348,7 @@ const LandingPage = () => {
           if (!currentWarpRef.current && (data?.queueCount > 0 || data?.current)) {
             fetchNextWarpRef.current?.();
           }
-        } catch (error) {
+        } catch {
           // ignore malformed payloads
         }
       };
@@ -270,7 +419,7 @@ const LandingPage = () => {
             setSupporters(parsed);
           }
         }
-      } catch (error) {
+      } catch {
         // fall back silently to seeded supporters
       }
     };
@@ -290,7 +439,7 @@ const LandingPage = () => {
           if (parsed.length > 0) {
             setSupporters(parsed);
           }
-        } catch (error) {
+        } catch {
           // ignore malformed messages
         }
       };
@@ -345,10 +494,93 @@ const LandingPage = () => {
     [currentWarp, formatSeconds]
   );
 
+  const brandName = settings?.brandName || '';
+  const tagline = settings?.tagline || '';
+  const backgroundImage = useMemo(() => {
+    if (!settings?.backgroundImage) {
+      setImageColors(null);
+      return null;
+    }
+    // If it's a file path, serve from API, otherwise use resolveMediaSource for base64
+    let imageUrl;
+    if (settings.backgroundImage.startsWith('/uploads/')) {
+      imageUrl = `${window.location.origin}/api${settings.backgroundImage}`;
+    } else {
+      imageUrl = resolveMediaSource(settings.backgroundImage);
+    }
+    console.log('Background image URL:', imageUrl);
+    
+    // Extract colors from the image
+    if (imageUrl) {
+      extractImageColors(imageUrl);
+    }
+    
+    return imageUrl;
+  }, [settings?.backgroundImage, resolveMediaSource, extractImageColors]);
+
   return (
-    <div className="relative flex h-screen w-screen overflow-hidden bg-slate-950 text-slate-100">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_#6366f1_0%,_transparent_55%)]" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom,_#f472b6_0%,_transparent_60%)] opacity-80" />
+    <div
+      className="relative flex h-screen w-screen overflow-hidden bg-slate-950 text-slate-100"
+      style={
+        backgroundImage
+          ? {
+              backgroundImage: `url(${backgroundImage})`,
+              backgroundSize: 'contain',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
+              backgroundColor: imageColors?.primary || '#0f172a', // Use extracted color or fallback
+              backgroundClip: 'padding-box',
+              backgroundOrigin: 'padding-box',
+            }
+          : undefined
+      }
+    >
+      {/* Blurred background image overlay */}
+      {backgroundImage && (
+        <div 
+          className="pointer-events-none absolute inset-0"
+          style={{
+            backgroundImage: `url(${backgroundImage})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            filter: 'blur(20px)',
+            transform: 'scale(1.05)', // Reduced scale for smoother edges
+            opacity: 0.25,
+            backgroundClip: 'padding-box',
+            backgroundOrigin: 'padding-box',
+          }}
+        />
+      )}
+
+      {/* Smooth edge transition overlay */}
+      {backgroundImage && (
+        <div 
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background: `radial-gradient(ellipse at center, transparent 0%, transparent 40%, ${imageColors?.primary || '#0f172a'} 70%, ${imageColors?.primary || '#0f172a'} 100%)`,
+            opacity: 0.8,
+          }}
+        />
+      )}
+
+      {/* Dynamic gradient overlay using extracted colors */}
+      {imageColors && (
+        <>
+          <div 
+            className="pointer-events-none absolute inset-0 opacity-15"
+            style={{
+              background: `radial-gradient(circle at top, ${imageColors.primary} 0%, transparent 55%)`
+            }}
+          />
+          <div 
+            className="pointer-events-none absolute inset-0 opacity-25"
+            style={{
+              background: `radial-gradient(circle at bottom, ${imageColors.secondary} 0%, transparent 60%)`
+            }}
+          />
+        </>
+      )}
 
       {currentWarp ? (
         <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center px-6">
@@ -410,34 +642,18 @@ const LandingPage = () => {
                 </p>
               </div>
             </div>
-            {selfWarpUrl ? (
-              <div className="hidden mt-4 lg:mt-6 xl:mt-8 flex items-center justify-center gap-3 lg:gap-4 xl:gap-5 rounded-lg border border-indigo-400/15 bg-indigo-500/3 p-3 lg:p-4 xl:p-5">
-                <div className="h-14 w-14 lg:h-18 lg:w-18 xl:h-20 xl:w-20 overflow-hidden rounded-lg border border-indigo-400/25 bg-white/95 shadow-sm">
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(selfWarpUrl)}`}
-                    alt="สแกนเพื่อแจกวาร์ป"
-                    className="h-full w-full object-contain"
-                  />
-                </div>
-                <div className="text-center">
-                  <p className="text-[11px] lg:text-sm xl:text-base font-medium text-indigo-200">อยากขึ้นจอ?</p>
-                  <p className="text-[9px] lg:text-xs xl:text-sm text-slate-400">สแกนเพื่อสร้าง Warp ของคุณเอง</p>
-                </div>
-              </div>
-            ) : null}
           </div>
         </div>
       ) : null}
 
       <div className="relative z-10 flex h-full w-full flex-col items-center justify-center px-[5vw]">
         <div className="flex max-w-[60vw] lg:max-w-[70vw] xl:max-w-[80vw] flex-col items-center text-center">
-          <span className="mb-4 text-[clamp(16px,1.3vw,24px)] lg:text-2xl xl:text-3xl uppercase tracking-[0.5em] text-indigo-300">Warp the Night</span>
+          <span className="mb-4 text-[clamp(16px,1.3vw,24px)] lg:text-2xl xl:text-3xl uppercase tracking-[0.5em] text-indigo-300">
+            {tagline}
+          </span>
           <h1 className="font-display text-[clamp(72px,10vw,160px)] lg:text-[180px] xl:text-[220px] font-black uppercase leading-none text-white drop-shadow-[0_0_35px_rgba(99,102,241,0.55)]">
-            meeWarp
+            {brandName}
           </h1>
-          <p className="mt-6 max-w-3xl lg:max-w-4xl xl:max-w-5xl text-[clamp(18px,1.6vw,32px)] lg:text-2xl xl:text-3xl text-slate-300">
-            เปลี่ยนพลังสนับสนุนให้กลายเป็น Spotlight ให้คนที่คุณชอบ ทั้งแจกวาร์ป ขอเพลง หรือสร้างโมเมนต์สุดพิเศษในไม่กี่วินาที
-          </p>
         </div>
       </div>
 

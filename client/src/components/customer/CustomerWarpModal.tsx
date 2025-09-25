@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import Modal from '../Modal';
 import { API_ENDPOINTS } from '../../config';
 import Spinner from '../Spinner';
@@ -63,7 +63,7 @@ const warpOptions: WarpOption[] = [
 const customerEndpoint = () =>
   API_ENDPOINTS.topSupporters.replace('/leaderboard/top-supporters', '/public/transactions');
 
-const CustomerWarpModal = ({ isOpen, onClose, profiles = [], closeLabel }: CustomerWarpModalProps) => {
+const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalProps) => {
   const { user, login, isConfigured } = useLineAuth();
   const [form, setForm] = useState<FormState>(defaultState);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -89,14 +89,14 @@ const CustomerWarpModal = ({ isOpen, onClose, profiles = [], closeLabel }: Custo
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSelectProfile = (profile: ProfileOption) => {
-    setForm((prev) => ({
-      ...prev,
-      profileCode: profile.code,
-      socialLink: profile.socialLink || prev.socialLink,
-      mode: 'profile',
-    }));
-  };
+  // const handleSelectProfile = (profile: ProfileOption) => {
+  //   setForm((prev) => ({
+  //     ...prev,
+  //     profileCode: profile.code,
+  //     socialLink: profile.socialLink || prev.socialLink,
+  //     mode: 'profile',
+  //   }));
+  // };
 
   const handleSelectWarpOption = (option: WarpOption) => {
     setForm((prev) => ({
@@ -237,11 +237,14 @@ const CustomerWarpModal = ({ isOpen, onClose, profiles = [], closeLabel }: Custo
 
       if (linkUrl) {
         setPaymentLink({ url: linkUrl, reference });
-        try {
-          window.open(linkUrl, '_blank', 'noopener');
-        } catch (err) {
-          // ignore popup block
-        }
+        // Redirect to payment page directly
+        window.location.href = linkUrl;
+        return; // Exit early to prevent showing success message
+      } else if (newStatus === 'paid') {
+        // In simulation mode, transaction is already paid
+        setStatus('success');
+        setMessage('Warp ของคุณถูกบันทึกแล้ว! (โหมดจำลอง)');
+        return;
       }
 
       setStatus('success');
@@ -313,7 +316,7 @@ const CustomerWarpModal = ({ isOpen, onClose, profiles = [], closeLabel }: Custo
                           const base64 = await resizeImageFile(file, { maxSize: 720, quality: 0.82 });
                           handleChange('selfImage', base64);
                           setStatus('idle');
-                        } catch (err) {
+                        } catch {
                           setStatus('error');
                           setMessage('อัปโหลดรูปไม่สำเร็จ กรุณาลองอีกครั้ง');
                         }
@@ -508,10 +511,10 @@ const CustomerWarpModal = ({ isOpen, onClose, profiles = [], closeLabel }: Custo
           {paymentLink ? (
             <button
               type="button"
-              onClick={() => window.open(paymentLink.url, '_blank', 'noopener')}
+              onClick={() => window.location.href = paymentLink.url}
               className="flex items-center gap-2 rounded-xl border border-emerald-300/40 bg-emerald-500/20 px-5 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-emerald-100 hover:bg-emerald-500/30"
             >
-              เปิดหน้าชำระเงินอีกครั้ง
+              ไปหน้าชำระเงิน
               {paymentLink.reference ? (
                 <span className="rounded-full bg-emerald-500/30 px-2 py-0.5 text-[10px] tracking-widest">
                   Ref: {paymentLink.reference}
@@ -520,7 +523,7 @@ const CustomerWarpModal = ({ isOpen, onClose, profiles = [], closeLabel }: Custo
             </button>
           ) : null}
 
-          {transactionId ? (
+          {transactionId && paymentLink ? (
             <button
               type="button"
               onClick={async () => {
@@ -582,7 +585,7 @@ const CustomerWarpModal = ({ isOpen, onClose, profiles = [], closeLabel }: Custo
               onClick={async () => {
                 try {
                   await login();
-                } catch (error) {
+                } catch {
                   setMessage('ไม่สามารถเข้าสู่ระบบ LINE ได้ กรุณาลองใหม่อีกครั้ง');
                   setStatus('error');
                 }

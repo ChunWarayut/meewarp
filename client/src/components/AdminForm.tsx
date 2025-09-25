@@ -9,7 +9,7 @@ type FormValues = {
 
 type AdminFormProps = {
   authToken: string;
-  onLogout: () => void;
+  onSuccess?: () => void;
 };
 
 const defaultValues: FormValues = {
@@ -18,7 +18,7 @@ const defaultValues: FormValues = {
   socialLink: '',
 };
 
-const AdminForm = ({ authToken, onLogout }: AdminFormProps) => {
+const AdminForm = ({ authToken, onSuccess }: AdminFormProps) => {
   const [values, setValues] = useState<FormValues>(defaultValues);
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState<string>('');
@@ -58,6 +58,7 @@ const AdminForm = ({ authToken, onLogout }: AdminFormProps) => {
       setStatus('success');
       setMessage('Warp profile created successfully.');
       setValues(defaultValues);
+      onSuccess?.();
     } catch (error) {
       setStatus('error');
       setMessage(error instanceof Error ? error.message : 'Unexpected error occurred');
@@ -68,15 +69,11 @@ const AdminForm = ({ authToken, onLogout }: AdminFormProps) => {
 
   return (
     <section className="mx-auto w-full max-w-xl rounded-xl bg-white p-8 shadow-sm">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6">
         <h1 className="text-2xl font-semibold text-slate-900">Create Warp Profile</h1>
-        <button
-          type="button"
-          onClick={onLogout}
-          className="rounded-md border border-transparent bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-300"
-        >
-          Log out
-        </button>
+        <p className="mt-1 text-sm text-slate-500">
+          สร้างโปรไฟล์เพื่อให้ลูกค้าเลือกจากหน้าจอหลักได้อย่างรวดเร็ว
+        </p>
       </div>
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div>
