@@ -149,6 +149,8 @@ async function getStatistics({ range = 'week', from, to }) {
       revenue: item.revenue,
       warps: item.warps,
     })),
+    gender: [], // Empty array since gender field is removed
+    ageRanges: [], // Empty array since ageRange field is removed
   };
 }
 
