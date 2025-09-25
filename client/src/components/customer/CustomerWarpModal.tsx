@@ -285,14 +285,14 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
   return (
     <>
       <Modal isOpen={isOpen} onClose={handleExit} title="สร้าง Warp" closeLabel={closeLabel}>
-        <form className="space-y-6" onSubmit={handleSubmit}>
+        <form className="space-y-6" onSubmit={handleSubmit} style={{ letterSpacing: '-0.02em' }}>
           <section>
             <h3 className="text-sm uppercase tracking-[0.4em] text-indigo-300">Step 1</h3>
             <p className="mt-2 text-lg font-semibold text-white">แจกวาร์ปตัวเอง</p>
             <div className="mt-4 space-y-5 rounded-3xl border border-white/10 bg-gradient-to-br from-white/5 via-white/10 to-white/5 p-6 shadow-[0_30px_80px_rgba(14,23,42,0.6)]">
               <div className="grid gap-6 lg:grid-cols-2">
                 <div>
-                  <label className="text-xs uppercase tracking-[0.4em] text-indigo-300">
+                  <label className="text-xs uppercase tracking-[0.4em] text-indigo-300" style={{ letterSpacing: '-0.02em' }}>
                     ชื่อที่จะโชว์ {user ? '(จาก LINE)' : ''}
                   </label>
                   <input
@@ -304,6 +304,7 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
                     className={`mt-3 w-full rounded-2xl border border-white/10 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/30 ${
                       user ? 'bg-slate-800/50 cursor-not-allowed opacity-70' : 'bg-slate-950/70'
                     }`}
+                    style={{ letterSpacing: '-0.02em' }}
                   />
                   {user && (
                     <p className="mt-1 text-xs text-emerald-300">ใช้ชื่อจาก LINE: {user.displayName}</p>
@@ -313,7 +314,7 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
                   ) : null}
                 </div>
                 <div>
-                  <label className="text-xs uppercase tracking-[0.4em] text-indigo-300">
+                  <label className="text-xs uppercase tracking-[0.4em] text-indigo-300" style={{ letterSpacing: '-0.02em' }}>
                     รูปโปรไฟล์ {user ? '(ใช้จาก LINE หรืออัปโหลดใหม่)' : ''}
                   </label>
                   <div className="mt-3 flex flex-col gap-4 rounded-2xl border border-dashed border-indigo-300/30 bg-slate-950/60 p-4 text-center transition hover:border-indigo-300/60">
@@ -431,7 +432,7 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
 
           <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="text-xs uppercase tracking-[0.3em] text-indigo-300">ชื่อของคุณ {user ? '(จาก LINE)' : ''}</label>
+              <label className="text-xs uppercase tracking-[0.3em] text-indigo-300" style={{ letterSpacing: '-0.02em' }}>ชื่อของคุณ {user ? '(จาก LINE)' : ''}</label>
               <input
                 type="text"
                 value={form.customerName}
@@ -451,7 +452,7 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
               ) : null}
             </div>
             <div>
-              <label className="text-xs uppercase tracking-[0.3em] text-indigo-300">ลิงก์ Social</label>
+              <label className="text-xs uppercase tracking-[0.3em] text-indigo-300" style={{ letterSpacing: '-0.02em' }}>ลิงก์ Social</label>
               <input
                 type="url"
                 value={form.socialLink}
@@ -459,6 +460,7 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
                 placeholder="https://instagram.com/..."
                 required
                 className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/80 px-4 py-3 text-sm text-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/30"
+style={{ letterSpacing: '-0.02em' }}
               />
               {fieldErrors.socialLink ? (
                 <p className="mt-1 text-xs text-rose-300">{fieldErrors.socialLink}</p>
@@ -467,7 +469,7 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
           </section>
 
           <section>
-            <label className="text-xs uppercase tracking-[0.3em] text-indigo-300">คำคม / ข้อความ</label>
+            <label className="text-xs uppercase tracking-[0.3em] text-indigo-300" style={{ letterSpacing: '-0.02em' }}>คำคม / ข้อความ</label>
             <textarea
               value={form.quote}
               onChange={(event) => handleChange('quote', event.target.value)}
@@ -491,6 +493,7 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
                 onChange={(event) => handleChange('customerAvatar', event.target.value)}
                 placeholder="อัปโหลดรูปโปรไฟล์ (ไม่บังคับ)"
                 className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/80 px-4 py-3 text-sm text-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/30"
+style={{ letterSpacing: '-0.02em' }}
               />
             </div>
             <div>
@@ -501,6 +504,7 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
                 value={form.seconds}
                 onChange={(event) => handleChange('seconds', Number.parseInt(event.target.value, 10) || 30)}
                 className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/80 px-4 py-3 text-sm text-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/30"
+style={{ letterSpacing: '-0.02em' }}
               />
               {fieldErrors.seconds ? (
                 <p className="mt-1 text-xs text-rose-300">{fieldErrors.seconds}</p>
@@ -596,6 +600,7 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
             type="button"
             onClick={handleExit}
             className="rounded-xl border border-white/20 px-5 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-slate-200 transition hover:border-white/40 hover:text-white"
+            style={{ letterSpacing: '-0.02em' }}
           >
             ยกเลิก
           </button>
@@ -613,6 +618,7 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
               }}
               disabled={!isConfigured}
               className="rounded-xl bg-green-500 px-6 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-white shadow-[0_18px_60px_rgba(34,197,94,0.35)] transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-60"
+              style={{ letterSpacing: '-0.02em' }}
             >
               {!isConfigured ? (
                 'LINE Login ไม่พร้อมใช้งาน'
@@ -630,6 +636,7 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
               type="submit"
               disabled={status === 'loading'}
               className="rounded-xl bg-indigo-500 px-6 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-white shadow-[0_18px_60px_rgba(99,102,241,0.35)] transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
+              style={{ letterSpacing: '-0.02em' }}
             >
               {status === 'loading' ? (
                 <span className="flex items-center gap-2">
