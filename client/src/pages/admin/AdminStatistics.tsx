@@ -9,32 +9,14 @@ type StatisticsResponse = {
     seconds: number;
   };
   timeline: { date: string; revenue: number; warps: number }[];
-  gender: { gender: string; revenue: number; warps: number }[];
-  ageRanges: { ageRange: string; revenue: number; warps: number }[];
+  gender: any[]; // Kept for compatibility but not used
+  ageRanges: any[]; // Kept for compatibility but not used
 };
-
-const genderOptions = [
-  { label: 'ทั้งหมด', value: '' },
-  { label: 'ชาย', value: 'male' },
-  { label: 'หญิง', value: 'female' },
-  { label: 'Non-binary', value: 'nonbinary' },
-  { label: 'ไม่ระบุ', value: 'prefer_not_to_say' },
-];
-
-const ageOptions = [
-  { label: 'ทั้งหมด', value: '' },
-  { label: '13-17', value: '13-17' },
-  { label: '18-24', value: '18-24' },
-  { label: '25-34', value: '25-34' },
-  { label: '35-44', value: '35-44' },
-  { label: '45+', value: '45+' },
-];
 
 const AdminStatistics = () => {
   const { token } = useAuth();
   const [range, setRange] = useState<'day' | 'week' | 'month' | 'custom'>('week');
-  const [gender, setGender] = useState('');
-  const [age, setAge] = useState('');
+  // Gender and age filters removed since these fields are no longer collected
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [data, setData] = useState<StatisticsResponse | null>(null);
@@ -59,8 +41,6 @@ const AdminStatistics = () => {
       setError(null);
       const params = new URLSearchParams();
       params.set('range', range);
-      if (gender) params.set('gender', gender);
-      if (age) params.set('ageRange', age);
       if (range === 'custom') {
         if (from) params.set('from', from);
         if (to) params.set('to', to);
@@ -150,35 +130,7 @@ const AdminStatistics = () => {
           </>
         ) : null}
 
-        <div>
-          <label className="text-xs uppercase tracking-[0.3em] text-indigo-200">Gender</label>
-          <select
-            value={gender}
-            onChange={(event) => setGender(event.target.value)}
-            className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-white focus:border-indigo-400 focus:outline-none"
-          >
-            {genderOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="text-xs uppercase tracking-[0.3em] text-indigo-200">Age Range</label>
-          <select
-            value={age}
-            onChange={(event) => setAge(event.target.value)}
-            className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-white focus:border-indigo-400 focus:outline-none"
-          >
-            {ageOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* Gender and Age filters removed since these fields are no longer collected */}
 
         <div className="flex items-end">
           <button
@@ -218,30 +170,7 @@ const AdminStatistics = () => {
             </ul>
           </section>
 
-          <section className="grid gap-6 lg:grid-cols-2">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-              <h3 className="text-lg font-semibold text-white">By Gender</h3>
-              <ul className="mt-3 space-y-2 text-sm text-slate-200">
-                {data.gender.map((row) => (
-                  <li key={row.gender || 'unknown'} className="flex items-center justify-between">
-                    <span>{row.gender || 'ไม่ระบุ'}</span>
-                    <span>{row.revenue.toLocaleString('th-TH')} ฿</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-              <h3 className="text-lg font-semibold text-white">By Age Range</h3>
-              <ul className="mt-3 space-y-2 text-sm text-slate-200">
-                {data.ageRanges.map((row) => (
-                  <li key={row.ageRange || 'unknown'} className="flex items-center justify-between">
-                    <span>{row.ageRange || 'ไม่ระบุ'}</span>
-                    <span>{row.revenue.toLocaleString('th-TH')} ฿</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </section>
+          {/* Gender and Age Range sections removed since these fields are no longer collected */}
         </div>
       ) : null}
     </div>
