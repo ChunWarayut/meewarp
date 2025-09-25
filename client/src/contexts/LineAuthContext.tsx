@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { API_ENDPOINTS } from '../config';
 
 type User = {
@@ -14,9 +14,11 @@ type LineAuthContextType = {
   token: string | null;
   isLoading: boolean;
   isConfigured: boolean;
-  login: () => Promise<void>;
+  login: (formData?: any) => Promise<void>;
   logout: () => void;
   verifyToken: () => Promise<boolean>;
+  getStoredFormData: () => any | null;
+  clearStoredFormData: () => void;
 };
 
 const LineAuthContext = createContext<LineAuthContextType | undefined>(undefined);
@@ -44,12 +46,29 @@ export const LineAuthProvider = ({ children }: LineAuthProviderProps) => {
       }
     };
 
-    const savedToken = localStorage.getItem('lineAuthToken');
-    if (savedToken) {
-      setToken(savedToken);
-      verifyToken(savedToken);
+    // Check for token in URL parameters first (from LINE callback)
+    const urlParams = new URLSearchParams(window.location.search);
+    const tokenFromUrl = urlParams.get('token');
+    
+    if (tokenFromUrl) {
+      // Save token to localStorage and verify it
+      localStorage.setItem('lineAuthToken', tokenFromUrl);
+      setToken(tokenFromUrl);
+      verifyToken(tokenFromUrl);
+      
+      // Clean up URL by removing token parameter
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('token');
+      window.history.replaceState({}, '', newUrl.toString());
     } else {
-      setIsLoading(false);
+      // Check localStorage for existing token
+      const savedToken = localStorage.getItem('lineAuthToken');
+      if (savedToken) {
+        setToken(savedToken);
+        verifyToken(savedToken);
+      } else {
+        setIsLoading(false);
+      }
     }
 
     checkLineConfiguration();
@@ -89,7 +108,7 @@ export const LineAuthProvider = ({ children }: LineAuthProviderProps) => {
     }
   };
 
-  const login = async (): Promise<void> => {
+  const login = async (formData?: any): Promise<void> => {
     try {
       setIsLoading(true);
       
@@ -99,6 +118,11 @@ export const LineAuthProvider = ({ children }: LineAuthProviderProps) => {
 
       if (!data.configured) {
         throw new Error('LINE Login is not configured');
+      }
+
+      // Store form data before redirecting to LINE login
+      if (formData) {
+        localStorage.setItem('lineAuthFormData', JSON.stringify(formData));
       }
 
       // Store current URL as redirect after login
@@ -117,11 +141,26 @@ export const LineAuthProvider = ({ children }: LineAuthProviderProps) => {
   const logout = (): void => {
     localStorage.removeItem('lineAuthToken');
     localStorage.removeItem('lineAuthRedirect');
+    localStorage.removeItem('lineAuthFormData');
     setToken(null);
     setUser(null);
     
     // Call logout API (optional)
     fetch(API_ENDPOINTS.authLogout, { method: 'POST' }).catch(console.error);
+  };
+
+  const getStoredFormData = (): any | null => {
+    try {
+      const storedData = localStorage.getItem('lineAuthFormData');
+      return storedData ? JSON.parse(storedData) : null;
+    } catch (error) {
+      console.error('Failed to parse stored form data:', error);
+      return null;
+    }
+  };
+
+  const clearStoredFormData = (): void => {
+    localStorage.removeItem('lineAuthFormData');
   };
 
   const value: LineAuthContextType = {
@@ -132,6 +171,8 @@ export const LineAuthProvider = ({ children }: LineAuthProviderProps) => {
     login,
     logout,
     verifyToken,
+    getStoredFormData,
+    clearStoredFormData,
   };
 
   return <LineAuthContext.Provider value={value}>{children}</LineAuthContext.Provider>;

@@ -11,15 +11,26 @@ const amount = '100.00';
 
 const now = new Date();
 const pad = (n) => `${n}`.padStart(2, '0');
-const format = (d) => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+
+// Format with Thailand timezone (UTC+7)
+const formatThai = (d) => {
+  const thaiDate = new Date(d.getTime() + (7 * 60 * 60 * 1000));
+  const dd = pad(thaiDate.getUTCDate());
+  const mm = pad(thaiDate.getUTCMonth() + 1);
+  const yyyy = thaiDate.getUTCFullYear();
+  const hh = pad(thaiDate.getUTCHours());
+  const mi = pad(thaiDate.getUTCMinutes());
+  const ss = pad(thaiDate.getUTCSeconds());
+  return `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss}`;
+};
 
 const payload = {
   ProductImage: '',
   ProductName: 'Warp Test',
   ProductDescription: 'Warp Test Desc',
-  PaymentLimit: '',
-  StartDate: format(now),
-  ExpiredDate: format(new Date(now.getTime() + 60 * 60 * 1000)),
+  PaymentLimit: '1',
+  StartDate: formatThai(now),
+  ExpiredDate: formatThai(new Date(now.getTime() + 2 * 60 * 60 * 1000)), // 2 hours
   Currency: 'THB',
   Amount: `${Math.round(Number(amount) * 100)}`,
 };

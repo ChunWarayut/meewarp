@@ -76,7 +76,9 @@ const LineCallback = () => {
         <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 text-center">
           {status === 'loading' && (
             <>
-              <Spinner className="mx-auto mb-4" />
+              <div className="mx-auto mb-4">
+                <Spinner />
+              </div>
               <h2 className="text-xl font-semibold text-white mb-2">กำลังเข้าสู่ระบบ...</h2>
               <p className="text-slate-300">กรุณารอสักครู่</p>
             </>
