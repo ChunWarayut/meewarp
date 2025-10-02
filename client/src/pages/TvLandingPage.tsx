@@ -45,7 +45,7 @@ type DisplayWarp = {
   selfDisplayName?: string | null;
 };
 
-const LandingPage = () => {
+const TvLandingPage = () => {
   const [supporters, setSupporters] = useState<Supporter[]>([]);
   const [selfWarpUrl, setSelfWarpUrl] = useState<string>('');
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -757,4 +757,4 @@ const LandingPage = () => {
   );
 };
 
-export default LandingPage;
+export default TvLandingPage;

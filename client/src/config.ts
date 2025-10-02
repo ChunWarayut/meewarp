@@ -19,9 +19,6 @@ export const API_ENDPOINTS = {
   adminUsers: `${API_BASE_URL}/v1/admin/users`,
   adminOrdersExport: (format: 'csv' | 'pdf', params: string) =>
     `${API_BASE_URL}/v1/admin/orders?format=${format}${params ? `&${params}` : ''}`,
-  // LINE Auth endpoints
-  lineLogin: `${API_BASE_URL}/v1/auth/line/login`,
-  lineCallback: `${API_BASE_URL}/v1/auth/line/callback`,
   authVerify: `${API_BASE_URL}/v1/auth/verify`,
   authLogout: `${API_BASE_URL}/v1/auth/logout`,
 };

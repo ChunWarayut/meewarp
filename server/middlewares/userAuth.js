@@ -7,10 +7,9 @@ const userAuth = async (req, res, next) => {
     const authHeader = req.headers.authorization;
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
-        message: 'Authorization token required',
-        code: 'AUTH_TOKEN_REQUIRED',
-      });
+      // Allow unauthenticated requests to proceed; downstream handlers can decide if a token is required.
+      req.user = null;
+      return next();
     }
 
     const token = authHeader.substring(7);
@@ -22,10 +21,8 @@ const userAuth = async (req, res, next) => {
     const user = await User.findById(decoded.userId);
     
     if (!user || !user.isActive) {
-      return res.status(401).json({
-        message: 'Invalid or inactive user',
-        code: 'USER_NOT_FOUND',
-      });
+      req.user = null;
+      return next();
     }
 
     // Add user to request object
@@ -33,17 +30,13 @@ const userAuth = async (req, res, next) => {
     next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({
-        message: 'Invalid token',
-        code: 'INVALID_TOKEN',
-      });
+      req.user = null;
+      return next();
     }
     
     if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({
-        message: 'Token expired',
-        code: 'TOKEN_EXPIRED',
-      });
+      req.user = null;
+      return next();
     }
 
     console.error('User auth middleware error:', error);

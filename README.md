@@ -94,10 +94,12 @@ GitHub Actions workflow at `.github/workflows/ci.yml` installs dependencies for 
 - ระบบมี background job (15 วินาทีต่อครั้ง โดยตั้ง `CHILLPAY_POLL_CRON`/`CHILLPAY_AUTO_POLL`) สำหรับเช็กสถานะผ่าน Transaction API และอัปเดตเป็น `paid/failed` อัตโนมัติ เมื่อสำเร็จจะบันทึก activity log พร้อม refresh leaderboard; ทีมงานยังสามารถกด `POST /api/v1/transactions/:id/check-status` เพื่อบังคับตรวจได้เอง
 
 ## Customer Warp Modal (Demo)
-- TV landing page (`/`) แสดง QR Code ให้ลูกค้าสแกนเพื่อไปยังหน้า `/self-warp` บนมือถือ
+- หน้า Landing (`/`) สรุปคุณค่าระบบ meeWarp พร้อมทางลัดไปยังโหมดต่าง ๆ
+- TV landing page (`/tv`) แสดง QR Code ให้ลูกค้าสแกนเพื่อไปยังหน้า `/self-warp` บนมือถือ
 - โมดัลจะเรียก `POST /api/v1/transactions` โดยดึง Bearer token แอดมินจาก Auth context (ล็อกอินใน `/admin` ก่อน)
 - ราคาเป็นการจำลองยังไม่ผูก Payment Gateway จริง; ปรับ Logic ใน `CustomerWarpModal` ได้เมื่อต้องการเชื่อมระบบชำระเงินจริง
 - โมดัลมี validation และ spinner แสดงสถานะ พร้อมข้อความบอกข้อผิดพลาด (ดู `client/src/components/customer/CustomerWarpModal.tsx`)
+- ลูกค้ากรอกข้อมูลและอัปโหลดรูปเอง ไม่มีขั้นตอนล็อกอินภายนอก (ดู `client/src/pages/SelfWarpPage.tsx`)
 
 ## Deployment Notes
 - Set the server-side admin secrets (`ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_JWT_SECRET`) via your hosting provider's secret manager.

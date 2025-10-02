@@ -1,10 +1,9 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import WarpRedirect from './pages/WarpRedirect';
-import LandingPage from './pages/LandingPage';
+import MarketingLandingPage from './pages/MarketingLandingPage';
+import TvLandingPage from './pages/TvLandingPage';
 import SelfWarpPage from './pages/SelfWarpPage';
-import LineCallback from './pages/LineCallback';
 import { AuthProvider } from './contexts/AuthContext';
-import { LineAuthProvider } from './contexts/LineAuthContext';
 import AdminActivity from './pages/AdminActivity';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminLayout from './components/admin/AdminLayout';
@@ -21,7 +20,8 @@ import AdminCreateWarpPage from './pages/admin/AdminCreateWarpPage';
 
 const AppRoutes = () => (
   <Routes>
-    <Route path="/" element={<LandingPage />} />
+    <Route path="/" element={<MarketingLandingPage />} />
+    <Route path="/tv" element={<TvLandingPage />} />
     <Route path="/admin/login" element={<AdminLoginPage />} />
     <Route element={<AdminGuard />}>
       <Route path="/admin" element={<AdminLayout />}>
@@ -40,7 +40,6 @@ const AppRoutes = () => (
     </Route>
     <Route path="/self-warp" element={<SelfWarpPage />} />
     <Route path="/warp/:code" element={<WarpRedirect />} />
-    <Route path="/line/callback" element={<LineCallback />} />
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes>
 );
@@ -48,9 +47,7 @@ const AppRoutes = () => (
 const App = () => {
   return (
     <AuthProvider>
-      <LineAuthProvider>
-        <AppRoutes />
-      </LineAuthProvider>
+      <AppRoutes />
     </AuthProvider>
   );
 };

@@ -43,11 +43,6 @@ const config = {
     transactionBaseUrl:
       process.env.CHILLPAY_TRANSACTION_URL || 'https://sandbox-api-transaction.chillpay.co/api/v1',
   },
-  line: {
-    channelId: process.env.LINE_CHANNEL_ID || '',
-    channelSecret: process.env.LINE_CHANNEL_SECRET || '',
-    callbackUrl: process.env.LINE_CALLBACK_URL || '',
-  },
 };
 
 module.exports = config;

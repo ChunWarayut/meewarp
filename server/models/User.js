@@ -2,22 +2,16 @@ const mongoose = require('mongoose');
 
 const UserSchema = new mongoose.Schema(
   {
-    lineUserId: {
+    externalId: {
       type: String,
-      required: true,
-      unique: true,
       trim: true,
+      index: true,
     },
     displayName: {
       type: String,
-      required: true,
       trim: true,
     },
     pictureUrl: {
-      type: String,
-      trim: true,
-    },
-    statusMessage: {
       type: String,
       trim: true,
     },
@@ -39,8 +33,6 @@ const UserSchema = new mongoose.Schema(
   }
 );
 
-// Index for faster queries
-UserSchema.index({ lineUserId: 1 });
 UserSchema.index({ lastLoginAt: -1 });
 
 module.exports = mongoose.model('User', UserSchema);
