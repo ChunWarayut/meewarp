@@ -4,7 +4,6 @@ import { API_ENDPOINTS } from '../config';
 import Spinner from '../components/Spinner';
 import { resizeImageFile } from '../utils/image';
 import ThankYouModal from '../components/customer/ThankYouModal';
-import { useLineAuth } from '../contexts/LineAuthContext';
 
 type WarpOption = {
   id?: string;
@@ -43,9 +42,18 @@ const defaultState: FormState = {
 const customerEndpoint = () =>
   API_ENDPOINTS.topSupporters.replace('/leaderboard/top-supporters', '/public/transactions');
 
+const PENDING_TRANSACTION_STORAGE_KEY = 'selfWarpPendingTransaction';
+
+type PendingTransactionSnapshot = {
+  transactionId: string;
+  paymentLink?: { url: string; reference?: string } | null;
+  message?: string;
+  status?: string;
+  savedAt: number;
+};
+
 const SelfWarpPage = () => {
   const navigate = useNavigate();
-  const { user, login, isConfigured, getStoredFormData, clearStoredFormData } = useLineAuth();
   const [form, setForm] = useState<FormState>(defaultState);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState<string>('');
@@ -60,32 +68,33 @@ const SelfWarpPage = () => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  // Auto-fill form with LINE profile data when user logs in
-  useEffect(() => {
-    if (user) {
-      setForm((prev) => ({
-        ...prev,
-        customerName: user.displayName,
-        customerAvatar: user.pictureUrl || '', // Set LINE profile picture as default
-      }));
-    }
-  }, [user]);
+  const handleInstagramChange = (rawValue: string) => {
+    const trimmed = rawValue.replace(/\s+/g, '');
+    const withoutAt = (trimmed.startsWith('@') ? trimmed.slice(1) : trimmed).toLowerCase();
+    const social = withoutAt ? `https://www.instagram.com/${withoutAt}` : '';
 
-  // Restore form data after LINE login
-  useEffect(() => {
-    const storedFormData = getStoredFormData();
-    if (storedFormData && user) {
-      setForm((prev) => ({
-        ...prev,
-        ...storedFormData,
-        // Override with LINE profile data if available
-        customerName: user.displayName || storedFormData.customerName,
-        customerAvatar: user.pictureUrl || storedFormData.customerAvatar || '',
-      }));
-      // Clear stored form data after restoring
-      clearStoredFormData();
+    setForm((prev) => ({
+      ...prev,
+      customerName: rawValue,
+      socialLink: social,
+    }));
+  };
+
+  const persistPendingTransaction = (snapshot: PendingTransactionSnapshot) => {
+    try {
+      localStorage.setItem(PENDING_TRANSACTION_STORAGE_KEY, JSON.stringify(snapshot));
+    } catch {
+      // ignore storage write failures
     }
-  }, [user, getStoredFormData, clearStoredFormData]);
+  };
+
+  const clearPendingTransaction = () => {
+    try {
+      localStorage.removeItem(PENDING_TRANSACTION_STORAGE_KEY);
+    } catch {
+      // ignore storage removal failures
+    }
+  };
 
   useEffect(() => {
     const loadPackages = async () => {
@@ -131,6 +140,28 @@ const SelfWarpPage = () => {
     loadPackages();
   }, []);
 
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(PENDING_TRANSACTION_STORAGE_KEY);
+      if (!raw) return;
+      const snapshot = JSON.parse(raw) as PendingTransactionSnapshot | null;
+      if (!snapshot || !snapshot.transactionId) {
+        clearPendingTransaction();
+        return;
+      }
+      if (Date.now() - snapshot.savedAt > 5 * 60 * 1000) {
+        clearPendingTransaction();
+        return;
+      }
+      setTransactionId(snapshot.transactionId);
+      setPaymentLink(snapshot.paymentLink ?? null);
+      setStatus('success');
+      setMessage(snapshot.message || 'Warp ถูกบันทึกแล้ว กำลังรอตรวจสอบการชำระเงิน');
+    } catch {
+      clearPendingTransaction();
+    }
+  }, []);
+
   const handleSelectWarpOption = (option: WarpOption) => {
     setForm((prev) => ({
       ...prev,
@@ -164,10 +195,10 @@ const SelfWarpPage = () => {
       errors.selfDisplayName = 'กรุณากรอกชื่อที่จะโชว์บนจอ';
     }
     if (!form.customerName.trim()) {
-      errors.customerName = 'กรุณากรอกชื่อหรือชื่อเล่น';
+      errors.customerName = 'กรุณากรอก IG ของคุณ';
     }
     if (!form.socialLink.trim()) {
-      errors.socialLink = 'กรุณาระบุลิงก์ social';
+      errors.socialLink = 'กรุณาระบุลิงก์ Instagram';
     }
     if (options.some((option) => option.id) && !form.packageId) {
       errors.packageId = 'กรุณาเลือกแพ็กเกจ';
@@ -185,11 +216,14 @@ const SelfWarpPage = () => {
 
     try {
       const referenceCode = `SELF-${Date.now()}`;
+      const avatarDataUri = form.selfImage
+        ? `data:image/jpeg;base64,${form.selfImage}`
+        : form.customerAvatar;
 
       const payload = {
         code: referenceCode,
         customerName: form.customerName,
-        customerAvatar: form.customerAvatar || user?.pictureUrl,
+        customerAvatar: avatarDataUri,
         socialLink: form.socialLink,
         quote: form.quote,
         displaySeconds: form.seconds,
@@ -197,7 +231,7 @@ const SelfWarpPage = () => {
         packageId: form.packageId,
         metadata: {
           source: 'self-warp-page',
-          productImage: form.selfImage,
+          productImage: form.selfImage ? `data:image/jpeg;base64,${form.selfImage}` : undefined,
           productDescription: `${form.selfDisplayName || form.customerName} | ${form.socialLink}`,
           paymentLimit: 0,
           expiresInMinutes: 120,
@@ -209,11 +243,6 @@ const SelfWarpPage = () => {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
-
-      // Add authorization header if user is logged in
-      if (user && localStorage.getItem('lineAuthToken')) {
-        headers.Authorization = `Bearer ${localStorage.getItem('lineAuthToken')}`;
-      }
 
       const response = await fetch(customerEndpoint(), {
         method: 'POST',
@@ -228,35 +257,66 @@ const SelfWarpPage = () => {
 
       const data = await response.json();
 
-      setTransactionId(data?.id || null);
+      const transactionIdValue = data?.id || referenceCode;
+      const providerMessage =
+        data?.providerMessage ||
+        'ขออภัย ท่านไม่สามารถใช้ลิงก์นี้ในการชำระเงินได้ เนื่องจากลิงก์ยังไม่ถึงกำหนดเวลาใช้งาน กรุณาติดต่อร้านค้า [ บริษัท มี พร้อมท์ เทคโนโลยี จํากัด, Contact: 0885941049 ]';
+      setTransactionId(transactionIdValue);
 
       const linkUrl = data?.paymentUrl;
       const reference = data?.paymentReference;
       const newStatus = data?.status || 'success';
 
-      if (linkUrl) {
-        setPaymentLink({ url: linkUrl, reference });
-        // Redirect to payment page directly
-        window.location.href = linkUrl;
-        return; // Exit early to prevent showing success message
-      } else if (newStatus === 'paid') {
-        // In simulation mode, transaction is already paid
-        setStatus('success');
-        setMessage('Warp ของคุณถูกบันทึกแล้ว! (โหมดจำลอง)');
+      if (newStatus === 'waiting') {
+        setPaymentLink(null);
+        setStatus('error');
+        setMessage(providerMessage);
+        persistPendingTransaction({
+          transactionId: transactionIdValue,
+          paymentLink: null,
+          message: providerMessage,
+          status: newStatus,
+          savedAt: Date.now(),
+        });
         return;
       }
 
-      setStatus('success');
-      setMessage(
-        linkUrl
-          ? 'สร้าง PayLink สำเร็จ! กรุณาชำระเงินในหน้าต่างใหม่ หากไม่ได้เปิดให้คลิกปุ่มด้านล่าง'
-          : newStatus === 'paid'
-            ? 'Warp ของคุณถูกบันทึกแล้ว!'
-            : 'Warp ถูกบันทึกแล้ว กำลังรอตรวจสอบการชำระเงิน'
-      );
+      if (linkUrl) {
+        const pendingMessage = 'สร้าง PayLink สำเร็จ! กรุณาชำระเงินในหน้าต่างใหม่ หากไม่ได้เปิดให้คลิกปุ่มด้านล่าง';
+        persistPendingTransaction({
+          transactionId: transactionIdValue,
+          paymentLink: { url: linkUrl, reference },
+          message: pendingMessage,
+          status: newStatus,
+          savedAt: Date.now(),
+        });
+        setPaymentLink({ url: linkUrl, reference });
+        setStatus('success');
+        setMessage(pendingMessage);
+        window.location.href = linkUrl;
+        return;
+      }
 
-      if (!linkUrl && newStatus === 'paid') {
+      const successMessage =
+        newStatus === 'paid'
+          ? 'Warp ของคุณถูกบันทึกแล้ว!'
+          : 'Warp ถูกบันทึกแล้ว กำลังรอตรวจสอบการชำระเงิน';
+
+      setStatus('success');
+      setMessage(successMessage);
+
+      if (newStatus === 'paid') {
+        setPaymentLink(null);
+        clearPendingTransaction();
         setShowThankYouModal(true);
+      } else {
+        persistPendingTransaction({
+          transactionId: transactionIdValue,
+          paymentLink: null,
+          message: successMessage,
+          status: newStatus,
+          savedAt: Date.now(),
+        });
       }
     } catch (error) {
       setStatus('error');
@@ -419,32 +479,27 @@ const SelfWarpPage = () => {
 
             {/* Additional Info */}
             <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
-              {user && <div>
+              <div>
                 <label
                   lang="th"
                   className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
                   style={{ letterSpacing: '-0.02em' }}
                 >
-                  ชื่อของคุณ {user ? '(จาก LINE)' : ''}
+                  IG ของคุณ
                 </label>
                 <input
                   type="text"
                   value={form.customerName}
-                  onChange={(event) => handleChange('customerName', event.target.value)}
-                  placeholder={user ? user.displayName : "ชื่อเล่น / นามแฝง"}
-                  disabled={!!user}
+                  onChange={(event) => handleInstagramChange(event.target.value)}
+                  placeholder="ตัวอย่าง: meewarp.official"
                   required
-                  className={`mt-2 w-full rounded-2xl border border-white/15 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20 ${user ? 'cursor-not-allowed bg-slate-800/50 opacity-70' : 'bg-slate-950/60'
-                    }`}
+                  className="mt-2 w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
                   style={{ letterSpacing: '-0.02em' }}
                 />
-                {user && (
-                  <p className="mt-1 text-xs text-emerald-300">ใช้ชื่อจาก LINE: {user.displayName}</p>
-                )}
                 {fieldErrors.customerName ? (
                   <p className="mt-1 text-xs text-rose-300">{fieldErrors.customerName}</p>
                 ) : null}
-              </div>}
+              </div>
               <div>
                 <label
                   lang="th"
@@ -456,10 +511,10 @@ const SelfWarpPage = () => {
                 <input
                   type="url"
                   value={form.socialLink}
-                  onChange={(event) => handleChange('socialLink', event.target.value)}
-                  placeholder="https://instagram.com/..."
+                  placeholder="ตัวอย่าง: https://www.instagram.com/meewarp.official"
                   required
-                  className="mt-2 w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
+                  readOnly
+                  className="mt-2 w-full rounded-2xl border border-white/15 bg-slate-900/40 px-4 py-3 text-sm text-white opacity-80 shadow-[0_12px_30px_rgba(8,12,24,0.35)] focus:outline-none"
                   style={{ letterSpacing: '-0.02em' }}
                 />
                 {fieldErrors.socialLink ? (
@@ -538,7 +593,7 @@ const SelfWarpPage = () => {
                 </button>
               ) : null}
 
-              {transactionId && paymentLink ? (
+              {transactionId ? (
                 <button
                   type="button"
                   onClick={async () => {
@@ -563,14 +618,22 @@ const SelfWarpPage = () => {
                       if (body?.status === 'paid') {
                         setStatus('success');
                         setMessage('ชำระเงินเรียบร้อยแล้ว! ทีมงานจะดัน Warp ของคุณขึ้นจอทันที');
+                        setPaymentLink(null);
+                        clearPendingTransaction();
                         setShowThankYouModal(true);
                       } else {
+                        const followupMessage = body?.note
+                          ? `${body.note} (สถานะ: ${body?.chillpayStatus || 'กำลังตรวจสอบ'})`
+                          : `สถานะปัจจุบัน: ${body?.chillpayStatus || 'กำลังตรวจสอบ'}`;
                         setStatus('success');
-                        setMessage(
-                          body?.note
-                            ? `${body.note} (สถานะ: ${body?.chillpayStatus || 'กำลังตรวจสอบ'})`
-                            : `สถานะปัจจุบัน: ${body?.chillpayStatus || 'กำลังตรวจสอบ'}`
-                        );
+                        setMessage(followupMessage);
+                        persistPendingTransaction({
+                          transactionId,
+                          paymentLink,
+                          message: followupMessage,
+                          status: body?.status || 'pending',
+                          savedAt: Date.now(),
+                        });
                       }
                     } catch (error) {
                       setStatus('error');
@@ -595,61 +658,41 @@ const SelfWarpPage = () => {
               <div className="grid grid-cols-2 gap-3 sm:flex sm:gap-4">
                 <button
                   type="button"
-                  onClick={() => navigate('/')}
+                  onClick={() => {
+                    clearPendingTransaction();
+                    navigate('/');
+                  }}
                   className="rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-slate-200 transition hover:border-white/40 hover:bg-white/10 hover:text-white sm:px-6"
                   style={{ letterSpacing: '-0.02em' }}
                 >
                   ยกเลิก
                 </button>
-
-                {!user ? (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        await login(form);
-                      } catch {
-                        setMessage('ไม่สามารถเข้าสู่ระบบ LINE ได้ กรุณาลองใหม่อีกครั้ง');
-                        setStatus('error');
-                      }
-                    }}
-                    disabled={!isConfigured}
-                    className="rounded-2xl bg-gradient-to-r from-emerald-400 via-green-400 to-lime-300 px-4 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-emerald-950 shadow-[0_20px_45px_rgba(34,197,94,0.4)] transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 sm:px-8"
-                    style={{ letterSpacing: '-0.02em' }}
-                  >
-                    {!isConfigured ? (
-                      'LINE Login ไม่พร้อมใช้งาน'
-                    ) : (
-                      <span className="flex items-center justify-center gap-2">
-                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.281.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314" />
-                        </svg>
-                        เข้าสู่ระบบ LINE
-                      </span>
-                    )}
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    disabled={status === 'loading'}
-                    className="rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-4 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-white shadow-[0_22px_55px_rgba(99,102,241,0.4)] transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 sm:px-8"
-                    style={{ letterSpacing: '-0.02em' }}
-                  >
-                    {status === 'loading' ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <Spinner /> กำลังบันทึก…
-                      </span>
-                    ) : (
-                      'ยืนยัน Warp'
-                    )}
-                  </button>
-                )}
+                <button
+                  type="submit"
+                  disabled={status === 'loading'}
+                  className="rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-4 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-white shadow-[0_22px_55px_rgba(99,102,241,0.4)] transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 sm:px-8"
+                  style={{ letterSpacing: '-0.02em' }}
+                >
+                  {status === 'loading' ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Spinner /> กำลังบันทึก…
+                    </span>
+                  ) : (
+                    'ยืนยัน Warp'
+                  )}
+                </button>
               </div>
             </div>
           </form>
         </div>
       </div>
-      <ThankYouModal isOpen={showThankYouModal} onClose={() => setShowThankYouModal(false)} />
+      <ThankYouModal
+        isOpen={showThankYouModal}
+        onClose={() => {
+          clearPendingTransaction();
+          setShowThankYouModal(false);
+        }}
+      />
     </div>
   );
 };

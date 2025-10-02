@@ -48,10 +48,11 @@ async function createPayLink({
   }
 
   const now = new Date();
-  const startDate = formatDate(now);
+  const startWindow = new Date(now.getTime() - 60 * 1000); // buffer 1 minute earlier
+  const startDate = formatDate(startWindow);
   const expireDate = formatDate(new Date(now.getTime() + (expiresInMinutes || 60) * 60 * 1000));
 
-  const amountInteger = Math.round(Number(amount) * 100);
+  const normalizedAmount = Math.max(0, Math.round(Number(amount) * 100));
 
   const payload = {
     ProductImage: productImage || '',
@@ -61,7 +62,7 @@ async function createPayLink({
     StartDate: startDate,
     ExpiredDate: expireDate,
     Currency: 'THB',
-    Amount: `${amountInteger}`,
+    Amount: `${normalizedAmount}`,
     Checksum: '',
   };
 

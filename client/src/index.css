@@ -11,7 +11,7 @@
 
 body {
   font-family: var(--font-english);
-  @apply min-h-screen bg-slate-100 text-slate-900 antialiased;
+  @apply min-h-screen bg-slate-950 text-slate-100 antialiased;
 }
 
 #root {

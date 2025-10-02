@@ -3,7 +3,6 @@ const WarpTransaction = require('../models/WarpTransaction');
 const WarpProfile = require('../models/WarpProfile');
 const WarpPackage = require('../models/WarpPackage');
 const adminAuth = require('../middlewares/adminAuth');
-const userAuth = require('../middlewares/userAuth');
 const leaderboardEmitter = require('../lib/leaderboardEmitter');
 const displayEmitter = require('../lib/displayEmitter');
 const { getTopSupporters } = require('../services/leaderboardService');
@@ -296,8 +295,8 @@ router.post('/transactions/:id/check-status', adminAuth, async (req, res) => {
   }
 });
 
-// Public endpoint for customers to create transactions (requires LINE login)
-router.post('/public/transactions', userAuth, async (req, res) => {
+// Public endpoint for customers to create transactions
+router.post('/public/transactions', async (req, res) => {
   try {
     const {
       code,
@@ -309,11 +308,7 @@ router.post('/public/transactions', userAuth, async (req, res) => {
       metadata,
       packageId,
     } = req.body;
-    const submittedCustomerName = req.body.customerName || req.user.displayName;
-    
-    console.log('PUBLIC: submittedCustomerName:', submittedCustomerName);
-    console.log('PUBLIC: req.body.customerName:', req.body.customerName);
-    console.log('PUBLIC: req.user.displayName:', req.user?.displayName);
+    const submittedCustomerName = (req.body.customerName || '').trim();
 
     if (!code || !submittedCustomerName || !socialLink) {
       return res.status(400).json({ 
@@ -344,7 +339,11 @@ router.post('/public/transactions', userAuth, async (req, res) => {
       warpProfile: profile ? profile._id : undefined,
       code,
       customerName: submittedCustomerName,
-      customerAvatar: customerAvatar || req.user.pictureUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(req.user.displayName)}&background=6366f1&color=ffffff&size=200`, // Use uploaded image, then LINE profile picture, then generated avatar
+      customerAvatar:
+        customerAvatar ||
+        (submittedCustomerName
+          ? `https://ui-avatars.com/api/?name=${encodeURIComponent(submittedCustomerName)}&background=6366f1&color=ffffff&size=200`
+          : ''),
       socialLink,
       quote,
       displaySeconds,
@@ -355,16 +354,12 @@ router.post('/public/transactions', userAuth, async (req, res) => {
       metadata: {
         ...metadata,
         source: metadata?.source || 'public-customer',
-        lineUserId: req.user.lineUserId,
-        userId: req.user._id,
-        lineDisplayName: req.user.displayName,
-        linePictureUrl: req.user.pictureUrl,
       },
     });
 
     await appendActivity(transaction._id, {
       action: 'created',
-      description: `Transaction created by customer: ${req.user.displayName}`,
+      description: `Transaction created by customer: ${submittedCustomerName}`,
       actor: 'customer',
     });
 
@@ -400,14 +395,47 @@ router.post('/public/transactions', userAuth, async (req, res) => {
 
         console.log('PUBLIC: payLinkResponse', payLinkResponse.data);
         
+        const payLinkPayload = payLinkResponse?.data || payLinkResponse?.result || {};
+        const rawStatus = payLinkPayload?.status || payLinkResponse?.status || '';
+        const normalizedStatus = rawStatus.toString().toUpperCase();
         const paymentUrl =
-          payLinkResponse?.data?.paymentUrl ||
+          payLinkPayload?.paymentUrl ||
           payLinkResponse?.paymentUrl ||
-          payLinkResponse?.result?.paymentUrl ||
-          payLinkResponse?.data?.qrImage ||
+          payLinkPayload?.qrImage ||
           '';
-          
+
+        const providerMessage =
+          payLinkResponse?.data?.message ||
+          payLinkResponse?.message ||
+          payLinkResponse?.result?.message ||
+          'ขออภัย ท่านไม่สามารถใช้ลิงก์นี้ในการชำระเงินได้ เนื่องจากลิงก์ยังไม่ถึงกำหนดเวลาใช้งาน กรุณาติดต่อร้านค้า [ บริษัท มี พร้อมท์ เทคโนโลยี จํากัด, Contact: 0885941049 ]';
+
         console.log('PUBLIC: paymentUrl', paymentUrl);
+
+        const isWaitingStatus = ['W', 'WAITING', 'PENDING', 'SCHEDULED'].includes(normalizedStatus);
+
+        if (!paymentUrl || isWaitingStatus) {
+          await WarpTransaction.findByIdAndUpdate(transaction._id, {
+            $set: {
+              'metadata.payLinkResponse': payLinkResponse,
+              'metadata.payLinkStatus': 'waiting',
+              'metadata.payLinkRawStatus': normalizedStatus,
+              'metadata.providerMessage': providerMessage,
+            },
+          });
+
+          await appendActivity(transaction._id, {
+            action: 'payment_link_waiting',
+            description: providerMessage,
+            actor: 'system',
+          });
+
+          return res.status(202).json({
+            ...responsePayload,
+            status: 'waiting',
+            providerMessage,
+          });
+        }
 
         await WarpTransaction.findByIdAndUpdate(transaction._id, {
           $set: {
