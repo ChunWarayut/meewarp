@@ -391,7 +391,7 @@ const TvLandingPage = () => {
     let isMounted = true;
     let eventSource: EventSource | null = null;
     if (typeof window !== 'undefined') {
-      setSelfWarpUrl(`${window.location.origin}/self-warp`);
+      setSelfWarpUrl(`${window.location.origin}/self-warp/?openExternalBrowser=1`);
     }
 
     const normaliseSupporters = (list: unknown): Supporter[] => {
@@ -548,7 +548,7 @@ const TvLandingPage = () => {
 
   return (
     <div
-      className="relative flex min-h-screen w-screen overflow-hidden bg-slate-950 text-slate-100"
+      className="flex overflow-hidden relative w-screen min-h-screen bg-slate-950 text-slate-100"
       style={
         backgroundImage
           ? {
@@ -567,7 +567,7 @@ const TvLandingPage = () => {
       {/* Blurred background image overlay */}
       {backgroundImage && (
         <div 
-          className="pointer-events-none fixed inset-0 -z-20"
+          className="fixed inset-0 pointer-events-none -z-20"
           style={{
             backgroundImage: `url(${backgroundImage})`,
             backgroundSize: 'cover',
@@ -585,7 +585,7 @@ const TvLandingPage = () => {
       {/* Smooth edge transition overlay */}
       {backgroundImage && (
         <div 
-          className="pointer-events-none fixed inset-0 -z-20"
+          className="fixed inset-0 pointer-events-none -z-20"
           style={{
             background: `radial-gradient(ellipse at center, transparent 0%, transparent 40%, ${toRgba(gradientPrimary, 0.9)} 70%, ${toRgba(gradientPrimary, 1)} 100%)`,
             opacity: 0.8,
@@ -595,28 +595,28 @@ const TvLandingPage = () => {
 
       {/* Gradient backdrops tuned to the hero palette (works with or without an uploaded image) */}
       <div
-        className="pointer-events-none fixed inset-0 -z-30 opacity-70"
+        className="fixed inset-0 opacity-70 pointer-events-none -z-30"
         style={{
           background: `radial-gradient(120% 120% at 15% 20%, ${toRgba(gradientPrimary, 0.55)} 0%, transparent 70%), radial-gradient(120% 120% at 85% 80%, ${toRgba(gradientSecondary, 0.5)} 0%, transparent 72%)`,
         }}
       />
       <div
-        className="pointer-events-none fixed inset-0 -z-30 opacity-60 mix-blend-screen"
+        className="fixed inset-0 opacity-60 mix-blend-screen pointer-events-none -z-30"
         style={{
           background: `radial-gradient(140% 140% at 50% 120%, ${toRgba(gradientSecondary, 0.35)} 0%, transparent 65%)`,
         }}
       />
 
       {currentWarp ? (
-        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center px-6">
+        <div className="flex absolute inset-0 z-20 justify-center items-center px-6 pointer-events-none">
           <div className="pointer-events-auto w-full max-w-[800px] lg:max-w-[1200px] xl:max-w-[1400px] rounded-[32px] border-2 border-emerald-400/20 bg-gradient-to-br from-white/15 to-emerald-500/5 p-6 shadow-[0_40px_120px_rgba(20,20,40,0.65)] backdrop-blur-2xl sm:p-10 lg:p-16 xl:p-20 ring-4 ring-emerald-400/10">
             <div className="grid gap-6 sm:gap-8 lg:gap-10 xl:gap-12 sm:grid-cols-[350px_1fr] lg:grid-cols-[450px_1fr] xl:grid-cols-[550px_1fr] sm:items-start">
               <div className="space-y-4">
                 <div className="relative aspect-square overflow-hidden rounded-[24px] border-4 border-emerald-400/60 bg-slate-900/60 shadow-[0_35px_100px_rgba(15,23,42,0.75)] ring-8 ring-emerald-400/30 sm:rounded-[32px] transform hover:scale-[1.02] transition-all duration-500">
                   {warpImage ? (
-                    <img src={warpImage} alt={currentWarp.customerName} className="h-full w-full object-cover transition-transform duration-500 hover:scale-110" />
+                    <img src={warpImage} alt={currentWarp.customerName} className="object-cover w-full h-full transition-transform duration-500 hover:scale-110" />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-slate-900/70 text-slate-100">
+                    <div className="flex justify-center items-center w-full h-full bg-slate-900/70 text-slate-100">
                       MeeWarp
                     </div>
                   )}
@@ -627,14 +627,14 @@ const TvLandingPage = () => {
                   <div className="absolute inset-0 rounded-[24px] ring-2 ring-emerald-400/20 pointer-events-none sm:rounded-[32px]"></div>
                 </div>
                 {currentWarp.quote ? (
-                  <div className="rounded-xl border border-emerald-400/20 bg-gradient-to-r from-emerald-500/5 to-emerald-600/5 p-4 lg:p-5 xl:p-6 backdrop-blur-sm">
-                    <p className="text-sm lg:text-base xl:text-lg font-medium text-emerald-100 italic text-center leading-relaxed line-clamp-3">
+                  <div className="p-4 bg-gradient-to-r rounded-xl border backdrop-blur-sm border-emerald-400/20 from-emerald-500/5 to-emerald-600/5 lg:p-5 xl:p-6">
+                    <p className="text-sm italic font-medium leading-relaxed text-center text-emerald-100 lg:text-base xl:text-lg line-clamp-3">
                       "{currentWarp.quote}"
                     </p>
                   </div>
                 ) : null}
               </div>
-              <div className="space-y-4 lg:space-y-5 xl:space-y-6 text-left">
+              <div className="space-y-4 text-left lg:space-y-5 xl:space-y-6">
                 <div className="min-w-0">
                   <p className="text-sm lg:text-base xl:text-lg uppercase tracking-[0.4em] text-emerald-300 font-bold">Warp Spotlight</p>
                   <h2 
@@ -645,27 +645,27 @@ const TvLandingPage = () => {
                   </h2>
                 </div>
                 {currentWarp.socialLink ? (
-                  <div className="flex flex-col items-center gap-2 lg:gap-3 xl:gap-4 rounded-xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/5 to-emerald-600/5 p-3 lg:p-4 xl:p-5 backdrop-blur-sm">
+                  <div className="flex flex-col gap-2 items-center p-3 bg-gradient-to-br rounded-xl border backdrop-blur-sm lg:gap-3 xl:gap-4 border-emerald-400/20 from-emerald-500/5 to-emerald-600/5 lg:p-4 xl:p-5">
                     <div className="h-16 w-16 lg:h-20 lg:w-20 xl:h-24 xl:w-24 overflow-hidden rounded-lg border border-emerald-400/30 bg-white/95 shadow-[0_8px_25px_rgba(16,185,129,0.2)]">
                       <img
                         src={`https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=${encodeURIComponent(currentWarp.socialLink)}`}
                         alt="QR Code สำหรับลิงก์โซเชียล"
-                        className="h-full w-full object-contain"
+                        className="object-contain w-full h-full"
                       />
                     </div>
-                    <p className="text-xs lg:text-sm font-medium text-emerald-200 text-center">
+                    <p className="text-xs font-medium text-center text-emerald-200 lg:text-sm">
                       สแกนเพื่อไปยังลิงก์โซเชียล
                     </p>
                   </div>
                 ) : null}
-                <div className="flex items-center gap-4 lg:gap-6 xl:gap-8 rounded-2xl border-2 border-emerald-400/20 bg-gradient-to-r from-emerald-500/10 to-emerald-600/5 p-5 lg:p-6 xl:p-8 backdrop-blur-sm">
+                <div className="flex gap-4 items-center p-5 bg-gradient-to-r rounded-2xl border-2 backdrop-blur-sm lg:gap-6 xl:gap-8 border-emerald-400/20 from-emerald-500/10 to-emerald-600/5 lg:p-6 xl:p-8">
                   <div className="rounded-xl border border-emerald-400/60 bg-emerald-500/25 px-4 py-2 lg:px-6 lg:py-3 xl:px-8 xl:py-4 text-xs lg:text-sm xl:text-base uppercase tracking-[0.3em] text-emerald-100 font-bold shadow-lg ring-2 ring-emerald-400/30">
                     Time Left
                   </div>
-                  <span className="text-2xl lg:text-4xl xl:text-5xl font-bold text-emerald-100 drop-shadow-lg">{countdownLabel}</span>
+                  <span className="text-2xl font-bold text-emerald-100 drop-shadow-lg lg:text-4xl xl:text-5xl">{countdownLabel}</span>
                 </div>
-                <p className="text-sm lg:text-base xl:text-lg font-medium text-slate-200 bg-white/5 rounded-xl px-4 py-2 lg:px-6 lg:py-3 xl:px-8 xl:py-4 text-center">
-                  เวลาที่ซื้อไว้ทั้งหมด <span className="text-emerald-300 font-bold">{totalDurationLabel}</span>
+                <p className="px-4 py-2 text-sm font-medium text-center rounded-xl lg:text-base xl:text-lg text-slate-200 bg-white/5 lg:px-6 lg:py-3 xl:px-8 xl:py-4">
+                  เวลาที่ซื้อไว้ทั้งหมด <span className="font-bold text-emerald-300">{totalDurationLabel}</span>
                 </p>
               </div>
             </div>
@@ -686,13 +686,13 @@ const TvLandingPage = () => {
 
       {/* Bottom-left QR Code Section */}
       <div className="pointer-events-auto absolute left-[2vw] bottom-[2vh] z-10 max-w-[85vw] sm:left-[4vw] sm:bottom-[4vh] rounded-3xl p-[1.6vw] lg:p-[2vw] xl:p-[2.5vw] backdrop-blur">
-        <div className="flex items-center gap-4 lg:gap-6 xl:gap-8">
+        <div className="flex gap-4 items-center lg:gap-6 xl:gap-8">
           <div className="h-[12vw] w-[12vw] min-h-[100px] min-w-[100px] max-h-[180px] max-w-[160px] lg:max-w-[200px] xl:max-w-[240px] overflow-hidden rounded-2xl p-2 lg:p-4 xl:p-5 shadow-[0_35px_100px_rgba(15,23,42,0.55)] backdrop-blur">
             {selfWarpUrl ? (
               <img
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(selfWarpUrl)}`}
                 alt="สแกนเพื่อแจกวาร์ป"
-                className="h-full w-full object-contain"
+                className="object-contain w-full h-full"
               />
             ) : null}
           </div>
@@ -708,13 +708,13 @@ const TvLandingPage = () => {
       </div>
 
       <div className="pointer-events-auto absolute right-[4vw] top-[6vh] w-[25vw] min-w-[260px] max-w-[320px] lg:max-w-[400px] xl:max-w-[480px] rounded-2xl border border-white/10 bg-white/10 p-4 lg:p-6 xl:p-8 shadow-[0_25px_60px_rgba(15,23,42,0.45)] backdrop-blur">
-        <div className="flex items-center justify-between">
+        <div className="flex justify-between items-center">
           <h3 className="text-[clamp(14px,1vw,20px)] lg:text-xl xl:text-2xl font-semibold text-white">Warp Hall of Fame</h3>
           <span className="rounded-full bg-white/10 px-2 py-0.5 lg:px-3 lg:py-1 xl:px-4 xl:py-1.5 text-[clamp(8px,0.6vw,12px)] lg:text-sm xl:text-base uppercase tracking-wide text-slate-100">
             {hasLiveData ? 'Live' : 'Standby'}
           </span>
         </div>
-        <ul className="mt-4 lg:mt-6 xl:mt-8 space-y-3 lg:space-y-4 xl:space-y-5">
+        <ul className="mt-4 space-y-3 lg:mt-6 xl:mt-8 lg:space-y-4 xl:space-y-5">
           {supportersToDisplay.map((supporter, index) => {
             const avatarUrl =
               resolveMediaSource(supporter.customerAvatar) ||
@@ -727,7 +727,7 @@ const TvLandingPage = () => {
               : currencyFormatter.format(supporter.totalAmount);
 
             return (
-              <li key={supporter.customerName} className="flex items-center gap-3 lg:gap-4 xl:gap-5">
+              <li key={supporter.customerName} className="flex gap-3 items-center lg:gap-4 xl:gap-5">
                 <div className="relative">
                   <img
                     src={avatarUrl}
