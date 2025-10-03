@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, useContext, useMemo, useState, useEffect } from 'react';
+import { createContext, type ReactNode, useContext, useMemo, useState, useEffect, useCallback } from 'react';
 
 const TOKEN_STORAGE_KEY = 'warpAdminToken';
 
@@ -6,6 +6,9 @@ type AdminInfo = {
   email?: string;
   role?: string;
   displayName?: string;
+  storeId?: string | null;
+  storeName?: string | null;
+  storeSlug?: string | null;
 };
 
 export type AuthContextValue = {
@@ -19,7 +22,17 @@ export type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 // Helper function to check if token is expired
-const decodeToken = (token: string): { exp: number; email?: string; role?: string; displayName?: string } | null => {
+type TokenPayload = {
+  exp: number;
+  email?: string;
+  role?: string;
+  displayName?: string;
+  storeId?: string | null;
+  storeName?: string | null;
+  storeSlug?: string | null;
+};
+
+const decodeToken = (token: string): TokenPayload | null => {
   try {
     return JSON.parse(atob(token.split('.')[1]));
   } catch {
@@ -53,11 +66,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!token) return null;
     const payload = decodeToken(token);
     if (!payload) return null;
-    const { email, role, displayName } = payload;
-    return { email, role, displayName };
+    const { email, role, displayName, storeId, storeName, storeSlug } = payload;
+    return { email, role, displayName, storeId, storeName, storeSlug };
   });
 
-  const setToken = (value: string | null) => {
+  const setToken = useCallback((value: string | null) => {
     setTokenState(value);
 
     if (typeof window !== 'undefined') {
@@ -79,13 +92,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    const { email, role, displayName } = payload;
-    setAdmin({ email, role, displayName });
-  };
+    const { email, role, displayName, storeId, storeName, storeSlug } = payload;
+    setAdmin({ email, role, displayName, storeId, storeName, storeSlug });
+  }, []);
 
-  const clearToken = () => {
+  const clearToken = useCallback(() => {
     setToken(null);
-  };
+  }, [setToken]);
 
   const isTokenValid = useMemo(() => {
     if (!token) return false;
@@ -105,19 +118,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Check every minute
     const interval = setInterval(checkToken, 60000);
     return () => clearInterval(interval);
-  }, [token]);
+  }, [token, clearToken]);
 
-  const value = useMemo<AuthContextValue>(() => ({
-    token,
-    admin,
-    setToken,
-    clearToken,
-    isTokenValid,
-  }), [token, admin, isTokenValid]);
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      token,
+      admin,
+      setToken,
+      clearToken,
+      isTokenValid,
+    }),
+    [token, admin, setToken, clearToken, isTokenValid]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {

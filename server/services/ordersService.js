@@ -1,11 +1,23 @@
 const { Parser } = require('json2csv');
 const PDFDocument = require('pdfkit');
+const mongoose = require('mongoose');
 const WarpTransaction = require('../models/WarpTransaction');
 
 const DISPLAY_STATUSES = ['pending', 'paid', 'displaying', 'displayed', 'failed', 'cancelled'];
 
-function buildMatch({ status, search, from, to }) {
+function normalizeStoreId(storeId) {
+  if (!storeId) {
+    return null;
+  }
+  return new mongoose.Types.ObjectId(storeId);
+}
+
+function buildMatch({ storeId, status, search, from, to }) {
   const match = {};
+
+  if (storeId) {
+    match.store = normalizeStoreId(storeId);
+  }
 
   if (status && DISPLAY_STATUSES.includes(status)) {
     match.status = status;
@@ -31,9 +43,9 @@ function buildMatch({ status, search, from, to }) {
   return match;
 }
 
-async function listOrders({ page = 1, limit = 20, status, search, from, to }) {
+async function listOrders({ storeId, page = 1, limit = 20, status, search, from, to }) {
   const skip = (Number(page) - 1) * Number(limit);
-  const match = buildMatch({ status, search, from, to });
+  const match = buildMatch({ storeId, status, search, from, to });
 
   const [orders, total] = await Promise.all([
     WarpTransaction.find(match)
@@ -127,8 +139,8 @@ function buildPdf(orders, { from, to }) {
   });
 }
 
-async function exportOrders({ format = 'csv', status, search, from, to }) {
-  const match = buildMatch({ status, search, from, to });
+async function exportOrders({ storeId, format = 'csv', status, search, from, to }) {
+  const match = buildMatch({ storeId, status, search, from, to });
   const orders = await WarpTransaction.find(match).sort({ createdAt: -1 }).lean();
 
   if (format === 'pdf') {

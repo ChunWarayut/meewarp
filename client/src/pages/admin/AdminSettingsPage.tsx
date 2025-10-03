@@ -1,6 +1,8 @@
 import { type FormEvent, useEffect, useState, useCallback } from 'react';
 import { API_ENDPOINTS } from '../../config';
 import { useAuth } from '../../contexts/AuthContext';
+import { useStoreContext } from '../../contexts/StoreContext';
+import { buildAuthHeaders } from '../../utils/http';
 import ImageUpload from '../../components/ImageUpload';
 
 type AppSettings = {
@@ -9,6 +11,8 @@ type AppSettings = {
   primaryColor?: string;
   logo?: string;
   backgroundImage?: string;
+  backgroundImages?: string[];
+  backgroundRotationDuration?: number;
   socialLinks?: Record<string, string>;
   contactEmail?: string;
   contactPhone?: string;
@@ -24,12 +28,39 @@ type AppSettings = {
   promotionEnabled?: boolean;
 };
 
+type BackgroundImageEntry = {
+  id: string;
+  preview: string;
+  url?: string;
+  file?: File;
+  isNew?: boolean;
+};
+
+type PromotionImageEntry = {
+  id: string;
+  preview: string;
+  url?: string;
+  file?: File;
+  isNew?: boolean;
+};
+
+const resolveImagePreview = (value: string) => {
+  if (!value) return '';
+  if (value.startsWith('http')) {
+    return value;
+  }
+  if (typeof window === 'undefined') {
+    return value;
+  }
+  return `${window.location.origin}/api${value.startsWith('/') ? value : `/${value}`}`;
+};
+
 type FormData = {
   brandName: string;
   tagline?: string;
   primaryColor?: string;
-  backgroundImage?: File | null;
-  oldBackgroundImage?: string;
+  backgroundImages?: BackgroundImageEntry[];
+  backgroundRotationDuration?: number;
   logoFile?: File | null;
   logoExistingPath?: string;
   oldLogo?: string;
@@ -43,20 +74,23 @@ type FormData = {
   twitterUrl?: string;
   youtubeUrl?: string;
   tiktokUrl?: string;
-  promotionImages?: string[];
+  promotionImages?: PromotionImageEntry[];
   promotionDuration?: number;
   promotionEnabled?: boolean;
 };
 
 const AdminSettingsPage = () => {
   const { token } = useAuth();
+  const { selectedStoreId, selectedStore, locked, loadingStores } = useStoreContext();
   const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [initialBackgroundImages, setInitialBackgroundImages] = useState<string[]>([]);
+  const [initialPromotionImages, setInitialPromotionImages] = useState<string[]>([]);
   const [formData, setFormData] = useState<FormData>({
     brandName: '',
     tagline: '',
     primaryColor: '#6366F1',
-    backgroundImage: null,
-    oldBackgroundImage: '',
+    backgroundImages: [],
+    backgroundRotationDuration: 15000,
     logoFile: null,
     logoExistingPath: '',
     oldLogo: '',
@@ -78,21 +112,44 @@ const AdminSettingsPage = () => {
   const [status, setStatus] = useState<'idle' | 'saving' | 'error' | 'success'>('idle');
 
   const load = useCallback(async () => {
-    if (!token) return;
+    if (!token || !selectedStoreId) return;
     const response = await fetch(API_ENDPOINTS.adminSettings, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: buildAuthHeaders(token, selectedStoreId ?? undefined),
     });
     if (!response.ok) {
       throw new Error('Failed to load settings');
     }
     const data = (await response.json()) as AppSettings;
     setSettings(data);
+    const backgroundList = Array.isArray(data.backgroundImages) && data.backgroundImages.length > 0
+      ? data.backgroundImages
+      : data.backgroundImage
+        ? [data.backgroundImage]
+        : [];
+    const backgroundEntries: BackgroundImageEntry[] = backgroundList.map((imageUrl) => ({
+      id: imageUrl,
+      preview: resolveImagePreview(imageUrl),
+      url: imageUrl,
+      isNew: false,
+    }));
+
+    const promotionList = Array.isArray(data.promotionImages) ? data.promotionImages : [];
+    const promotionEntries: PromotionImageEntry[] = promotionList.map((imageUrl) => ({
+      id: imageUrl,
+      preview: resolveImagePreview(imageUrl),
+      url: imageUrl,
+      isNew: false,
+    }));
+
+    setInitialBackgroundImages(backgroundList);
+    setInitialPromotionImages(promotionList);
+
     setFormData({
       brandName: data.brandName || '',
       tagline: data.tagline || '',
       primaryColor: data.primaryColor || '#6366F1',
-      backgroundImage: null,
-      oldBackgroundImage: data.backgroundImage || '',
+      backgroundImages: backgroundEntries,
+      backgroundRotationDuration: data.backgroundRotationDuration || 15000,
       logoFile: null,
       logoExistingPath: data.logo || '',
       oldLogo: data.logo || '',
@@ -106,18 +163,21 @@ const AdminSettingsPage = () => {
       twitterUrl: data.twitterUrl || '',
       youtubeUrl: data.youtubeUrl || '',
       tiktokUrl: data.tiktokUrl || '',
-      promotionImages: data.promotionImages || [],
+      promotionImages: promotionEntries,
       promotionDuration: data.promotionDuration || 5000,
       promotionEnabled: data.promotionEnabled || false,
     });
-  }, [token]);
+  }, [token, selectedStoreId]);
 
   useEffect(() => {
+    if (!token || !selectedStoreId) {
+      return;
+    }
     load().catch((error) => {
       setStatus('error');
       setMessage(error instanceof Error ? error.message : 'Unexpected error');
     });
-  }, [load]);
+  }, [load, token, selectedStoreId]);
 
   const validateForm = () => {
     // All fields are optional, no validation required
@@ -128,7 +188,11 @@ const AdminSettingsPage = () => {
     if (event) {
       event.preventDefault();
     }
-    if (!token) return;
+    if (!token || !selectedStoreId) {
+      setStatus('error');
+      setMessage('เลือกสาขาก่อนบันทึกการตั้งค่า');
+      return;
+    }
 
     if (!validateForm()) {
       return;
@@ -156,29 +220,72 @@ const AdminSettingsPage = () => {
       formDataToSend.append('logoRemoved', formData.logoRemoved ? 'true' : 'false');
       formDataToSend.append('oldLogo', formData.oldLogo || '');
       
-      if (formData.backgroundImage) {
-        formDataToSend.append('backgroundImage', formData.backgroundImage);
-      }
-      if (formData.oldBackgroundImage) {
-        formDataToSend.append('oldBackgroundImage', formData.oldBackgroundImage);
-      }
-
       if (formData.logoFile) {
         formDataToSend.append('logo', formData.logoFile);
       }
 
-      // Handle promotion images
-      if (formData.promotionImages && formData.promotionImages.length > 0) {
-        // For now, we'll send the image URLs as strings
-        // In a real implementation, you'd need to handle file uploads properly
-        formDataToSend.append('promotionImages', JSON.stringify(formData.promotionImages));
+      if (formData.backgroundRotationDuration) {
+        formDataToSend.append(
+          'backgroundRotationDuration',
+          Math.max(1000, formData.backgroundRotationDuration).toString()
+        );
       }
+
+      const backgroundEntries = formData.backgroundImages || [];
+      const existingBackgroundUrls = backgroundEntries
+        .filter((entry) => !entry.isNew && entry.url)
+        .map((entry) => entry.url as string);
+      const newBackgroundFiles = backgroundEntries.filter((entry) => entry.isNew && entry.file);
+
+      formDataToSend.append(
+        'backgroundImagesExisting',
+        JSON.stringify(existingBackgroundUrls)
+      );
+
+      const removedBackgrounds = initialBackgroundImages.filter(
+        (url) => !existingBackgroundUrls.includes(url)
+      );
+
+      if (removedBackgrounds.length > 0) {
+        formDataToSend.append('backgroundImagesRemoved', JSON.stringify(removedBackgrounds));
+      }
+
+      newBackgroundFiles.forEach((entry) => {
+        if (entry.file) {
+          formDataToSend.append('backgroundImages', entry.file, entry.file.name);
+        }
+      });
+
+      // Handle promotion images
+      const promotionEntries = formData.promotionImages || [];
+      const existingPromotionUrls = promotionEntries
+        .filter((entry) => !entry.isNew && entry.url)
+        .map((entry) => entry.url as string);
+      const newPromotionFiles = promotionEntries.filter((entry) => entry.isNew && entry.file);
+
+      if (existingPromotionUrls.length > 0) {
+        formDataToSend.append('promotionImagesExisting', JSON.stringify(existingPromotionUrls));
+      } else {
+        formDataToSend.append('promotionImagesExisting', JSON.stringify([]));
+      }
+
+      const removedPromotion = initialPromotionImages.filter(
+        (url) => !existingPromotionUrls.includes(url)
+      );
+
+      if (removedPromotion.length > 0) {
+        formDataToSend.append('promotionImagesRemoved', JSON.stringify(removedPromotion));
+      }
+
+      newPromotionFiles.forEach((entry) => {
+        if (entry.file) {
+          formDataToSend.append('promotionImages', entry.file, entry.file.name);
+        }
+      });
 
       const response = await fetch(API_ENDPOINTS.adminSettings, {
         method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: buildAuthHeaders(token, selectedStoreId ?? undefined),
         body: formDataToSend,
       });
       
@@ -186,17 +293,47 @@ const AdminSettingsPage = () => {
         const body = await response.json().catch(() => null);
         throw new Error(body?.message || 'Failed to update settings');
       }
-      
+
       const data = await response.json();
       setSettings(data);
-      setFormData(prev => ({
+      const nextBackgroundList = Array.isArray(data.backgroundImages) && data.backgroundImages.length > 0
+        ? data.backgroundImages
+        : data.backgroundImage
+          ? [data.backgroundImage]
+          : [];
+      const nextBackgroundEntries: BackgroundImageEntry[] = nextBackgroundList.map((imageUrl) => ({
+        id: imageUrl,
+        preview: resolveImagePreview(imageUrl),
+        url: imageUrl,
+        isNew: false,
+      }));
+      const nextPromotionEntries = (data.promotionImages || []).map((imageUrl) => ({
+        id: imageUrl,
+        preview: resolveImagePreview(imageUrl),
+        url: imageUrl,
+        isNew: false,
+      }));
+
+      // Release object URLs from newly uploaded images
+      (formData.backgroundImages || [])
+        .filter((entry) => entry.isNew && entry.preview.startsWith('blob:'))
+        .forEach((entry) => URL.revokeObjectURL(entry.preview));
+      (formData.promotionImages || [])
+        .filter((entry) => entry.isNew && entry.preview.startsWith('blob:'))
+        .forEach((entry) => URL.revokeObjectURL(entry.preview));
+
+      setInitialBackgroundImages(nextBackgroundList);
+      setInitialPromotionImages(data.promotionImages || []);
+
+      setFormData((prev) => ({
         ...prev,
-        oldBackgroundImage: data.backgroundImage || '',
-        backgroundImage: null,
+        backgroundImages: nextBackgroundEntries,
+        backgroundRotationDuration: data.backgroundRotationDuration || prev.backgroundRotationDuration || 15000,
         logoFile: null,
         logoExistingPath: data.logo || '',
         oldLogo: data.logo || '',
         logoRemoved: false,
+        promotionImages: nextPromotionEntries,
       }));
       setStatus('success');
       setMessage('อัปเดตการตั้งค่าเรียบร้อยแล้ว');
@@ -218,7 +355,7 @@ const AdminSettingsPage = () => {
     }
   };
 
-  const updateField = (field: keyof FormData, value: string | File | null | boolean | number | string[]) => {
+  const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -241,6 +378,26 @@ const AdminSettingsPage = () => {
       };
     });
   };
+
+  useEffect(() => {
+    return () => {
+      (formData.promotionImages || [])
+        .filter((entry) => entry.isNew && entry.preview.startsWith('blob:'))
+        .forEach((entry) => URL.revokeObjectURL(entry.preview));
+    };
+  }, [formData.promotionImages]);
+
+  useEffect(() => {
+    return () => {
+      (formData.backgroundImages || [])
+        .filter((entry) => entry.isNew && entry.preview.startsWith('blob:'))
+        .forEach((entry) => URL.revokeObjectURL(entry.preview));
+    };
+  }, [formData.backgroundImages]);
+
+  if (!locked && !selectedStoreId) {
+    return <p className="text-sm font-th text-slate-300">เลือกสาขาเพื่อแก้ไขการตั้งค่า</p>;
+  }
 
   if (!settings) {
     return <p className="text-sm font-th text-slate-300">Loading settings…</p>;
@@ -270,6 +427,9 @@ const AdminSettingsPage = () => {
           >
             ตั้งค่าหน้าไซต์
           </h1>
+          {selectedStore ? (
+            <p className="mt-1 text-xs uppercase tracking-[0.35em] text-indigo-200">{selectedStore.name}</p>
+          ) : null}
           <p lang="th" className="mx-auto mt-3 max-w-2xl text-sm text-slate-300">
             ข้อมูลเหล่านี้จะอัปเดตหน้า Landing Page และจอหลักแบบเรียลไทม์
           </p>
@@ -333,14 +493,104 @@ const AdminSettingsPage = () => {
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <ImageUpload
-                  value={formData.oldBackgroundImage || ''}
-                  onChange={(file) => updateField('backgroundImage', file)}
-                  label="Background Image"
-                  placeholder="คลิกเพื่อเลือกรูปพื้นหลัง"
-                />
-                <p className="text-xs text-slate-400">แนะนำอัตราส่วน 16:9 (เช่น 1920x1080) สำหรับพื้นหลังจอ TV</p>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-white">ภาพพื้นหลัง</label>
+                  <p className="mt-1 text-xs text-slate-400">
+                    อัปโหลดได้หลายภาพ ระบบจะสลับพื้นหลังอัตโนมัติ (แนะนำอัตราส่วน 16:9 เช่น 1920x1080)
+                  </p>
+
+                  <div className="mt-3">
+                    <label className="cursor-pointer">
+                      <div className="flex gap-2 justify-center items-center p-4 rounded-lg border-2 border-dashed transition-colors border-white/20 bg-slate-900/30 hover:border-indigo-400 hover:bg-slate-900/50">
+                        <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        <span className="text-sm text-slate-300">เพิ่มภาพพื้นหลัง</span>
+                      </div>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={(event) => {
+                          const files = Array.from(event.target.files || []);
+                          if (files.length === 0) return;
+
+                          const newEntries: BackgroundImageEntry[] = files.map((file) => ({
+                            id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                            preview: URL.createObjectURL(file),
+                            file,
+                            isNew: true,
+                          }));
+
+                          updateField('backgroundImages', [...(formData.backgroundImages || []), ...newEntries]);
+                          event.target.value = '';
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-3 space-y-3">
+                    {formData.backgroundImages?.map((entry, index) => (
+                      <div
+                        key={entry.id}
+                        className="flex gap-3 items-center p-3 rounded-lg border border-white/10 bg-slate-900/30"
+                      >
+                        <img
+                          src={entry.preview}
+                          alt={`พื้นหลัง ${index + 1}`}
+                          className="object-cover w-20 h-14 rounded-lg border border-white/10"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-white truncate">พื้นหลัง {index + 1}</p>
+                          <p className="text-xs text-slate-400 truncate">
+                            {entry.isNew ? entry.file?.name ?? 'ไฟล์ใหม่' : entry.url}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const removedEntry = formData.backgroundImages?.[index];
+                            if (removedEntry?.isNew && removedEntry.preview.startsWith('blob:')) {
+                              URL.revokeObjectURL(removedEntry.preview);
+                            }
+                            const next = formData.backgroundImages?.filter((_, i) => i !== index) || [];
+                            updateField('backgroundImages', next);
+                          }}
+                          className="p-2 text-rose-400 transition-colors hover:text-rose-300"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+
+                    {(!formData.backgroundImages || formData.backgroundImages.length === 0) && (
+                      <div className="py-6 text-center text-slate-400 border border-dashed border-white/10 rounded-xl bg-slate-900/30">
+                        <p className="text-sm">ยังไม่มีภาพพื้นหลัง</p>
+                        <p className="mt-1 text-xs">เพิ่มภาพพื้นหลังเพื่อให้ TV แสดงแบบสลับอัตโนมัติ</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-white">ระยะเวลาสลับภาพพื้นหลัง (วินาที)</label>
+                  <p className="mt-1 text-xs text-slate-400">กำหนดเวลาในการเปลี่ยนภาพ (อย่างน้อย 3 วินาที)</p>
+                  <input
+                    type="number"
+                    min={3}
+                    max={120}
+                    value={Math.round((formData.backgroundRotationDuration || 15000) / 1000)}
+                    onChange={(event) => {
+                      const seconds = Number.parseInt(event.target.value, 10) || 15;
+                      updateField('backgroundRotationDuration', Math.max(3000, seconds * 1000));
+                    }}
+                    className="px-3 py-2 mt-2 w-full text-sm text-white rounded-lg border border-white/10 bg-slate-900/60 focus:border-indigo-400 focus:outline-none"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -536,8 +786,21 @@ const AdminSettingsPage = () => {
                     accept="image/*"
                     onChange={(event) => {
                       const files = Array.from(event.target.files || []);
-                      const newImages = [...(formData.promotionImages || []), ...files.map(file => URL.createObjectURL(file))];
-                      updateField('promotionImages', newImages);
+                      if (files.length === 0) {
+                        return;
+                      }
+
+                      const newEntries: PromotionImageEntry[] = files.map((file) => ({
+                        id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                        preview: URL.createObjectURL(file),
+                        file,
+                        isNew: true,
+                      }));
+
+                      updateField('promotionImages', [...(formData.promotionImages || []), ...newEntries]);
+
+                      // Reset input so the same file can be selected again if needed
+                      event.target.value = '';
                     }}
                     className="hidden"
                   />
@@ -545,20 +808,26 @@ const AdminSettingsPage = () => {
               </div>
               
               <div className="mt-3 space-y-3">
-                {formData.promotionImages?.map((image, index) => (
-                  <div key={index} className="flex gap-3 items-center p-3 rounded-lg border border-white/10 bg-slate-900/30">
+                {formData.promotionImages?.map((entry, index) => (
+                  <div key={entry.id} className="flex gap-3 items-center p-3 rounded-lg border border-white/10 bg-slate-900/30">
                     <img
-                      src={image.startsWith('/uploads/') ? `${window.location.origin}/api${image}` : image}
+                      src={entry.preview}
                       alt={`โปรโมชั่น ${index + 1}`}
                       className="object-cover w-16 h-16 rounded-lg"
                     />
                     <div className="flex-1">
                       <p className="text-sm text-white">ภาพโปรโมชั่น {index + 1}</p>
-                      <p className="text-xs text-slate-400">{image}</p>
+                      <p className="text-xs text-slate-400">
+                        {entry.isNew ? entry.file?.name ?? 'ไฟล์ใหม่' : entry.url}
+                      </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => {
+                        const removed = formData.promotionImages?.[index];
+                        if (removed?.isNew && removed.preview.startsWith('blob:')) {
+                          URL.revokeObjectURL(removed.preview);
+                        }
                         const newImages = formData.promotionImages?.filter((_, i) => i !== index) || [];
                         updateField('promotionImages', newImages);
                       }}
@@ -591,12 +860,12 @@ const AdminSettingsPage = () => {
             type="button"
             onClick={() => handleSubmit()}
             className="group relative inline-flex items-center justify-center gap-3 overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-12 py-4 text-sm font-semibold uppercase tracking-[0.35em] text-white shadow-[0_22px_55px_rgba(99,102,241,0.45)] transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
-            disabled={status === 'saving'}
+            disabled={status === 'saving' || loadingStores}
           >
-            {status === 'saving' ? (
+            {status === 'saving' || loadingStores ? (
               <>
                 <div className="w-5 h-5 rounded-full border-2 border-white animate-spin border-t-transparent" />
-                <span className="font-en">Saving…</span>
+                <span className="font-en">{loadingStores ? 'Loading…' : 'Saving…'}</span>
               </>
             ) : (
               <>

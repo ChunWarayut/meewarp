@@ -1,6 +1,8 @@
 import { type FormEvent, useEffect, useState } from 'react';
 import { API_ENDPOINTS } from '../../config';
 import { useAuth } from '../../contexts/AuthContext';
+import { useStoreContext } from '../../contexts/StoreContext';
+import { buildAuthHeaders } from '../../utils/http';
 
 type Order = {
   _id: string;
@@ -32,6 +34,7 @@ const statusOptions = [
 
 const AdminRevenue = () => {
   const { token } = useAuth();
+  const { selectedStoreId, selectedStore, locked, loadingStores } = useStoreContext();
   const [orders, setOrders] = useState<OrdersResponse | null>(null);
   const [status, setStatus] = useState('paid');
   const [search, setSearch] = useState('');
@@ -42,7 +45,7 @@ const AdminRevenue = () => {
   const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
-    if (!token) return;
+    if (!token || !selectedStoreId) return;
     try {
       setLoading(true);
       setError(null);
@@ -55,7 +58,7 @@ const AdminRevenue = () => {
       if (to) params.set('to', to);
 
       const response = await fetch(`${API_ENDPOINTS.adminOrders}?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: buildAuthHeaders(token, selectedStoreId ?? undefined),
       });
       if (!response.ok) {
         throw new Error('Failed to load orders');
@@ -70,18 +73,21 @@ const AdminRevenue = () => {
   };
 
   useEffect(() => {
-    load();
+    if (token && selectedStoreId) {
+      load();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, page]);
+  }, [token, page, selectedStoreId]);
 
   const handleFilter = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setPage(1);
+    if (!selectedStoreId) return;
     load();
   };
 
   const handleExport = async (format: 'csv' | 'pdf') => {
-    if (!token) return;
+    if (!token || !selectedStoreId) return;
     const params = new URLSearchParams();
     if (status) params.set('status', status);
     if (search) params.set('search', search);
@@ -89,7 +95,7 @@ const AdminRevenue = () => {
     if (to) params.set('to', to);
 
     const response = await fetch(`${API_ENDPOINTS.adminOrders}?format=${format}&${params.toString()}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: buildAuthHeaders(token, selectedStoreId ?? undefined),
     });
 
     if (!response.ok) {
@@ -106,25 +112,34 @@ const AdminRevenue = () => {
     window.URL.revokeObjectURL(url);
   };
 
+  if (!locked && !selectedStoreId) {
+    return <p className="text-sm text-slate-300">เลือกสาขาเพื่อดูรายงานรายได้</p>;
+  }
+
   return (
     <div className="space-y-8">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.4em] text-indigo-300">Revenue</p>
           <h1 className="mt-2 text-3xl font-semibold text-white">Revenue History</h1>
+          {selectedStore ? (
+            <p className="mt-1 text-xs uppercase tracking-[0.35em] text-indigo-200">{selectedStore.name}</p>
+          ) : null}
         </div>
         <div className="flex gap-2">
           <button
             type="button"
             onClick={() => handleExport('csv')}
-            className="rounded-lg border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-200 transition hover:border-white/40 hover:text-white"
+            className="rounded-lg border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-200 transition hover:border-white/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!selectedStoreId}
           >
             Export CSV
           </button>
           <button
             type="button"
             onClick={() => handleExport('pdf')}
-            className="rounded-lg bg-indigo-500 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white shadow-[0_16px_40px_rgba(99,102,241,0.35)] transition hover:bg-indigo-400"
+            className="rounded-lg bg-indigo-500 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white shadow-[0_16px_40px_rgba(99,102,241,0.35)] transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!selectedStoreId}
           >
             Export PDF
           </button>
@@ -186,7 +201,7 @@ const AdminRevenue = () => {
         </div>
       </form>
 
-      {loading ? (
+      {loading || loadingStores ? (
         <p className="text-sm text-slate-300">Loading revenue history…</p>
       ) : error ? (
         <p className="text-sm text-rose-300">{error}</p>

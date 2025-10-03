@@ -1,25 +1,12 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { deleteImageByUrl } = require('../services/cloudflareImagesService');
 
-// Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, '../uploads/images');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
 
-// Configure storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    // Generate unique filename with timestamp
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
-  }
-});
+// Configure storage to keep files in memory before forwarding to Cloudflare
+const storage = multer.memoryStorage();
 
 // File filter for images only
 const fileFilter = (req, file, cb) => {
@@ -40,12 +27,23 @@ const upload = multer({
 });
 
 // Helper function to delete old image
-const deleteOldImage = (imagePath) => {
-  if (imagePath && !imagePath.startsWith('http')) {
-    const fullPath = path.join(uploadsDir, path.basename(imagePath));
-    if (fs.existsSync(fullPath)) {
-      fs.unlinkSync(fullPath);
+const deleteOldImage = async (imagePath) => {
+  if (!imagePath) {
+    return;
+  }
+
+  if (imagePath.startsWith('http')) {
+    try {
+      await deleteImageByUrl(imagePath);
+    } catch (error) {
+      console.error('Failed to delete Cloudflare image', error);
     }
+    return;
+  }
+
+  const fullPath = path.join(uploadsDir, path.basename(imagePath));
+  if (fs.existsSync(fullPath)) {
+    fs.unlinkSync(fullPath);
   }
 };
 

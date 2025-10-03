@@ -5,6 +5,10 @@ module.exports = function requireRole(...roles) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
+    if (admin.role === 'superadmin') {
+      return next();
+    }
+
     if (!roles.includes(admin.role)) {
       return res.status(403).json({ message: 'Insufficient privileges' });
     }

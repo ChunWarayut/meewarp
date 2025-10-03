@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { API_ENDPOINTS } from '../../config';
 import { useAuth } from '../../contexts/AuthContext';
+import { useStoreContext } from '../../contexts/StoreContext';
+import { buildAuthHeaders } from '../../utils/http';
 
 type Customer = {
   customerName: string;
@@ -21,20 +23,21 @@ type CustomerResponse = {
 
 const AdminCustomers = () => {
   const { token } = useAuth();
+  const { selectedStoreId, selectedStore, locked, loadingStores } = useStoreContext();
   const [customers, setCustomers] = useState<CustomerResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
   const load = async () => {
-    if (!token) return;
+    if (!token || !selectedStoreId) return;
     try {
       setLoading(true);
       setError(null);
       const params = new URLSearchParams();
       if (search) params.set('search', search);
       const response = await fetch(`${API_ENDPOINTS.adminCustomers}?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: buildAuthHeaders(token, selectedStoreId ?? undefined),
       });
       if (!response.ok) {
         throw new Error('Failed to load customers');
@@ -49,9 +52,19 @@ const AdminCustomers = () => {
   };
 
   useEffect(() => {
-    load();
+    if (token && selectedStoreId) {
+      load();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, selectedStoreId]);
+
+  if (!locked && !selectedStoreId) {
+    return (
+      <div className="space-y-6">
+        <p className="text-sm text-slate-300">เลือกสาขาเพื่อดูลูกค้าของร้าน</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -59,6 +72,9 @@ const AdminCustomers = () => {
         <div>
           <p className="text-xs uppercase tracking-[0.4em] text-indigo-300">Customers</p>
           <h1 className="mt-2 text-3xl font-semibold text-white">Supporter Directory</h1>
+          {selectedStore ? (
+            <p className="text-xs uppercase tracking-[0.4em] text-indigo-200">{selectedStore.name}</p>
+          ) : null}
         </div>
         <div className="flex gap-2">
           <input
@@ -77,7 +93,7 @@ const AdminCustomers = () => {
         </div>
       </header>
 
-      {loading ? (
+      {loading || loadingStores ? (
         <p className="text-sm text-slate-300">Loading customers…</p>
       ) : error ? (
         <p className="text-sm text-rose-300">{error}</p>

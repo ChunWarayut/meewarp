@@ -2,6 +2,11 @@ const mongoose = require('mongoose');
 
 const WarpTransactionSchema = new mongoose.Schema(
   {
+    store: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Store',
+      index: true,
+    },
     warpProfile: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'WarpProfile',
@@ -81,5 +86,8 @@ const WarpTransactionSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+WarpTransactionSchema.index({ store: 1, status: 1, createdAt: -1 });
+WarpTransactionSchema.index({ store: 1, code: 1, createdAt: -1 });
 
 module.exports = mongoose.model('WarpTransaction', WarpTransactionSchema);

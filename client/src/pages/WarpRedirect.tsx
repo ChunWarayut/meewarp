@@ -9,7 +9,7 @@ type WarpResponse = {
 };
 
 const WarpRedirect = () => {
-  const { code } = useParams<{ code: string }>();
+  const { code, storeSlug } = useParams<{ code: string; storeSlug?: string }>();
   const [status, setStatus] = useState<WarpStatus>('loading');
 
   useEffect(() => {
@@ -22,7 +22,7 @@ const WarpRedirect = () => {
 
     const fetchWarpProfile = async () => {
       try {
-        const response = await fetch(API_ENDPOINTS.warpProfile(code));
+        const response = await fetch(API_ENDPOINTS.warpProfile(code, storeSlug));
 
         if (response.status === 404) {
           if (isMounted) {
@@ -42,7 +42,7 @@ const WarpRedirect = () => {
         }
 
         window.location.replace(data.socialLink);
-      } catch (error) {
+      } catch {
         if (isMounted) {
           setStatus('error');
         }
@@ -54,7 +54,7 @@ const WarpRedirect = () => {
     return () => {
       isMounted = false;
     };
-  }, [code]);
+  }, [code, storeSlug]);
 
   if (status === 'loading') {
     return (

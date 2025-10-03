@@ -1,6 +1,8 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { API_ENDPOINTS } from '../../config';
 import { useAuth } from '../../contexts/AuthContext';
+import { useStoreContext } from '../../contexts/StoreContext';
+import { buildAuthHeaders } from '../../utils/http';
 
 type StatisticsResponse = {
   summary: {
@@ -9,12 +11,13 @@ type StatisticsResponse = {
     seconds: number;
   };
   timeline: { date: string; revenue: number; warps: number }[];
-  gender: any[]; // Kept for compatibility but not used
-  ageRanges: any[]; // Kept for compatibility but not used
+  gender: unknown[]; // Kept for compatibility but not used
+  ageRanges: unknown[]; // Kept for compatibility but not used
 };
 
 const AdminStatistics = () => {
   const { token } = useAuth();
+  const { selectedStoreId, selectedStore, locked, loadingStores } = useStoreContext();
   const [range, setRange] = useState<'day' | 'week' | 'month' | 'custom'>('week');
   // Gender and age filters removed since these fields are no longer collected
   const [from, setFrom] = useState('');
@@ -25,7 +28,7 @@ const AdminStatistics = () => {
 
   const fetchStats = async (query: string) => {
     const response = await fetch(`${API_ENDPOINTS.adminStatistics}${query}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: buildAuthHeaders(token, selectedStoreId ?? undefined),
     });
     if (!response.ok) {
       const body = await response.json().catch(() => null);
@@ -35,7 +38,7 @@ const AdminStatistics = () => {
   };
 
   const load = async () => {
-    if (!token) return;
+    if (!token || !selectedStoreId) return;
     try {
       setLoading(true);
       setError(null);
@@ -55,12 +58,17 @@ const AdminStatistics = () => {
   };
 
   useEffect(() => {
-    load();
+    if (token && selectedStoreId) {
+      load();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, selectedStoreId]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!selectedStoreId) {
+      return;
+    }
     load();
   };
 
@@ -82,11 +90,22 @@ const AdminStatistics = () => {
     ];
   }, [data]);
 
+  if (!locked && !selectedStoreId) {
+    return (
+      <div className="space-y-8">
+        <p className="text-sm text-slate-300">เลือกสาขาเพื่อดูรายงานสถิติ</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <header>
         <p className="text-xs uppercase tracking-[0.4em] text-indigo-300">Analytics</p>
         <h1 className="mt-2 text-3xl font-semibold text-white">Warp Statistics</h1>
+        {selectedStore ? (
+          <p className="mt-1 text-xs uppercase tracking-[0.35em] text-indigo-200">{selectedStore.name}</p>
+        ) : null}
       </header>
 
       <form
@@ -142,7 +161,7 @@ const AdminStatistics = () => {
         </div>
       </form>
 
-      {loading ? (
+      {loading || loadingStores ? (
         <p className="text-sm text-slate-300">Loading statistics…</p>
       ) : error ? (
         <p className="text-sm text-rose-300">{error}</p>

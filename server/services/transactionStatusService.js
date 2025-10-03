@@ -239,8 +239,9 @@ async function checkTransactionStatus({ transactionId, reference, actor = 'syste
   });
 
   if (updated && newStatus === 'paid') {
-    leaderboardEmitter.emit('update');
-    displayEmitter.emit('update');
+    const storeId = transaction.store ? transaction.store.toString() : null;
+    leaderboardEmitter.emit('update', { storeId });
+    displayEmitter.emit('update', { storeId });
 
     await appendActivity(transaction._id, {
       action: 'status_changed',

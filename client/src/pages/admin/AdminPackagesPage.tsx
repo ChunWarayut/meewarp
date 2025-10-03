@@ -1,6 +1,8 @@
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { API_ENDPOINTS } from '../../config';
 import { useAuth } from '../../contexts/AuthContext';
+import { useStoreContext } from '../../contexts/StoreContext';
+import { buildAuthHeaders } from '../../utils/http';
 
 type WarpPackage = {
   _id: string;
@@ -12,19 +14,20 @@ type WarpPackage = {
 
 const AdminPackagesPage = () => {
   const { token, admin } = useAuth();
+  const { selectedStoreId, selectedStore, locked, loadingStores } = useStoreContext();
   const [packages, setPackages] = useState<WarpPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', seconds: '', price: '' });
 
-  const canEdit = admin?.role === 'manager' || admin?.role === 'superadmin';
+  const canEdit = (admin?.role === 'manager' || admin?.role === 'superadmin') && Boolean(selectedStoreId);
 
-  const load = async () => {
-    if (!token) return;
+  const load = useCallback(async () => {
+    if (!token || !selectedStoreId) return;
     try {
       setLoading(true);
       const response = await fetch(`${API_ENDPOINTS.adminPackages}?includeInactive=true`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: buildAuthHeaders(token, selectedStoreId ?? undefined),
       });
       if (!response.ok) {
         throw new Error('Failed to load packages');
@@ -36,23 +39,22 @@ const AdminPackagesPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, selectedStoreId]);
 
   useEffect(() => {
-    load();
-  }, [token]);
+    if (token && selectedStoreId) {
+      load();
+    }
+  }, [token, selectedStoreId, load]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!token) return;
+    if (!token || !selectedStoreId) return;
 
     try {
       const response = await fetch(API_ENDPOINTS.adminPackages, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: buildAuthHeaders(token, selectedStoreId ?? undefined, { 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           name: form.name,
           seconds: Number(form.seconds),
@@ -71,14 +73,18 @@ const AdminPackagesPage = () => {
   };
 
   const togglePackage = async (pkg: WarpPackage) => {
-    if (!token) return;
+    if (!token || !selectedStoreId) return;
     await fetch(`${API_ENDPOINTS.adminPackages}/${pkg._id}`, {
       method: 'PUT',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      headers: buildAuthHeaders(token, selectedStoreId ?? undefined, { 'Content-Type': 'application/json' }),
       body: JSON.stringify({ isActive: !pkg.isActive }),
     });
     await load();
   };
+
+  if (!locked && !selectedStoreId) {
+    return <p className="text-sm text-slate-300">เลือกสาขาเพื่อจัดการแพ็กเกจ</p>;
+  }
 
   return (
     <div className="space-y-6">
@@ -88,6 +94,9 @@ const AdminPackagesPage = () => {
         <p className="mt-1 text-sm text-slate-300">
           จัดการแพ็กเกจเวลาและราคา เพื่อใช้บนหน้า Self Warp และหน้าจอหลัก
         </p>
+        {selectedStore ? (
+          <p className="mt-1 text-xs uppercase tracking-[0.35em] text-indigo-200">{selectedStore.name}</p>
+        ) : null}
       </header>
 
       {canEdit ? (
@@ -137,7 +146,7 @@ const AdminPackagesPage = () => {
         </form>
       ) : null}
 
-      {loading ? (
+      {loading || loadingStores ? (
         <p className="text-sm text-slate-300">Loading packages…</p>
       ) : error ? (
         <p className="text-sm text-rose-300">{error}</p>

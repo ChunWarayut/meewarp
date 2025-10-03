@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useStoreContext } from '../../contexts/StoreContext';
 
 type NavItem = {
   label: string;
@@ -17,11 +18,21 @@ const navItems: NavItem[] = [
   { label: 'Orders', to: '/admin/orders' },
   { label: 'Settings', to: '/admin/settings', roles: ['manager', 'superadmin'] },
   { label: 'Admin Users', to: '/admin/users', roles: ['superadmin'] },
+  { label: 'Stores', to: '/admin/stores', roles: ['superadmin'] },
+  { label: 'Super Report', to: '/admin/super-report', roles: ['superadmin'] },
   { label: 'Activity Log', to: '/admin/activity' },
 ];
 
 const AdminLayout = () => {
   const { clearToken, admin } = useAuth();
+  const {
+    stores,
+    selectedStoreId,
+    selectedStore,
+    setSelectedStoreId,
+    locked,
+    loadingStores,
+  } = useStoreContext();
   const navigate = useNavigate();
 
   const filteredNav = useMemo(() => {
@@ -45,6 +56,28 @@ const AdminLayout = () => {
         <div className="mb-8">
           <p className="text-xs uppercase tracking-[0.5em] text-indigo-300">meeWarp Admin</p>
           <h1 className="mt-2 text-2xl font-bold text-white drop-shadow-[0_0_20px_rgba(99,102,241,0.5)]">Control Center</h1>
+        </div>
+        <div className="mb-6 space-y-2">
+          <label className="text-[11px] uppercase tracking-[0.35em] text-indigo-200">Store</label>
+          {locked ? (
+            <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200">
+              {selectedStore?.name || '—'}
+            </div>
+          ) : (
+            <select
+              value={selectedStoreId ?? ''}
+              onChange={(event) => setSelectedStoreId(event.target.value || null)}
+              disabled={loadingStores || stores.length === 0}
+              className="w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-white focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="">เลือกสาขา</option>
+              {stores.map((store) => (
+                <option key={store.id} value={store.id}>
+                  {store.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         <nav className="flex-1 space-y-2">
           {filteredNav.map((item) => (

@@ -23,6 +23,11 @@ const AdminSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    store: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Store',
+      index: true,
+    },
     lastLoginAt: {
       type: Date,
     },
@@ -35,6 +40,21 @@ const AdminSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+AdminSchema.pre('validate', function validateStore(next) {
+  if (this.role !== 'superadmin' && !this.store) {
+    const error = new mongoose.Error.ValidationError(this);
+    error.addError(
+      'store',
+      new mongoose.Error.ValidatorError({
+        path: 'store',
+        message: 'Store is required for non-superadmin accounts',
+      })
+    );
+    return next(error);
+  }
+  return next();
+});
 
 AdminSchema.pre('save', async function preSave(next) {
   if (!this.isModified('password')) {

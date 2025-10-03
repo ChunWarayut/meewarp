@@ -41,12 +41,20 @@ function computeRange(range, from, to) {
   }
 }
 
-async function getDashboardOverview() {
+function buildStoreMatch(storeId) {
+  if (!storeId) {
+    return {};
+  }
+  return { store: new mongoose.Types.ObjectId(storeId) };
+}
+
+async function getDashboardOverview({ storeId } = {}) {
   const todayRange = computeRange('day');
+  const storeMatch = buildStoreMatch(storeId);
 
   const [totals, queue] = await Promise.all([
     WarpTransaction.aggregate([
-      { $match: { status: { $in: DISPLAY_STATUSES } } },
+      { $match: { status: { $in: DISPLAY_STATUSES }, ...storeMatch } },
       {
         $group: {
           _id: null,
@@ -60,6 +68,7 @@ async function getDashboardOverview() {
       {
         $match: {
           status: 'paid',
+          ...storeMatch,
         },
       },
       { $count: 'count' },
@@ -71,6 +80,7 @@ async function getDashboardOverview() {
       $match: {
         status: { $in: DISPLAY_STATUSES },
         createdAt: { $gte: todayRange.start, $lte: todayRange.end },
+        ...storeMatch,
       },
     },
     {
@@ -96,11 +106,12 @@ async function getDashboardOverview() {
   };
 }
 
-async function getStatistics({ range = 'week', from, to }) {
+async function getStatistics({ storeId, range = 'week', from, to }) {
   const dateRange = computeRange(range, from, to);
 
   const match = {
     status: { $in: DISPLAY_STATUSES },
+    ...buildStoreMatch(storeId),
   };
 
   if (dateRange) {
@@ -154,10 +165,10 @@ async function getStatistics({ range = 'week', from, to }) {
   };
 }
 
-async function getCustomerDirectory({ page = 1, limit = 20, search }) {
+async function getCustomerDirectory({ storeId, page = 1, limit = 20, search }) {
   const skip = (Number(page) - 1) * Number(limit);
 
-  const match = { status: { $in: DISPLAY_STATUSES } };
+  const match = { status: { $in: DISPLAY_STATUSES }, ...buildStoreMatch(storeId) };
 
   if (search) {
     match.customerName = { $regex: search, $options: 'i' };
@@ -205,8 +216,81 @@ async function getCustomerDirectory({ page = 1, limit = 20, search }) {
   };
 }
 
+async function getSuperAdminOverview() {
+  const [byStore, totals] = await Promise.all([
+    WarpTransaction.aggregate([
+      {
+        $match: {
+          status: { $in: DISPLAY_STATUSES },
+        },
+      },
+      {
+        $group: {
+          _id: '$store',
+          revenue: { $sum: '$amount' },
+          warps: { $sum: 1 },
+          seconds: { $sum: '$displaySeconds' },
+          lastTransactionAt: { $max: '$createdAt' },
+        },
+      },
+      {
+        $lookup: {
+          from: 'stores',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'store',
+        },
+      },
+      {
+        $unwind: {
+          path: '$store',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $sort: { revenue: -1 },
+      },
+    ]),
+    WarpTransaction.aggregate([
+      {
+        $match: {
+          status: { $in: DISPLAY_STATUSES },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          revenue: { $sum: '$amount' },
+          warps: { $sum: 1 },
+          seconds: { $sum: '$displaySeconds' },
+        },
+      },
+    ]),
+  ]);
+
+  const totalSummary = totals[0] || { revenue: 0, warps: 0, seconds: 0 };
+
+  return {
+    total: {
+      revenue: totalSummary.revenue,
+      warps: totalSummary.warps,
+      seconds: totalSummary.seconds,
+    },
+    stores: byStore.map((row) => ({
+      storeId: row._id ? row._id.toString() : null,
+      storeName: row.store?.name || 'Unassigned',
+      slug: row.store?.slug || null,
+      revenue: row.revenue,
+      warps: row.warps,
+      seconds: row.seconds,
+      lastTransactionAt: row.lastTransactionAt,
+    })),
+  };
+}
+
 module.exports = {
   getDashboardOverview,
   getStatistics,
   getCustomerDirectory,
+  getSuperAdminOverview,
 };

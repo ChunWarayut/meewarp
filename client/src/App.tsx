@@ -4,6 +4,7 @@ import MarketingLandingPage from './pages/MarketingLandingPage';
 import TvLandingPage from './pages/TvLandingPage';
 import SelfWarpPage from './pages/SelfWarpPage';
 import { AuthProvider } from './contexts/AuthContext';
+import { StoreProvider } from './contexts/StoreContext';
 import AdminActivity from './pages/AdminActivity';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminLayout from './components/admin/AdminLayout';
@@ -17,11 +18,15 @@ import AdminPackagesPage from './pages/admin/AdminPackagesPage';
 import AdminOrdersPage from './pages/admin/AdminOrdersPage';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
 import AdminCreateWarpPage from './pages/admin/AdminCreateWarpPage';
+import AdminSuperReport from './pages/admin/AdminSuperReport';
+import AdminStoresPage from './pages/admin/AdminStoresPage';
 
 const AppRoutes = () => (
   <Routes>
     <Route path="/" element={<MarketingLandingPage />} />
+    <Route path=":storeSlug" element={<MarketingLandingPage />} />
     <Route path="/tv" element={<TvLandingPage />} />
+    <Route path=":storeSlug/tv" element={<TvLandingPage />} />
     <Route path="/admin/login" element={<AdminLoginPage />} />
     <Route element={<AdminGuard />}>
       <Route path="/admin" element={<AdminLayout />}>
@@ -36,10 +41,14 @@ const AppRoutes = () => (
         <Route path="users" element={<AdminUsersPage />} />
         <Route path="create-warp" element={<AdminCreateWarpPage />} />
         <Route path="activity" element={<AdminActivity />} />
+        <Route path="super-report" element={<AdminSuperReport />} />
+        <Route path="stores" element={<AdminStoresPage />} />
       </Route>
     </Route>
     <Route path="/self-warp" element={<SelfWarpPage />} />
+    <Route path=":storeSlug/self-warp" element={<SelfWarpPage />} />
     <Route path="/warp/:code" element={<WarpRedirect />} />
+    <Route path=":storeSlug/warp/:code" element={<WarpRedirect />} />
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes>
 );
@@ -47,7 +56,9 @@ const AppRoutes = () => (
 const App = () => {
   return (
     <AuthProvider>
-      <AppRoutes />
+      <StoreProvider>
+        <AppRoutes />
+      </StoreProvider>
     </AuthProvider>
   );
 };
