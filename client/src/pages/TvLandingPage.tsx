@@ -857,7 +857,7 @@ const TvLandingPage = () => {
                   <span className="text-white/75">เหลือเวลา</span>
                   <span className="font-mono text-lg tracking-widest text-white">{countdownLabel}</span>
                 </div>
-                {warpSocialQr ? (
+                {/* {warpSocialQr ? (
                   <div
                     className="pointer-events-none absolute bottom-6 right-6 flex items-center gap-4 rounded-[32px] border border-white/15 bg-white/12 px-4 py-3 text-left text-white shadow-[0_25px_65px_rgba(15,23,42,0.45)] backdrop-blur-xl warp-fade-up warp-soft-pulse"
                     style={{ animationDelay: '0.4s' }}
@@ -872,13 +872,13 @@ const TvLandingPage = () => {
                       </span>
                     </div>
                   </div>
-                ) : null}
+                ) : null} */}
               </div>
             </div>
 
             {warpSocialQr ? (
               <div
-                className="flex items-center gap-4 px-5 py-4 mt-24 rounded-[32px] border border-white/10 bg-white/10 text-left text-white shadow-[0_28px_90px_rgba(15,23,42,0.45)] warp-fade-up"
+                className="flex items-center gap-4 px-5 py-4 rounded-[32px] border border-white/10 bg-white/10 text-left text-white shadow-[0_28px_90px_rgba(15,23,42,0.45)] warp-fade-up"
                 style={{ animationDelay: '0.5s' }}
               >
                 <div className="flex overflow-hidden justify-center items-center w-20 h-20 bg-white rounded-2xl">
