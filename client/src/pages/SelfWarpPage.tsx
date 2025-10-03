@@ -326,13 +326,13 @@ const SelfWarpPage = () => {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100 font-th" style={{ letterSpacing: '-0.02em' }}>
+    <div className="overflow-hidden relative min-h-screen bg-slate-950 text-slate-100 font-th" style={{ letterSpacing: '-0.02em' }}>
       <div
-        className="pointer-events-none absolute inset-x-1/3 -top-32 h-72 w-72 rounded-full bg-indigo-500/30 blur-3xl"
+        className="absolute -top-32 inset-x-1/3 w-72 h-72 rounded-full blur-3xl pointer-events-none bg-indigo-500/30"
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute -left-12 top-1/2 h-96 w-96 -translate-y-1/2 rounded-full bg-pink-500/20 blur-3xl"
+        className="absolute -left-12 top-1/2 w-96 h-96 rounded-full blur-3xl -translate-y-1/2 pointer-events-none bg-pink-500/20"
         aria-hidden
       />
       <div
@@ -340,9 +340,9 @@ const SelfWarpPage = () => {
         aria-hidden
       />
 
-      <div className="relative z-10 mx-auto max-w-4xl px-4 py-10 sm:px-6 sm:py-12">
+      <div className="relative z-10 px-4 py-10 mx-auto max-w-4xl sm:px-6 sm:py-12">
         {/* Header */}
-        <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 mb-10 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="font-en text-xs uppercase tracking-[0.5em] text-indigo-300">Self Warp</p>
             <h1
@@ -367,7 +367,7 @@ const SelfWarpPage = () => {
                 แจกวาร์ปตัวเอง
               </p>
 
-              <div className="mt-4 grid gap-4 sm:mt-6 sm:gap-6 lg:grid-cols-2">
+              <div className="grid gap-4 mt-4 sm:mt-6 sm:gap-6 lg:grid-cols-2">
                 <div>
                   <label
                     lang="th"
@@ -422,7 +422,7 @@ const SelfWarpPage = () => {
                     />
                     <label
                       htmlFor="warp-self-upload"
-                      className="mx-auto flex w-full max-w-xs cursor-pointer flex-col items-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 text-sm font-medium text-indigo-100 transition hover:border-indigo-300/70 hover:bg-indigo-500/20 sm:gap-3 sm:px-6 sm:py-4"
+                      className="flex flex-col gap-2 items-center px-4 py-3 mx-auto w-full max-w-xs text-sm font-medium text-indigo-100 rounded-xl border transition cursor-pointer border-indigo-500/30 bg-indigo-500/10 hover:border-indigo-300/70 hover:bg-indigo-500/20 sm:gap-3 sm:px-6 sm:py-4"
                     >
                       <span className="font-en rounded-full border border-indigo-400/50 bg-indigo-500/20 px-3 py-1 text-xs uppercase tracking-[0.35em] text-indigo-100 sm:px-4 sm:py-2">
                         Upload
@@ -436,7 +436,7 @@ const SelfWarpPage = () => {
                         <img
                           src={`data:image/jpeg;base64,${form.selfImage}`}
                           alt="preview"
-                          className="h-full w-full object-cover"
+                          className="object-cover w-full h-full"
                         />
                       </div>
                     ) : null}
@@ -452,7 +452,7 @@ const SelfWarpPage = () => {
             <section>
               <h3 className="font-en text-xs uppercase tracking-[0.45em] text-pink-300 sm:text-sm">Step 2</h3>
 
-              <div className="mt-4 grid grid-cols-3 gap-2 sm:mt-6 sm:gap-4">
+              <div className="grid grid-cols-2 gap-2 mt-4 sm:mt-6 sm:gap-4">
                 {options.map((option) => {
                   const isActive = form.packageId ? form.packageId === option.id : form.seconds === option.seconds;
                   return (
@@ -542,11 +542,11 @@ const SelfWarpPage = () => {
                 className="mt-2 w-full resize-none rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
                 style={{ letterSpacing: '-0.02em' }}
               />
-              <div className="mt-1 flex justify-between">
+              <div className="flex justify-between mt-1">
                 <p lang="th" className="text-xs text-slate-400">
                   คำคมนี้จะแสดงบนจอพร้อมกับวาร์ปของคุณ
                 </p>
-                <p className="font-en text-xs text-slate-400">{form.quote.length}/200</p>
+                <p className="text-xs font-en text-slate-400">{form.quote.length}/200</p>
               </div>
               {fieldErrors.quote ? (
                 <p className="mt-1 text-xs text-rose-300">{fieldErrors.quote}</p>
@@ -555,11 +555,11 @@ const SelfWarpPage = () => {
 
             {/* Price Summary */}
             <section className="rounded-2xl border border-indigo-400/30 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 p-5 shadow-[0_18px_45px_rgba(8,12,24,0.5)] sm:rounded-3xl sm:p-6">
-              <div className="flex items-center justify-between">
+              <div className="flex justify-between items-center">
                 <p lang="th" className="text-base font-semibold text-white sm:text-lg">
                   รวมทั้งสิ้น
                 </p>
-                <p className="font-en text-xl font-bold tracking-wide text-indigo-200 sm:text-2xl">{priceLabel}</p>
+                <p className="text-xl font-bold tracking-wide text-indigo-200 font-en sm:text-2xl">{priceLabel}</p>
               </div>
             </section>
 
@@ -675,7 +675,7 @@ const SelfWarpPage = () => {
                   style={{ letterSpacing: '-0.02em' }}
                 >
                   {status === 'loading' ? (
-                    <span className="flex items-center justify-center gap-2">
+                    <span className="flex gap-2 justify-center items-center">
                       <Spinner /> กำลังบันทึก…
                     </span>
                   ) : (
