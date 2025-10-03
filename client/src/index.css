@@ -25,3 +25,50 @@ body {
 .font-en {
   font-family: var(--font-english);
 }
+
+@keyframes warp-frame-glow {
+  0% {
+    box-shadow: 0 60px 180px rgba(236, 72, 153, 0.35);
+  }
+  50% {
+    box-shadow: 0 80px 220px rgba(59, 130, 246, 0.4);
+  }
+  100% {
+    box-shadow: 0 60px 180px rgba(236, 72, 153, 0.35);
+  }
+}
+
+.warp-frame-glow {
+  animation: warp-frame-glow 12s ease-in-out infinite;
+}
+
+@keyframes warp-fade-up {
+  0% {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.warp-fade-up {
+  animation: warp-fade-up 0.7s ease forwards;
+}
+
+@keyframes warp-soft-pulse {
+  0%,
+  100% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+.warp-soft-pulse {
+  animation: warp-soft-pulse 3s ease-in-out infinite;
+}

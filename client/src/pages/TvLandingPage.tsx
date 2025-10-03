@@ -14,11 +14,14 @@ type AppSettings = {
   primaryColor?: string;
   backgroundImage?: string;
   logo?: string;
+  promotionImages?: string[];
+  promotionDuration?: number;
+  promotionEnabled?: boolean;
 };
 
 const fallbackSupporters: Supporter[] = [
   {
-    customerName: 'รอการสนับสนุน',
+    customerName: 'รอเปิดวาร์ป',
     totalAmount: 0,
     customerAvatar: null,
   },
@@ -52,9 +55,12 @@ const TvLandingPage = () => {
   const [currentWarp, setCurrentWarp] = useState<DisplayWarp | null>(null);
   const [countdown, setCountdown] = useState<number>(0);
   const [imageColors, setImageColors] = useState<{ primary: string; secondary: string } | null>(null);
+  const [currentPromotionIndex, setCurrentPromotionIndex] = useState<number>(0);
+  const [isPromotionTransitioning, setIsPromotionTransitioning] = useState<boolean>(false);
   const isFetchingWarpRef = useRef(false);
   const currentWarpRef = useRef<DisplayWarp | null>(null);
-  const fetchNextWarpRef = useRef<() => void>(() => {});
+  const fetchNextWarpRef = useRef<() => void>(() => { });
+  const promotionIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const currencyFormatter = useMemo(
     () =>
@@ -82,6 +88,9 @@ const TvLandingPage = () => {
         const data = await response.json();
         if (isMounted) {
           console.log('Settings loaded:', data);
+          console.log('Promotion enabled:', data.promotionEnabled);
+          console.log('Promotion images:', data.promotionImages);
+          console.log('Promotion duration:', data.promotionDuration);
           setSettings(data);
         }
       } catch {
@@ -157,7 +166,7 @@ const TvLandingPage = () => {
   const extractImageColors = useCallback((imageUrl: string) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    
+
     img.onload = () => {
       try {
         const canvas = document.createElement('canvas');
@@ -168,30 +177,30 @@ const TvLandingPage = () => {
         const size = 50;
         canvas.width = size;
         canvas.height = size;
-        
+
         ctx.drawImage(img, 0, 0, size, size);
         const imageData = ctx.getImageData(0, 0, size, size);
         const data = imageData.data;
 
         // Sample colors from the image
         const colors: { r: number; g: number; b: number; count: number }[] = [];
-        
+
         for (let i = 0; i < data.length; i += 4) {
           const r = data[i];
           const g = data[i + 1];
           const b = data[i + 2];
-          
+
           // Skip very light or very dark pixels
           const brightness = (r + g + b) / 3;
           if (brightness < 30 || brightness > 225) continue;
-          
+
           // Find existing color or add new one
-          const existingColor = colors.find(c => 
-            Math.abs(c.r - r) < 20 && 
-            Math.abs(c.g - g) < 20 && 
+          const existingColor = colors.find(c =>
+            Math.abs(c.r - r) < 20 &&
+            Math.abs(c.g - g) < 20 &&
             Math.abs(c.b - b) < 20
           );
-          
+
           if (existingColor) {
             existingColor.r = (existingColor.r * existingColor.count + r) / (existingColor.count + 1);
             existingColor.g = (existingColor.g * existingColor.count + g) / (existingColor.count + 1);
@@ -204,25 +213,25 @@ const TvLandingPage = () => {
 
         // Sort by frequency and get top colors
         colors.sort((a, b) => b.count - a.count);
-        
+
         if (colors.length > 0) {
           const primary = colors[0];
           const secondary = colors[1] || colors[0];
-          
+
           const primaryColor = `rgb(${Math.round(primary.r)}, ${Math.round(primary.g)}, ${Math.round(primary.b)})`;
           const secondaryColor = `rgb(${Math.round(secondary.r)}, ${Math.round(secondary.g)}, ${Math.round(secondary.b)})`;
-          
+
           setImageColors({ primary: primaryColor, secondary: secondaryColor });
         }
       } catch (error) {
         console.error('Error extracting colors:', error);
       }
     };
-    
+
     img.onerror = () => {
       console.error('Error loading image for color extraction');
     };
-    
+
     img.src = imageUrl;
   }, []);
 
@@ -490,14 +499,101 @@ const TvLandingPage = () => {
     );
   }, [currentWarp, resolveMediaSource]);
 
+  const warpAvatar = useMemo(() => {
+    if (!currentWarp) {
+      return null;
+    }
+
+    return (
+      resolveMediaSource(currentWarp.customerAvatar) ||
+      `https://ui-avatars.com/api/?background=111827&color=fff&name=${encodeURIComponent(
+        currentWarp.customerName
+      )}`
+    );
+  }, [currentWarp, resolveMediaSource]);
+
+  const warpSocialQr = useMemo(() => {
+    if (!currentWarp?.socialLink) {
+      return null;
+    }
+
+    return `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(currentWarp.socialLink)}`;
+  }, [currentWarp]);
+
+  const warpInitials = useMemo(() => {
+    if (!currentWarp) {
+      return 'MW';
+    }
+
+    const safeName = sanitizeName(currentWarp.selfDisplayName || currentWarp.customerName);
+    if (!safeName) {
+      return 'MW';
+    }
+
+    const parts = safeName.split(' ').filter(Boolean);
+    if (parts.length === 0) {
+      return 'MW';
+    }
+
+    const initials = parts
+      .map((segment) => segment[0] || '')
+      .join('')
+      .slice(0, 2)
+      .toUpperCase();
+
+    return initials || 'MW';
+  }, [currentWarp, sanitizeName]);
+
   const countdownLabel = useMemo(() => formatSeconds(countdown), [countdown, formatSeconds]);
   const totalDurationLabel = useMemo(
     () => (currentWarp ? formatSeconds(currentWarp.displaySeconds) : '00:00'),
     [currentWarp, formatSeconds]
   );
 
-  const brandName = settings?.brandName || '';
-  const tagline = settings?.tagline || '';
+  // Promotion display logic
+  useEffect(() => {
+    console.log('Promotion check:', {
+      promotionEnabled: settings?.promotionEnabled,
+      promotionImages: settings?.promotionImages,
+      imagesLength: settings?.promotionImages?.length
+    });
+
+    if (!settings?.promotionEnabled || !settings?.promotionImages || settings.promotionImages.length === 0) {
+      console.log('Promotion not enabled or no images');
+      return;
+    }
+
+    const duration = settings.promotionDuration || 5000; // Default 5 seconds
+
+    const startPromotionLoop = () => {
+      promotionIntervalRef.current = setInterval(() => {
+        setIsPromotionTransitioning(true);
+
+        setTimeout(() => {
+          setCurrentPromotionIndex((prev) => (prev + 1) % settings.promotionImages.length);
+          setIsPromotionTransitioning(false);
+        }, 500); // Half of transition duration
+      }, duration);
+    };
+
+    startPromotionLoop();
+
+    return () => {
+      if (promotionIntervalRef.current) {
+        clearInterval(promotionIntervalRef.current);
+      }
+    };
+  }, [settings?.promotionEnabled, settings?.promotionImages, settings?.promotionDuration]);
+
+  // Reset promotion index when images change
+  useEffect(() => {
+    if (settings?.promotionImages) {
+      setCurrentPromotionIndex(0);
+    }
+  }, [settings?.promotionImages]);
+
+  const brandName = settings?.brandName?.trim() || '';
+  const tagline = settings?.tagline?.trim() || '';
   const backgroundImage = useMemo(() => {
     if (!settings?.backgroundImage) {
       setImageColors(null);
@@ -511,12 +607,12 @@ const TvLandingPage = () => {
       imageUrl = resolveMediaSource(settings.backgroundImage);
     }
     console.log('Background image URL:', imageUrl);
-    
+
     // Extract colors from the image
     if (imageUrl) {
       extractImageColors(imageUrl);
     }
-    
+
     return imageUrl;
   }, [settings?.backgroundImage, resolveMediaSource, extractImageColors]);
 
@@ -524,6 +620,69 @@ const TvLandingPage = () => {
   const defaultSecondary = '#f472b6';
   const gradientPrimary = imageColors?.primary || defaultPrimary;
   const gradientSecondary = imageColors?.secondary || defaultSecondary;
+  const displayBrandName = brandName || '';
+  const displayTagline = tagline || null;
+  const promotionEnabled = Boolean(settings?.promotionEnabled);
+  const hasPromotionImages = Boolean(settings?.promotionImages && settings.promotionImages.length > 0);
+  const promotionImageSrc = hasPromotionImages
+    ? settings?.promotionImages?.[currentPromotionIndex] ?? null
+    : null;
+  const verticalLogoSrc = useMemo(() => {
+    if (!settings?.logo) {
+      return null;
+    }
+    if (settings.logo.startsWith('/uploads/')) {
+      if (typeof window === 'undefined') {
+        return settings.logo;
+      }
+      return `${window.location.origin}/api${settings.logo}`;
+    }
+    return resolveMediaSource(settings.logo);
+  }, [settings?.logo, resolveMediaSource]);
+
+  const [viewport, setViewport] = useState(() => {
+    if (typeof window === 'undefined') {
+      return { width: 1920, height: 1080 };
+    }
+    return { width: window.innerWidth, height: window.innerHeight };
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const handleResize = () => {
+      setViewport({ width: window.innerWidth, height: window.innerHeight });
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  const aspectRatio = useMemo(() => {
+    const height = Math.max(viewport.height, 1);
+    return viewport.width / height;
+  }, [viewport]);
+
+  const layoutVariant = useMemo(() => {
+    if (aspectRatio <= 0.8) {
+      return 'portrait';
+    }
+    if (aspectRatio >= 1.9) {
+      return 'widescreen';
+    }
+    return 'standard';
+  }, [aspectRatio]);
+
+  const isPortrait = layoutVariant === 'portrait';
+  const isWidescreen = layoutVariant === 'widescreen';
+  const mainPaddingClass = isPortrait
+    ? 'px-5 py-6 sm:px-8 sm:py-10'
+    : 'px-6 py-8 lg:px-10 lg:py-10 xl:px-16 xl:py-12';
+  const mainMinHeightClass = isPortrait ? 'min-h-[82vh]' : 'min-h-[92vh]';
 
   const toRgba = (color: string, alpha: number) => {
     if (color.startsWith('rgb(')) {
@@ -546,27 +705,369 @@ const TvLandingPage = () => {
     return color;
   };
 
+  const promotionMinHeight = isPortrait ? '60vh' : '520px';
+
+  const warpOverlay = currentWarp ? (
+    <div className="flex absolute inset-0 z-30 justify-center items-center px-3 py-4 pointer-events-none sm:px-6 sm:py-6 lg:px-10">
+      <div
+        className="pointer-events-auto relative flex w-full h-full max-w-[1180px] flex-col gap-8 rounded-[48px] border border-white/15 bg-slate-950/85 p-6 text-white shadow-[0_55px_180px_rgba(8,12,36,0.78)] backdrop-blur-2xl sm:p-8 lg:flex-row lg:items-stretch lg:gap-10 warp-fade-up"
+        style={{ animationDelay: '0.05s' }}
+      >
+        <div className="flex relative flex-1 justify-center items-center">
+          <div className="relative w-full h-full max-w-[560px]">
+            <div className="relative overflow-hidden rounded-[44px] bg-gradient-to-br from-rose-500 via-fuchsia-500 to-indigo-500 p-[6px] shadow-[0_60px_180px_rgba(236,72,153,0.35)] warp-frame-glow">
+              <div className="relative aspect-[3/4] w-full h-full overflow-hidden rounded-[38px] bg-slate-900/80">
+                {warpImage ? (
+                  <img src={warpImage} alt={currentWarp.customerName} className="object-cover w-full h-full" />
+                ) : (
+                  <div className="flex justify-center items-center w-full h-full text-4xl font-semibold text-slate-200">
+                    MeeWarp
+                  </div>
+                )}
+                <div className="absolute inset-x-0 bottom-0 h-60 bg-gradient-to-t to-transparent from-slate-950/90 via-slate-950/10" />
+                <div className="absolute left-7 top-7 flex items-center gap-4 rounded-full bg-black/35 px-4 py-3 shadow-[0_18px_50px_rgba(2,6,23,0.45)] backdrop-blur-lg">
+                  <div className="flex overflow-hidden justify-center items-center w-16 h-16 rounded-full border-2 border-white/60 bg-white/10">
+                    {warpAvatar ? (
+                      <img src={warpAvatar} alt={currentWarp.customerName} className="object-cover w-full h-full" />
+                    ) : (
+                      <span className="text-lg font-semibold text-white">{warpInitials}</span>
+                    )}
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.35em] text-white/75">Warp Spotlight</span>
+                    <span className="text-2xl font-bold leading-tight text-white drop-shadow-[0_8px_24px_rgba(15,23,42,0.5)]">
+                      {sanitizeName(currentWarp.selfDisplayName || currentWarp.customerName)}
+                    </span>
+                  </div>
+                </div>
+                <div className="absolute bottom-7 left-7 flex items-center gap-3 rounded-full bg-white/15 px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.35em] text-white shadow-[0_18px_45px_rgba(15,23,42,0.4)] backdrop-blur-lg warp-soft-pulse">
+                  <span className="text-white/75">เหลือเวลา</span>
+                  <span className="font-mono text-lg tracking-widest text-white">{countdownLabel}</span>
+                </div>
+                {warpSocialQr ? (
+                  <div
+                    className="pointer-events-none absolute bottom-6 right-6 flex items-center gap-4 rounded-[32px] border border-white/15 bg-white/12 px-4 py-3 text-left text-white shadow-[0_25px_65px_rgba(15,23,42,0.45)] backdrop-blur-xl warp-fade-up warp-soft-pulse"
+                    style={{ animationDelay: '0.4s' }}
+                  >
+                    <div className="flex overflow-hidden justify-center items-center w-24 h-24 bg-white rounded-2xl">
+                      <img src={warpSocialQr} alt="Warp Spotlight QR" className="object-contain w-full h-full" />
+                    </div>
+                    <div className="flex flex-col gap-1 text-left">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.35em] text-white/70">สแกนเพื่อตาม</span>
+                      <span className="text-lg font-semibold text-white">
+                        {sanitizeName(currentWarp.selfDisplayName || currentWarp.customerName)}
+                      </span>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            {warpSocialQr ? (
+              <div
+                className="flex items-center gap-4 px-5 py-4 mt-24 rounded-[32px] border border-white/10 bg-white/10 text-left text-white shadow-[0_28px_90px_rgba(15,23,42,0.45)] warp-fade-up"
+                style={{ animationDelay: '0.5s' }}
+              >
+                <div className="flex overflow-hidden justify-center items-center w-20 h-20 bg-white rounded-2xl">
+                  <img src={warpSocialQr} alt="Warp Spotlight QR" className="object-contain w-full h-full" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs uppercase tracking-[0.3em] text-white/70">สแกนเพื่อตาม</p>
+                  <p className="mt-2 text-lg font-semibold">
+                    {sanitizeName(currentWarp.selfDisplayName || currentWarp.customerName)}
+                  </p>
+                  <p className="text-[11px] uppercase tracking-[0.35em] text-white/50">เปิดกล้องหรือ IG แล้วสแกน</p>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+        <div className="flex w-full max-w-[420px] flex-col gap-6">
+          <div
+            className="rounded-[36px] border border-white/10 bg-white/10 p-6 shadow-[0_35px_110px_rgba(12,18,39,0.55)] warp-fade-up"
+            style={{ animationDelay: '0.2s' }}
+          >
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-semibold uppercase tracking-[0.4em] text-indigo-100">Warp Stats</span>
+              <span className="rounded-full bg-white/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.35em] text-white/70">
+                Live
+              </span>
+            </div>
+            <div className="grid gap-4 mt-5 sm:grid-cols-2">
+              <div
+                className="flex flex-col gap-2 px-5 py-4 text-left text-emerald-100 bg-gradient-to-br rounded-3xl border border-emerald-400/30 from-emerald-400/20 to-emerald-500/10 warp-fade-up"
+                style={{ animationDelay: '0.35s' }}
+              >
+                <span className="text-[11px] uppercase tracking-[0.35em] text-emerald-200/80">เวลาที่เหลือ</span>
+                <span className="text-3xl font-bold text-white">{countdownLabel}</span>
+              </div>
+              <div
+                className="flex flex-col gap-2 px-5 py-4 text-left text-indigo-100 bg-gradient-to-br rounded-3xl border border-sky-400/25 from-sky-400/20 to-indigo-500/10 warp-fade-up"
+                style={{ animationDelay: '0.45s' }}
+              >
+                <span className="text-[11px] uppercase tracking-[0.35em] text-indigo-200/80">เวลาที่ซื้อไว้</span>
+                <span className="text-2xl font-semibold text-white">{totalDurationLabel}</span>
+              </div>
+            </div>
+          </div>
+          <div
+            className="flex flex-1 flex-col justify-between rounded-[36px] border border-white/10 bg-slate-900/65 p-6 text-left text-slate-100 shadow-[0_28px_95px_rgba(8,16,32,0.6)] warp-fade-up"
+            style={{ animationDelay: '0.6s' }}
+          >
+            <span className="text-xs uppercase tracking-[0.35em] text-white/60">ข้อความจากผู้สนับสนุน</span>
+            <p className="mt-4 text-2xl font-semibold leading-relaxed text-white">
+              {currentWarp.quote || 'เพิ่มข้อความจากผู้สนับสนุนเพื่อแสดงบนจอใหญ่'}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  const promotionPanel = (
+    <div
+      className="relative mx-auto flex h-full w-full items-center justify-center overflow-hidden rounded-[32px] border border-white/10 bg-white/10 shadow-[0_25px_60px_rgba(15,23,42,0.45)] backdrop-blur-xl"
+      style={{ minHeight: promotionMinHeight, height: '100%' }}
+    >
+      {promotionEnabled ? (
+        hasPromotionImages && promotionImageSrc ? (
+          <img
+            src={promotionImageSrc}
+            alt={`โปรโมชั่น ${currentPromotionIndex + 1}`}
+            className={`h-full w-full object-cover transition-all duration-700 ${isPromotionTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
+              }`}
+          />
+        ) : (
+          <div className="flex flex-col gap-4 justify-center items-center px-6 h-full text-center bg-gradient-to-br from-purple-900/30 to-pink-900/30 text-slate-200">
+            <div className="flex justify-center items-center w-16 h-16 text-2xl bg-gradient-to-r from-purple-500 to-pink-500 rounded-full">
+              🎉
+            </div>
+            <h4 className="text-lg font-semibold text-white lg:text-xl">เพิ่มภาพโปรโมชั่น</h4>
+            <p className="text-sm text-slate-300 lg:text-base">อัปโหลดรูปเพื่อขึ้นหน้าจอ</p>
+          </div>
+        )
+      ) : (
+        <div className="flex flex-col gap-4 justify-center items-center px-6 py-10 h-full text-center text-slate-200">
+          <div className="flex justify-center items-center w-16 h-16 text-2xl text-white rounded-full bg-white/10">
+            📺
+          </div>
+          <h4 className="text-lg font-semibold text-white lg:text-xl">เปิดโปรโมชั่นเพื่อแสดง</h4>
+          <p className="text-sm text-slate-300 lg:text-base">เปิดใช้งานในหลังบ้านเพื่อหมุนภาพบนจอ</p>
+        </div>
+      )}
+
+
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t to-transparent pointer-events-none from-slate-950/80 via-slate-950/5">
+        <div className="flex gap-4 justify-between items-end px-6 pt-12 pb-6 sm:px-8 lg:px-10">
+          <div>
+            {displayTagline ? (
+              <span className="mb-2 block text-xs uppercase tracking-[0.4em] text-indigo-200 sm:text-sm">
+                {displayTagline}
+              </span>
+            ) : null}
+            <h1 className="font-display text-[clamp(48px,6vw,120px)] font-bold uppercase leading-none text-white drop-shadow-[0_0_35px_rgba(99,102,241,0.55)]">
+              {displayBrandName}
+            </h1>
+          </div>
+          {currentWarp ? (
+            <div className="flex items-center gap-3 rounded-2xl bg-slate-900/70 px-4 py-3 text-white shadow-[0_20px_40px_rgba(15,23,42,0.4)] backdrop-blur">
+              {warpImage ? (
+                <img
+                  src={warpImage}
+                  alt={currentWarp.customerName}
+                  className="object-cover w-12 h-12 rounded-xl border border-white/20"
+                />
+              ) : (
+                <div className="flex justify-center items-center w-12 h-12 text-sm font-semibold rounded-xl border border-white/20 bg-white/10">
+                  MW
+                </div>
+              )}
+              <div className="text-right">
+                <span className="text-[10px] uppercase tracking-[0.5em] text-emerald-200">Warp</span>
+                <p className="max-w-[220px] truncate text-base font-semibold sm:text-lg">
+                  {sanitizeName(currentWarp.selfDisplayName || currentWarp.customerName)}
+                </p>
+                <span className="font-mono text-sm text-emerald-200">{countdownLabel}</span>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+
+  const logoPanel = (
+    <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-[28px] border border-white/10 bg-white/10 text-white shadow-[0_25px_60px_rgba(15,23,42,0.45)] backdrop-blur-xl">
+      {verticalLogoSrc ? (
+        <img src={verticalLogoSrc} alt={displayBrandName} className="object-cover w-full h-full" />
+      ) : (
+        <div className="flex flex-col gap-4 justify-center items-center w-full h-full text-center">
+          <div className="text-3xl font-black uppercase tracking-[0.4em] text-white">{displayBrandName}</div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderLeaderboard = (variant: 'full' | 'compact') => {
+    const previewSupporters = supportersToDisplay.slice(0, 3);
+
+    if (variant === 'compact') {
+      return (
+        <div className="flex w-full flex-col gap-3 rounded-3xl border border-white/10 bg-slate-950/40 px-5 py-4 text-slate-200 shadow-[0_15px_35px_rgba(15,23,42,0.35)] backdrop-blur">
+          <div className="flex justify-between items-center">
+            <span className="text-xs uppercase tracking-[0.4em] text-slate-300">Top Fans</span>
+            <span className="rounded-full bg-white/10 px-3 py-0.5 text-[10px] uppercase text-slate-200">
+              {hasLiveData ? 'Live' : 'Standby'}
+            </span>
+          </div>
+          <div className="space-y-3">
+            {previewSupporters.map((supporter, index) => {
+              const avatarUrl =
+                resolveMediaSource(supporter.customerAvatar) ||
+                `https://ui-avatars.com/api/?background=312e81&color=fff&name=${encodeURIComponent(
+                  supporter.customerName
+                )}`;
+              const isPlaceholder = supporter.totalAmount <= 0;
+              const amountLabel = isPlaceholder ? '—' : currencyFormatter.format(supporter.totalAmount);
+              return (
+                <div key={`${supporter.customerName}-${index}`} className="flex gap-3 items-center">
+                  <div className="relative w-10 h-10">
+                    <img
+                      src={avatarUrl}
+                      alt={supporter.customerName}
+                      className="object-cover w-full h-full rounded-full border border-white/20"
+                    />
+                    <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-500 text-[10px] text-white">
+                      {index + 1}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-white truncate">
+                      {sanitizeName(supporter.customerName)}
+                    </p>
+                  </div>
+                  <span
+                    className={`flex items-center justify-center rounded-lg border px-2 py-1 text-[10px] font-semibold ${isPlaceholder
+                        ? 'border-white/10 text-slate-300'
+                        : 'text-rose-100 border-rose-400 bg-rose-500/20'
+                      }`}
+                  >
+                    {amountLabel}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-1 flex-col rounded-[32px] border border-white/10 bg-white/5 p-6 text-left shadow-[0_20px_45px_rgba(15,23,42,0.35)] backdrop-blur-xl sm:p-7">
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-semibold text-white lg:text-xl">Top Fans</h3>
+          <span className="rounded-full bg-white/10 px-3 py-1 text-[10px] uppercase tracking-wide text-slate-200">
+            {hasLiveData ? 'Live' : 'Standby'}
+          </span>
+        </div>
+        <ul className="mt-4 space-y-3">
+          {supportersToDisplay.map((supporter, index) => {
+            const avatarUrl =
+              resolveMediaSource(supporter.customerAvatar) ||
+              `https://ui-avatars.com/api/?background=312e81&color=fff&name=${encodeURIComponent(
+                supporter.customerName
+              )}`;
+            const isPlaceholder = supporter.totalAmount <= 0;
+            const amountLabel = isPlaceholder ? '—' : currencyFormatter.format(supporter.totalAmount);
+
+            return (
+              <li key={supporter.customerName} className="flex gap-3 items-center">
+                <div className="relative">
+                  <img
+                    src={avatarUrl}
+                    alt={supporter.customerName}
+                    className="object-cover w-12 h-12 rounded-full border border-white/15"
+                  />
+                  <span className="flex absolute -top-2 -left-2 justify-center items-center w-6 h-6 text-xs font-semibold text-white bg-indigo-500 rounded-full">
+                    #{index + 1}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-white truncate">{sanitizeName(supporter.customerName)}</p>
+                </div>
+                <span
+                  className={`flex items-center justify-center rounded-lg border px-3 py-1 text-xs font-semibold ${isPlaceholder
+                      ? 'border-white/10 text-slate-300'
+                      : 'text-rose-100 border-rose-400 bg-rose-500/20'
+                    }`}
+                >
+                  {amountLabel}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    );
+  };
+
+  const renderQrPanel = (variant: 'full' | 'compact') => {
+    if (variant === 'compact') {
+      return (
+        <div className="flex w-full flex-col gap-3 rounded-3xl border border-white/10 bg-slate-950/30 px-5 py-4 text-slate-200 shadow-[0_15px_35px_rgba(15,23,42,0.35)] backdrop-blur">
+          <span className="text-xs uppercase tracking-[0.4em] text-slate-300">Self Warp</span>
+          <div className="overflow-hidden p-2 w-full h-80 rounded-2xl border border-white/15 bg-white/80">
+            {selfWarpUrl ? (
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(selfWarpUrl)}`}
+                alt="สแกนเพื่อแจกวาร์ป"
+                className="object-contain w-full h-full"
+              />
+            ) : null}
+          </div>
+          <span className="text-xs text-slate-200">สแกนเพื่อจองเวลา</span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="rounded-[32px] border border-white/10 bg-white/5 p-6 text-center shadow-[0_20px_45px_rgba(15,23,42,0.35)] backdrop-blur-xl sm:p-7">
+        <div className="mx-auto flex h-[320px] w-full max-w-[260px] items-center justify-center overflow-hidden rounded-2xl border border-white/15 bg-white/90 p-3">
+          {selfWarpUrl ? (
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(selfWarpUrl)}`}
+              alt="สแกนเพื่อแจกวาร์ป"
+              className="object-contain w-full h-full"
+            />
+          ) : null}
+        </div>
+        <p className="mt-4 text-base font-semibold text-white">Self Warp</p>
+        <p className="mt-1 text-sm text-slate-300">สแกนเพื่อจองเวลา</p>
+      </div>
+    );
+  };
+
   return (
     <div
-      className="flex overflow-hidden relative w-screen min-h-screen bg-slate-950 text-slate-100"
+      className="flex overflow-hidden relative w-screen min-h-screen bg-slate-950 text-slate-100 font-th"
       style={
         backgroundImage
           ? {
-              backgroundImage: `url(${backgroundImage})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              backgroundRepeat: 'no-repeat',
-              backgroundColor: gradientPrimary || '#0f172a',
-              backgroundClip: 'padding-box',
-              backgroundOrigin: 'padding-box',
-              backgroundAttachment: 'fixed',
-            }
+            backgroundImage: `url(${backgroundImage})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            backgroundColor: gradientPrimary || '#0f172a',
+            backgroundClip: 'padding-box',
+            backgroundOrigin: 'padding-box',
+            backgroundAttachment: 'fixed',
+          }
           : undefined
       }
     >
       {/* Blurred background image overlay */}
       {backgroundImage && (
-        <div 
+        <div
           className="fixed inset-0 pointer-events-none -z-20"
           style={{
             backgroundImage: `url(${backgroundImage})`,
@@ -574,7 +1075,7 @@ const TvLandingPage = () => {
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
             filter: 'blur(20px)',
-            transform: 'scale(1.05)', // Reduced scale for smoother edges
+            transform: 'scale(1.05)',
             opacity: 0.25,
             backgroundClip: 'padding-box',
             backgroundOrigin: 'padding-box',
@@ -584,7 +1085,7 @@ const TvLandingPage = () => {
 
       {/* Smooth edge transition overlay */}
       {backgroundImage && (
-        <div 
+        <div
           className="fixed inset-0 pointer-events-none -z-20"
           style={{
             background: `radial-gradient(ellipse at center, transparent 0%, transparent 40%, ${toRgba(gradientPrimary, 0.9)} 70%, ${toRgba(gradientPrimary, 1)} 100%)`,
@@ -606,153 +1107,44 @@ const TvLandingPage = () => {
           background: `radial-gradient(140% 140% at 50% 120%, ${toRgba(gradientSecondary, 0.35)} 0%, transparent 65%)`,
         }}
       />
-
-      {currentWarp ? (
-        <div className="flex absolute inset-0 z-20 justify-center items-center px-6 pointer-events-none">
-          <div className="pointer-events-auto w-full max-w-[800px] lg:max-w-[1200px] xl:max-w-[1400px] rounded-[32px] border-2 border-emerald-400/20 bg-gradient-to-br from-white/15 to-emerald-500/5 p-6 shadow-[0_40px_120px_rgba(20,20,40,0.65)] backdrop-blur-2xl sm:p-10 lg:p-16 xl:p-20 ring-4 ring-emerald-400/10">
-            <div className="grid gap-6 sm:gap-8 lg:gap-10 xl:gap-12 sm:grid-cols-[350px_1fr] lg:grid-cols-[450px_1fr] xl:grid-cols-[550px_1fr] sm:items-start">
-              <div className="space-y-4">
-                <div className="relative aspect-square overflow-hidden rounded-[24px] border-4 border-emerald-400/60 bg-slate-900/60 shadow-[0_35px_100px_rgba(15,23,42,0.75)] ring-8 ring-emerald-400/30 sm:rounded-[32px] transform hover:scale-[1.02] transition-all duration-500">
-                  {warpImage ? (
-                    <img src={warpImage} alt={currentWarp.customerName} className="object-cover w-full h-full transition-transform duration-500 hover:scale-110" />
-                  ) : (
-                    <div className="flex justify-center items-center w-full h-full bg-slate-900/70 text-slate-100">
-                      MeeWarp
-                    </div>
-                  )}
-                  <span className="absolute left-4 top-4 lg:left-6 lg:top-6 xl:left-8 xl:top-8 rounded-full bg-emerald-500/90 backdrop-blur-sm px-4 py-2 lg:px-6 lg:py-3 xl:px-8 xl:py-4 text-sm lg:text-base xl:text-lg font-bold uppercase tracking-[0.3em] text-white shadow-xl ring-2 ring-emerald-300/50">
-                    {countdownLabel}
-                  </span>
-                  <div className="absolute inset-0 rounded-[24px] bg-gradient-to-t from-emerald-900/30 via-transparent to-emerald-500/10 pointer-events-none sm:rounded-[32px]"></div>
-                  <div className="absolute inset-0 rounded-[24px] ring-2 ring-emerald-400/20 pointer-events-none sm:rounded-[32px]"></div>
-                </div>
-                {currentWarp.quote ? (
-                  <div className="p-4 bg-gradient-to-r rounded-xl border backdrop-blur-sm border-emerald-400/20 from-emerald-500/5 to-emerald-600/5 lg:p-5 xl:p-6">
-                    <p className="text-sm italic font-medium leading-relaxed text-center text-emerald-100 lg:text-base xl:text-lg line-clamp-3">
-                      "{currentWarp.quote}"
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-              <div className="space-y-4 text-left lg:space-y-5 xl:space-y-6">
-                <div className="min-w-0">
-                  <p className="text-sm lg:text-base xl:text-lg uppercase tracking-[0.4em] text-emerald-300 font-bold">Warp Spotlight</p>
-                  <h2 
-                    className="mt-3 text-[clamp(2rem,8vw,7rem)] font-black text-white drop-shadow-lg truncate max-w-full"
-                    title={currentWarp.selfDisplayName || currentWarp.customerName}
-                  >
-                    {sanitizeName(currentWarp.selfDisplayName || currentWarp.customerName)}
-                  </h2>
-                </div>
-                {currentWarp.socialLink ? (
-                  <div className="flex flex-col gap-2 items-center p-3 bg-gradient-to-br rounded-xl border backdrop-blur-sm lg:gap-3 xl:gap-4 border-emerald-400/20 from-emerald-500/5 to-emerald-600/5 lg:p-4 xl:p-5">
-                    <div className="h-16 w-16 lg:h-20 lg:w-20 xl:h-24 xl:w-24 overflow-hidden rounded-lg border border-emerald-400/30 bg-white/95 shadow-[0_8px_25px_rgba(16,185,129,0.2)]">
-                      <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=${encodeURIComponent(currentWarp.socialLink)}`}
-                        alt="QR Code สำหรับลิงก์โซเชียล"
-                        className="object-contain w-full h-full"
-                      />
-                    </div>
-                    <p className="text-xs font-medium text-center text-emerald-200 lg:text-sm">
-                      สแกนเพื่อไปยังลิงก์โซเชียล
-                    </p>
-                  </div>
-                ) : null}
-                <div className="flex gap-4 items-center p-5 bg-gradient-to-r rounded-2xl border-2 backdrop-blur-sm lg:gap-6 xl:gap-8 border-emerald-400/20 from-emerald-500/10 to-emerald-600/5 lg:p-6 xl:p-8">
-                  <div className="rounded-xl border border-emerald-400/60 bg-emerald-500/25 px-4 py-2 lg:px-6 lg:py-3 xl:px-8 xl:py-4 text-xs lg:text-sm xl:text-base uppercase tracking-[0.3em] text-emerald-100 font-bold shadow-lg ring-2 ring-emerald-400/30">
-                    Time Left
-                  </div>
-                  <span className="text-2xl font-bold text-emerald-100 drop-shadow-lg lg:text-4xl xl:text-5xl">{countdownLabel}</span>
-                </div>
-                <p className="px-4 py-2 text-sm font-medium text-center rounded-xl lg:text-base xl:text-lg text-slate-200 bg-white/5 lg:px-6 lg:py-3 xl:px-8 xl:py-4">
-                  เวลาที่ซื้อไว้ทั้งหมด <span className="font-bold text-emerald-300">{totalDurationLabel}</span>
-                </p>
-              </div>
+      {warpOverlay}
+      <main
+        className={`flex relative z-10 justify-center items-stretch w-full ${mainPaddingClass} ${mainMinHeightClass}`}
+      >
+        {isPortrait ? (
+          <div className="flex w-full max-w-[900px] flex-col gap-6">
+            {promotionPanel}
+            {renderLeaderboard('full')}
+            {renderQrPanel('full')}
+          </div>
+        ) : isWidescreen ? (
+          <div className="flex w-full max-w-[2100px] items-stretch gap-6 xl:gap-8">
+            <aside className="hidden h-full w-[360px] flex-col lg:flex xl:w-[420px]">
+              {logoPanel}
+            </aside>
+            <div className="flex flex-1 h-full">
+              {promotionPanel}
             </div>
+            <aside className="flex h-full w-full max-w-[420px] flex-col justify-between gap-4 xl:gap-6">
+              {renderLeaderboard('compact')}
+              {renderQrPanel('compact')}
+            </aside>
           </div>
-        </div>
-      ) : null}
-
-      <div className="relative z-10 flex h-full w-full flex-col items-center justify-center px-[5vw]">
-        <div className="flex max-w-[60vw] lg:max-w-[70vw] xl:max-w-[80vw] flex-col items-center text-center">
-          <span className="mb-4 text-[clamp(16px,1.3vw,24px)] lg:text-2xl xl:text-3xl uppercase tracking-[0.5em] text-indigo-300">
-            {tagline}
-          </span>
-          <h1 className="font-display text-[clamp(72px,10vw,160px)] lg:text-[180px] xl:text-[220px] font-black uppercase leading-none text-white drop-shadow-[0_0_35px_rgba(99,102,241,0.55)]">
-            {brandName}
-          </h1>
-        </div>
-      </div>
-
-      {/* Bottom-left QR Code Section */}
-      <div className="pointer-events-auto absolute left-[2vw] bottom-[2vh] z-10 max-w-[85vw] sm:left-[4vw] sm:bottom-[4vh] rounded-3xl p-[1.6vw] lg:p-[2vw] xl:p-[2.5vw] backdrop-blur">
-        <div className="flex gap-4 items-center lg:gap-6 xl:gap-8">
-          <div className="h-[12vw] w-[12vw] min-h-[100px] min-w-[100px] max-h-[180px] max-w-[160px] lg:max-w-[200px] xl:max-w-[240px] overflow-hidden rounded-2xl p-2 lg:p-4 xl:p-5 shadow-[0_35px_100px_rgba(15,23,42,0.55)] backdrop-blur">
-            {selfWarpUrl ? (
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(selfWarpUrl)}`}
-                alt="สแกนเพื่อแจกวาร์ป"
-                className="object-contain w-full h-full"
-              />
-            ) : null}
+        ) : (
+          <div className="flex w-full max-w-[1700px] items-stretch gap-5 xl:gap-6">
+            <aside className="hidden h-full w-[300px] flex-col md:flex lg:w-[340px]">
+              {logoPanel}
+            </aside>
+            <div className="flex flex-1 h-full">
+              {promotionPanel}
+            </div>
+            <aside className="flex h-full w-full max-w-[360px] flex-col justify-between gap-4 xl:gap-5">
+              {renderLeaderboard('compact')}
+              {renderQrPanel('compact')}
+            </aside>
           </div>
-          <div className="flex-1 max-w-[60vw]">
-            <p className="text-[clamp(12px,1.1vw,20px)] lg:text-xl xl:text-2xl font-semibold text-white">
-              สแกนเพื่อแจกวาร์ป
-            </p>
-            <p className="mt-1 text-[clamp(10px,0.9vw,16px)] lg:text-lg xl:text-xl text-slate-300">
-              เลือกเวลาและชำระเงินได้ทันที
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="pointer-events-auto absolute right-[4vw] top-[6vh] w-[25vw] min-w-[260px] max-w-[320px] lg:max-w-[400px] xl:max-w-[480px] rounded-2xl border border-white/10 bg-white/10 p-4 lg:p-6 xl:p-8 shadow-[0_25px_60px_rgba(15,23,42,0.45)] backdrop-blur">
-        <div className="flex justify-between items-center">
-          <h3 className="text-[clamp(14px,1vw,20px)] lg:text-xl xl:text-2xl font-semibold text-white">Warp Hall of Fame</h3>
-          <span className="rounded-full bg-white/10 px-2 py-0.5 lg:px-3 lg:py-1 xl:px-4 xl:py-1.5 text-[clamp(8px,0.6vw,12px)] lg:text-sm xl:text-base uppercase tracking-wide text-slate-100">
-            {hasLiveData ? 'Live' : 'Standby'}
-          </span>
-        </div>
-        <ul className="mt-4 space-y-3 lg:mt-6 xl:mt-8 lg:space-y-4 xl:space-y-5">
-          {supportersToDisplay.map((supporter, index) => {
-            const avatarUrl =
-              resolveMediaSource(supporter.customerAvatar) ||
-              `https://ui-avatars.com/api/?background=312e81&color=fff&name=${encodeURIComponent(
-                supporter.customerName
-              )}`;
-            const isPlaceholder = supporter.totalAmount <= 0;
-            const amountLabel = isPlaceholder
-              ? 'รอเริ่มต้น'
-              : currencyFormatter.format(supporter.totalAmount);
-
-            return (
-              <li key={supporter.customerName} className="flex gap-3 items-center lg:gap-4 xl:gap-5">
-                <div className="relative">
-                  <img
-                    src={avatarUrl}
-                    alt={supporter.customerName}
-                    className="h-[2.8vw] w-[2.8vw] min-h-[44px] min-w-[44px] max-h-[52px] max-w-[52px] lg:min-h-[56px] lg:min-w-[56px] lg:max-h-[64px] lg:max-w-[64px] xl:min-h-[68px] xl:min-w-[68px] xl:max-h-[76px] xl:max-w-[76px] rounded-full border border-white/20 object-cover"
-                  />
-                  <span className="absolute -left-2 -top-2 flex h-[1.8vw] w-[1.8vw] min-h-[28px] min-w-[28px] lg:min-h-[32px] lg:min-w-[32px] xl:min-h-[36px] xl:min-w-[36px] items-center justify-center rounded-full bg-indigo-500 text-[clamp(10px,0.7vw,14px)] lg:text-base xl:text-lg font-semibold text-white">
-                    #{index + 1}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[clamp(12px,0.9vw,16px)] lg:text-lg xl:text-xl font-semibold text-white truncate">{sanitizeName(supporter.customerName)}</p>
-                  <p className="text-[clamp(10px,0.8vw,14px)] lg:text-base xl:text-lg text-slate-300">{amountLabel}</p>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-        <div className="mt-3 lg:mt-4 xl:mt-5 rounded-xl border border-white/10 bg-white/10 p-3 lg:p-4 xl:p-5 text-center text-[clamp(9px,0.7vw,12px)] lg:text-sm xl:text-base text-slate-200">
-          {hasLiveData
-            ? 'เพิ่มเวลาวาร์ปของคุณเพื่อรักษาอันดับบนจอหลัก'
-            : 'ยังไม่มีใครขึ้นจอ ลองเป็นคนแรกที่ปล่อยวาร์ปดูไหม?'}
-        </div>
-      </div>
-
+        )}
+      </main>
     </div>
   );
 };
