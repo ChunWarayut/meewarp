@@ -810,6 +810,24 @@ const TvLandingPage = () => {
               </div>
             </div>
           </div>
+
+          {warpSocialQr ? (
+              <div
+                className="items-center gap-4 px-5 py-4 rounded-[32px] border border-white/10 bg-white/10 text-left text-white shadow-[0_28px_90px_rgba(15,23,42,0.45)] warp-fade-up"
+                style={{ animationDelay: '0.5s' }}
+              >
+                <div className="flex overflow-hidden justify-center items-center p-5 w-full bg-current rounded-2xl">
+                  <img src={warpSocialQr} alt="Warp Spotlight QR" className="object-contain w-full h-full" />
+                </div>
+                <div className="flex-1 mt-2 text-center">
+                  <p className="text-xs uppercase tracking-[0.3em] text-white/70 text-center">สแกนเพื่อตาม</p>
+                  <p className="text-lg font-semibold">
+                    {sanitizeName(currentWarp.customerName || currentWarp.customerName)}
+                  </p>
+                  <p className="text-[11px] uppercase tracking-[0.35em] text-white/50">เปิดกล้องหรือ IG แล้วสแกน</p>
+                </div>
+              </div>
+            ) : null}
           <div
             className="flex flex-1 flex-col justify-between rounded-[36px] border border-white/10 bg-slate-900/65 p-6 text-left text-slate-100 shadow-[0_28px_95px_rgba(8,16,32,0.6)] warp-fade-up"
             style={{ animationDelay: '0.6s' }}
