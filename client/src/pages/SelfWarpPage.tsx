@@ -1,9 +1,10 @@
 import { type FormEvent, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { API_ENDPOINTS } from '../config';
 import Spinner from '../components/Spinner';
 import { resizeImageFile } from '../utils/image';
 import ThankYouModal from '../components/customer/ThankYouModal';
+import { resolveStoreSlug } from '../utils/storeSlug';
 
 type WarpOption = {
   id?: string;
@@ -39,9 +40,6 @@ const defaultState: FormState = {
   packageId: '',
 };
 
-const customerEndpoint = () =>
-  API_ENDPOINTS.topSupporters.replace('/leaderboard/top-supporters', '/public/transactions');
-
 const PENDING_TRANSACTION_STORAGE_KEY = 'selfWarpPendingTransaction';
 
 type PendingTransactionSnapshot = {
@@ -54,6 +52,9 @@ type PendingTransactionSnapshot = {
 
 const SelfWarpPage = () => {
   const navigate = useNavigate();
+  const { storeSlug } = useParams<{ storeSlug?: string }>();
+  const resolvedStoreSlug = resolveStoreSlug(storeSlug);
+  const homeLink = resolvedStoreSlug ? `/${resolvedStoreSlug}` : '/';
   const [form, setForm] = useState<FormState>(defaultState);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState<string>('');
@@ -99,7 +100,7 @@ const SelfWarpPage = () => {
   useEffect(() => {
     const loadPackages = async () => {
       try {
-        const response = await fetch(API_ENDPOINTS.publicPackages);
+        const response = await fetch(API_ENDPOINTS.publicPackages(resolvedStoreSlug));
         if (!response.ok) {
           throw new Error('Failed to load packages');
         }
@@ -138,7 +139,7 @@ const SelfWarpPage = () => {
     };
 
     loadPackages();
-  }, []);
+  }, [resolvedStoreSlug]);
 
   useEffect(() => {
     try {
@@ -244,7 +245,7 @@ const SelfWarpPage = () => {
         'Content-Type': 'application/json',
       };
 
-      const response = await fetch(customerEndpoint(), {
+      const response = await fetch(API_ENDPOINTS.publicTransactions(resolvedStoreSlug), {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
@@ -601,7 +602,7 @@ const SelfWarpPage = () => {
                     setIsCheckingStatus(true);
                     setMessage('กำลังตรวจสอบสถานะการชำระเงิน...');
                     try {
-                      const response = await fetch('/api/v1/public/transactions/check-status', {
+                      const response = await fetch(API_ENDPOINTS.publicTransactionStatus(resolvedStoreSlug), {
                         method: 'POST',
                         headers: {
                           'Content-Type': 'application/json',
@@ -660,7 +661,7 @@ const SelfWarpPage = () => {
                   type="button"
                   onClick={() => {
                     clearPendingTransaction();
-                    navigate('/');
+                    navigate(homeLink);
                   }}
                   className="rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-slate-200 transition hover:border-white/40 hover:bg-white/10 hover:text-white sm:px-6"
                   style={{ letterSpacing: '-0.02em' }}

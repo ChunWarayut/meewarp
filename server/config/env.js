@@ -43,6 +43,12 @@ const config = {
     transactionBaseUrl:
       process.env.CHILLPAY_TRANSACTION_URL || 'https://sandbox-api-transaction.chillpay.co/api/v1',
   },
+  cloudflareImages: {
+    accountId: process.env.CLOUDFLARE_IMAGES_ACCOUNT_ID || '',
+    apiToken: process.env.CLOUDFLARE_IMAGES_API_TOKEN || '',
+    deliveryUrl: process.env.CLOUDFLARE_IMAGES_DELIVERY_URL || '',
+    defaultVariant: process.env.CLOUDFLARE_IMAGES_DEFAULT_VARIANT || '',
+  },
 };
 
 module.exports = config;

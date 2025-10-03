@@ -2,6 +2,11 @@ const mongoose = require('mongoose');
 
 const AppSettingsSchema = new mongoose.Schema(
   {
+    store: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Store',
+      index: true,
+    },
     brandName: {
       type: String,
       default: 'meeWarp',
@@ -21,6 +26,14 @@ const AppSettingsSchema = new mongoose.Schema(
     },
     backgroundImage: {
       type: String,
+    },
+    backgroundImages: {
+      type: [String],
+      default: [],
+    },
+    backgroundRotationDuration: {
+      type: Number,
+      default: 15000,
     },
     contactEmail: {
       type: String,
@@ -84,5 +97,7 @@ const AppSettingsSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+AppSettingsSchema.index({ store: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model('AppSettings', AppSettingsSchema);

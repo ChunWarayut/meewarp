@@ -5,6 +5,8 @@ const WarpPackage = require('../models/WarpPackage');
 const adminAuth = require('../middlewares/adminAuth');
 const leaderboardEmitter = require('../lib/leaderboardEmitter');
 const displayEmitter = require('../lib/displayEmitter');
+const storeContext = require('../middlewares/storeContext');
+const publicStore = require('../middlewares/publicStore');
 const { getTopSupporters } = require('../services/leaderboardService');
 const { appendActivity, listRecentActivities } = require('../services/activityLogger');
 const { createPayLink, isChillPayConfigured, verifyWebhookSignature } = require('../services/chillpayService');
@@ -12,17 +14,24 @@ const { checkTransactionStatus } = require('../services/transactionStatusService
 
 const router = express.Router();
 
-router.get('/leaderboard/top-supporters', async (req, res) => {
+router.get('/leaderboard/top-supporters', publicStore, async (req, res) => {
   try {
     const limit = Number.parseInt(req.query.limit, 10) || 3;
-    const supporters = await getTopSupporters(limit);
-    return res.status(200).json({ supporters });
+    const supporters = await getTopSupporters({ storeId: req.store._id, limit });
+    return res.status(200).json({
+      supporters,
+      store: {
+        id: req.store._id,
+        name: req.store.name,
+        slug: req.store.slug,
+      },
+    });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to load leaderboard' });
   }
 });
 
-router.get('/leaderboard/stream', async (req, res) => {
+router.get('/leaderboard/stream', publicStore, async (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
@@ -33,14 +42,26 @@ router.get('/leaderboard/stream', async (req, res) => {
 
   const sendSnapshot = async () => {
     try {
-      const supporters = await getTopSupporters();
-      res.write(`data: ${JSON.stringify({ supporters })}\n\n`);
+      const supporters = await getTopSupporters({ storeId: req.store._id });
+      res.write(
+        `data: ${JSON.stringify({
+          supporters,
+          store: {
+            id: req.store._id,
+            name: req.store.name,
+            slug: req.store.slug,
+          },
+        })}\n\n`
+      );
     } catch (error) {
       res.write(`event: error\ndata: ${JSON.stringify({ message: 'Failed to load leaderboard' })}\n\n`);
     }
   };
 
-  const onUpdate = async () => {
+  const onUpdate = async (payload) => {
+    if (payload?.storeId && payload.storeId !== req.store._id.toString()) {
+      return;
+    }
     await sendSnapshot();
   };
 
@@ -53,7 +74,7 @@ router.get('/leaderboard/stream', async (req, res) => {
   });
 });
 
-router.get('/display/stream', async (req, res) => {
+router.get('/display/stream', publicStore, async (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
@@ -64,8 +85,9 @@ router.get('/display/stream', async (req, res) => {
 
   const sendSnapshot = async () => {
     try {
-      const queueCount = await WarpTransaction.countDocuments({ status: 'paid' });
-      const current = await WarpTransaction.findOne({ status: 'displaying' })
+      const storeFilter = { store: req.store._id };
+      const queueCount = await WarpTransaction.countDocuments({ status: 'paid', ...storeFilter });
+      const current = await WarpTransaction.findOne({ status: 'displaying', ...storeFilter })
         .sort({ displayStartedAt: 1, createdAt: 1 })
         .lean();
 
@@ -79,8 +101,14 @@ router.get('/display/stream', async (req, res) => {
                 socialLink: current.socialLink,
                 displaySeconds: current.displaySeconds,
                 startedAt: current.displayStartedAt,
+                storeId: req.store._id,
               }
             : null,
+          store: {
+            id: req.store._id,
+            name: req.store.name,
+            slug: req.store.slug,
+          },
         })}\n\n`
       );
     } catch (error) {
@@ -92,7 +120,10 @@ router.get('/display/stream', async (req, res) => {
     res.write(':heartbeat\n\n');
   }, 20000);
 
-  const onUpdate = async () => {
+  const onUpdate = async (payload) => {
+    if (payload?.storeId && payload.storeId !== req.store._id.toString()) {
+      return;
+    }
     await sendSnapshot();
   };
 
@@ -106,16 +137,25 @@ router.get('/display/stream', async (req, res) => {
   });
 });
 
-router.get('/public/packages', async (req, res) => {
+router.get('/public/packages', publicStore, async (req, res) => {
   try {
-    const packages = await WarpPackage.find({ isActive: true }).sort({ seconds: 1 }).lean();
-    return res.status(200).json({ packages });
+    const packages = await WarpPackage.find({ store: req.store._id, isActive: true })
+      .sort({ seconds: 1 })
+      .lean();
+    return res.status(200).json({
+      packages,
+      store: {
+        id: req.store._id,
+        name: req.store.name,
+        slug: req.store.slug,
+      },
+    });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to load packages' });
   }
 });
 
-router.post('/transactions', adminAuth, async (req, res) => {
+router.post('/transactions', adminAuth, storeContext(), async (req, res) => {
   try {
     const {
       code,
@@ -135,14 +175,21 @@ router.post('/transactions', adminAuth, async (req, res) => {
       return res.status(400).json({ message: 'code, customerName, and socialLink are required' });
     }
 
-    const profile = await WarpProfile.findOne({ code });
+    const storeId = req.storeContext?.storeId;
+    if (!storeId) {
+      return res.status(400).json({ message: 'Store context missing' });
+    }
+    const storeName = req.storeContext?.storeName || 'meeWarp';
+
+    const profile = await WarpProfile.findOne({ code, store: storeId });
+    const supporterDisplayName = (metadata?.selfDisplayName || customerName || '').toString().trim();
 
     let displaySeconds = Number(displaySecondsInput);
     let amount = Number(amountInput);
     let packageRef = null;
 
     if (packageId) {
-      packageRef = await WarpPackage.findOne({ _id: packageId, isActive: true }).lean();
+      packageRef = await WarpPackage.findOne({ _id: packageId, isActive: true, store: storeId }).lean();
       if (!packageRef) {
         return res.status(400).json({ message: 'Invalid packageId' });
       }
@@ -155,6 +202,7 @@ router.post('/transactions', adminAuth, async (req, res) => {
     }
 
     const transaction = await WarpTransaction.create({
+      store: storeId,
       warpProfile: profile ? profile._id : undefined,
       code,
       customerName,
@@ -166,7 +214,10 @@ router.post('/transactions', adminAuth, async (req, res) => {
       currency,
       packageId: packageRef?._id,
       status: status || (isChillPayConfigured() ? 'pending' : 'paid'),
-      metadata,
+      metadata: {
+        ...metadata,
+        storeName,
+      },
     });
 
     await appendActivity(transaction._id, {
@@ -196,11 +247,12 @@ router.post('/transactions', adminAuth, async (req, res) => {
           customerName,
           customerEmail: metadata?.customerEmail || '',
           customerPhone: metadata?.customerPhone || '',
-          description: `Warp for ${code}`,
+          description: `Warp for ${storeName} (${code})`,
           returnUrl: metadata?.returnUrl || `${process.env.PUBLIC_BASE_URL || 'http://localhost:5173'}/warp/${code}`,
           notifyUrl: metadata?.notifyUrl || `${process.env.PUBLIC_API_BASE_URL || 'http://localhost:7001'}/api/v1/payments/webhook`,
           productImage: metadata?.productImage,
-          productDescription: metadata?.productDescription || socialLink,
+          productDescription:
+            metadata?.productDescription || `${storeName} • ${supporterDisplayName.slice(0, 50)}`,
           paymentLimit: metadata?.paymentLimit,
           expiresInMinutes: metadata?.expiresInMinutes,
         });
@@ -254,8 +306,8 @@ router.post('/transactions', adminAuth, async (req, res) => {
         });
       }
     } else {
-      leaderboardEmitter.emit('update');
-      displayEmitter.emit('update');
+      leaderboardEmitter.emit('update', { storeId });
+      displayEmitter.emit('update', { storeId });
     }
 
     return res.status(201).json(responsePayload);
@@ -264,18 +316,32 @@ router.post('/transactions', adminAuth, async (req, res) => {
   }
 });
 
-router.get('/transactions/activity-log', adminAuth, async (req, res) => {
+router.get('/transactions/activity-log', adminAuth, storeContext({ allowSuperAdminAll: true }), async (req, res) => {
   try {
     const limit = Number.parseInt(req.query.limit, 10) || 20;
-    const entries = await listRecentActivities({ limit });
+    const entries = await listRecentActivities({
+      storeId: req.storeContext?.storeId || null,
+      limit,
+    });
     return res.status(200).json({ entries });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to load activity log' });
   }
 });
 
-router.post('/transactions/:id/check-status', adminAuth, async (req, res) => {
+router.post('/transactions/:id/check-status', adminAuth, storeContext(), async (req, res) => {
   try {
+    const storeId = req.storeContext?.storeId;
+    if (!storeId) {
+      return res.status(400).json({ message: 'Store context required' });
+    }
+
+    const transaction = await WarpTransaction.findOne({ _id: req.params.id, store: storeId }).lean();
+
+    if (!transaction) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+
     const result = await checkTransactionStatus({
       transactionId: req.params.id,
       actor: req.admin?.email || 'admin',
@@ -296,7 +362,7 @@ router.post('/transactions/:id/check-status', adminAuth, async (req, res) => {
 });
 
 // Public endpoint for customers to create transactions
-router.post('/public/transactions', async (req, res) => {
+router.post('/public/transactions', publicStore, async (req, res) => {
   try {
     const {
       code,
@@ -316,14 +382,15 @@ router.post('/public/transactions', async (req, res) => {
       });
     }
 
-    const profile = await WarpProfile.findOne({ code });
+    const storeId = req.store._id;
+    const profile = await WarpProfile.findOne({ code, store: storeId });
 
     let displaySeconds = Number(displaySecondsInput);
     let amount = Number(amountInput);
     let packageRef = null;
 
     if (packageId) {
-      packageRef = await WarpPackage.findOne({ _id: packageId, isActive: true }).lean();
+      packageRef = await WarpPackage.findOne({ _id: packageId, isActive: true, store: storeId }).lean();
       if (!packageRef) {
         return res.status(400).json({ message: 'Invalid packageId' });
       }
@@ -335,7 +402,11 @@ router.post('/public/transactions', async (req, res) => {
       return res.status(400).json({ message: 'displaySeconds and amount are required' });
     }
 
+    const storeName = req.store?.name || 'meeWarp';
+    const supporterDisplayName = (metadata?.selfDisplayName || submittedCustomerName || '').toString().trim();
+
     const transaction = await WarpTransaction.create({
+      store: storeId,
       warpProfile: profile ? profile._id : undefined,
       code,
       customerName: submittedCustomerName,
@@ -354,6 +425,7 @@ router.post('/public/transactions', async (req, res) => {
       metadata: {
         ...metadata,
         source: metadata?.source || 'public-customer',
+        storeName,
       },
     });
 
@@ -384,11 +456,12 @@ router.post('/public/transactions', async (req, res) => {
           customerName: submittedCustomerName,
           customerEmail: metadata?.customerEmail || '',
           customerPhone: metadata?.customerPhone || '',
-          description: `Warp for ${code}`,
+          description: `Warp for ${storeName} (${code})`,
           returnUrl: metadata?.returnUrl || `${process.env.PUBLIC_BASE_URL || 'http://localhost:5173'}/warp/${code}`,
           notifyUrl: metadata?.notifyUrl || `${process.env.PUBLIC_API_BASE_URL || 'http://localhost:7001'}/api/v1/payments/webhook`,
           productImage: metadata?.productImage,
-          productDescription: metadata?.productDescription || socialLink,
+          productDescription:
+            metadata?.productDescription || `${storeName} • ${supporterDisplayName || submittedCustomerName}`,
           paymentLimit: metadata?.paymentLimit,
           expiresInMinutes: metadata?.expiresInMinutes,
         });
@@ -472,8 +545,8 @@ router.post('/public/transactions', async (req, res) => {
 
     if (!isChillPayConfigured()) {
       console.log('PUBLIC: ChillPay not configured, emitting updates');
-      leaderboardEmitter.emit('update');
-      displayEmitter.emit('update');
+      leaderboardEmitter.emit('update', { storeId: storeId.toString() });
+      displayEmitter.emit('update', { storeId: storeId.toString() });
     }
 
     console.log('PUBLIC: Returning response:', responsePayload);
@@ -486,9 +559,11 @@ router.post('/public/transactions', async (req, res) => {
   }
 });
 
-router.post('/public/transactions/check-status', async (req, res) => {
+router.post('/public/transactions/check-status', publicStore, async (req, res) => {
   try {
     const { transactionId, reference } = req.body || {};
+
+    const storeId = req.store._id;
 
     if (!transactionId && !reference) {
       return res.status(400).json({ message: 'transactionId or reference is required' });
@@ -497,9 +572,9 @@ router.post('/public/transactions/check-status', async (req, res) => {
     let transaction = null;
 
     if (transactionId) {
-      transaction = await WarpTransaction.findById(transactionId);
+      transaction = await WarpTransaction.findOne({ _id: transactionId, store: storeId });
     } else if (reference) {
-      transaction = await WarpTransaction.findOne({ 'metadata.payLinkToken': reference });
+      transaction = await WarpTransaction.findOne({ 'metadata.payLinkToken': reference, store: storeId });
     }
 
     if (!transaction) {
@@ -526,11 +601,12 @@ router.post('/public/transactions/check-status', async (req, res) => {
   }
 });
 
-router.post('/public/display/next', async (req, res) => {
+router.post('/public/display/next', publicStore, async (req, res) => {
   try {
     const now = new Date();
+    const storeId = req.store._id;
 
-    const currentDisplaying = await WarpTransaction.findOne({ status: 'displaying' })
+    const currentDisplaying = await WarpTransaction.findOne({ status: 'displaying', store: storeId })
       .sort({ displayStartedAt: -1, createdAt: -1 })
       .lean();
 
@@ -548,7 +624,7 @@ router.post('/public/display/next', async (req, res) => {
     }
 
     const transaction = await WarpTransaction.findOneAndUpdate(
-      { status: 'paid' },
+      { status: 'paid', store: storeId },
       {
         $set: {
           status: 'displaying',
@@ -581,7 +657,7 @@ router.post('/public/display/next', async (req, res) => {
       actor: 'display-system',
     });
 
-    displayEmitter.emit('update');
+    displayEmitter.emit('update', { storeId: storeId.toString() });
 
     return res.status(200).json({
       id: transaction._id,
@@ -598,11 +674,12 @@ router.post('/public/display/next', async (req, res) => {
   }
 });
 
-router.post('/public/display/:id/complete', async (req, res) => {
+router.post('/public/display/:id/complete', publicStore, async (req, res) => {
   try {
     const now = new Date();
+    const storeId = req.store._id;
     const transaction = await WarpTransaction.findOneAndUpdate(
-      { _id: req.params.id, status: 'displaying' },
+      { _id: req.params.id, status: 'displaying', store: storeId },
       {
         $set: {
           status: 'displayed',
@@ -623,7 +700,9 @@ router.post('/public/display/:id/complete', async (req, res) => {
       actor: 'display-system',
     });
 
-    displayEmitter.emit('update');
+    const storeIdString = storeId.toString();
+    displayEmitter.emit('update', { storeId: storeIdString });
+    leaderboardEmitter.emit('update', { storeId: storeIdString });
 
     return res.status(200).json({ success: true });
   } catch (error) {
@@ -688,8 +767,9 @@ router.post('/payments/webhook', express.raw({ type: 'application/json' }), asyn
     }
 
     if (updates.status === 'paid') {
-      leaderboardEmitter.emit('update');
-      displayEmitter.emit('update');
+      const storeId = transaction.store ? transaction.store.toString() : null;
+      leaderboardEmitter.emit('update', { storeId });
+      displayEmitter.emit('update', { storeId });
     }
 
     return res.status(200).json({ received: true });

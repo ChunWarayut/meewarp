@@ -15,10 +15,16 @@ async function appendActivity(transactionId, entry) {
   );
 }
 
-async function listRecentActivities({ limit = 20 } = {}) {
-  const transactions = await WarpTransaction.find({
+async function listRecentActivities({ storeId, limit = 20 } = {}) {
+  const query = {
     activityLog: { $exists: true, $ne: [] },
-  })
+  };
+
+  if (storeId) {
+    query.store = storeId;
+  }
+
+  const transactions = await WarpTransaction.find(query)
     .sort({ updatedAt: -1 })
     .limit(limit)
     .select({

@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useState } from 'react';
 import { API_ENDPOINTS } from '../../config';
 import { useAuth } from '../../contexts/AuthContext';
+import { useStoreContext } from '../../contexts/StoreContext';
 
 type AdminUser = {
   _id: string;
@@ -9,14 +10,20 @@ type AdminUser = {
   displayName?: string;
   isActive: boolean;
   createdAt?: string;
+  store?: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
 };
 
 const AdminUsersPage = () => {
   const { token, admin } = useAuth();
+  const { stores, refreshStores } = useStoreContext();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({ email: '', password: '', role: 'manager', displayName: '' });
+  const [form, setForm] = useState({ email: '', password: '', role: 'manager', displayName: '', storeId: '' });
 
   const isSuperadmin = admin?.role === 'superadmin';
 
@@ -41,11 +48,29 @@ const AdminUsersPage = () => {
 
   useEffect(() => {
     load();
+    if (isSuperadmin) {
+      refreshStores();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  useEffect(() => {
+    if (!isSuperadmin) {
+      return;
+    }
+    if (form.role !== 'superadmin' && !form.storeId && stores.length > 0) {
+      setForm((prev) => ({ ...prev, storeId: stores[0].id }));
+    }
+  }, [stores, form.role, form.storeId, isSuperadmin]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!token) return;
+
+    if (form.role !== 'superadmin' && !form.storeId) {
+      setError('กรุณาเลือกสาขาสำหรับผู้ใช้งาน');
+      return;
+    }
 
     const response = await fetch(API_ENDPOINTS.adminUsers, {
       method: 'POST',
@@ -62,7 +87,7 @@ const AdminUsersPage = () => {
       return;
     }
 
-    setForm({ email: '', password: '', role: 'manager', displayName: '' });
+    setForm({ email: '', password: '', role: 'manager', displayName: '', storeId: '' });
     await load();
   };
 
@@ -90,7 +115,7 @@ const AdminUsersPage = () => {
       {isSuperadmin ? (
         <form
           onSubmit={handleSubmit}
-          className="grid gap-4 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-[0_25px_60px_rgba(15,23,42,0.45)] md:grid-cols-4"
+          className="grid gap-4 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-[0_25px_60px_rgba(15,23,42,0.45)] md:grid-cols-5"
         >
           <div>
             <label className="text-xs uppercase tracking-[0.3em] text-indigo-200">Email</label>
@@ -116,7 +141,13 @@ const AdminUsersPage = () => {
             <label className="text-xs uppercase tracking-[0.3em] text-indigo-200">Role</label>
             <select
               value={form.role}
-              onChange={(event) => setForm((prev) => ({ ...prev, role: event.target.value }))}
+              onChange={(event) =>
+                setForm((prev) => ({
+                  ...prev,
+                  role: event.target.value,
+                  storeId: event.target.value === 'superadmin' ? '' : prev.storeId,
+                }))
+              }
               className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-white focus:border-indigo-400 focus:outline-none"
             >
               <option value="manager">Manager</option>
@@ -124,6 +155,24 @@ const AdminUsersPage = () => {
               <option value="superadmin">Superadmin</option>
             </select>
           </div>
+          {form.role !== 'superadmin' ? (
+            <div>
+              <label className="text-xs uppercase tracking-[0.3em] text-indigo-200">Store</label>
+              <select
+                value={form.storeId}
+                onChange={(event) => setForm((prev) => ({ ...prev, storeId: event.target.value }))}
+                className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-white focus:border-indigo-400 focus:outline-none"
+                required={form.role !== 'superadmin'}
+              >
+                <option value="">เลือกสาขา</option>
+                {stores.map((store) => (
+                  <option key={store.id} value={store.id}>
+                    {store.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
           <div>
             <label className="text-xs uppercase tracking-[0.3em] text-indigo-200">Display Name</label>
             <input
@@ -132,7 +181,7 @@ const AdminUsersPage = () => {
               className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-white focus:border-indigo-400 focus:outline-none"
             />
           </div>
-          <div className="md:col-span-4 flex justify-end">
+          <div className="md:col-span-5 flex justify-end">
             <button
               type="submit"
               className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold uppercase tracking-[0.3em] text-white shadow-[0_16px_40px_rgba(99,102,241,0.35)] transition hover:bg-indigo-400"
@@ -156,6 +205,7 @@ const AdminUsersPage = () => {
               <tr>
                 <th className="px-4 py-3 text-left font-semibold">Email</th>
                 <th className="px-4 py-3 text-left font-semibold">Display Name</th>
+                <th className="px-4 py-3 text-left font-semibold">Store</th>
                 <th className="px-4 py-3 text-left font-semibold">Role</th>
                 <th className="px-4 py-3 text-left font-semibold">Status</th>
                 {isSuperadmin ? <th className="px-4 py-3" /> : null}
@@ -166,6 +216,7 @@ const AdminUsersPage = () => {
                 <tr key={user._id}>
                   <td className="px-4 py-3 font-semibold text-white">{user.email}</td>
                   <td className="px-4 py-3 text-slate-200">{user.displayName || '—'}</td>
+                  <td className="px-4 py-3 text-slate-200">{user.store?.name || '—'}</td>
                   <td className="px-4 py-3 text-slate-200">{user.role}</td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-3 py-1 text-xs uppercase tracking-[0.3em] ${user.isActive ? 'bg-emerald-500/20 text-emerald-200' : 'bg-rose-500/20 text-rose-200'}`}>

@@ -2,6 +2,11 @@ const mongoose = require('mongoose');
 
 const WarpPackageSchema = new mongoose.Schema(
   {
+    store: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Store',
+      index: true,
+    },
     name: {
       type: String,
       required: true,
@@ -27,6 +32,7 @@ const WarpPackageSchema = new mongoose.Schema(
   }
 );
 
-WarpPackageSchema.index({ seconds: 1 }, { unique: true });
+WarpPackageSchema.index({ store: 1, seconds: 1 }, { unique: true, sparse: true });
+WarpPackageSchema.index({ store: 1, name: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model('WarpPackage', WarpPackageSchema);

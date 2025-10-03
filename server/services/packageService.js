@@ -1,27 +1,41 @@
 const WarpPackage = require('../models/WarpPackage');
 
-async function listPackages({ includeInactive = false } = {}) {
+async function listPackages({ storeId, includeInactive = false } = {}) {
   const query = {};
+  if (storeId) {
+    query.store = storeId;
+  }
   if (!includeInactive) {
     query.isActive = true;
   }
   return WarpPackage.find(query).sort({ seconds: 1 }).lean();
 }
 
-async function createPackage({ name, seconds, price }) {
-  return WarpPackage.create({ name, seconds, price });
+async function createPackage({ storeId, name, seconds, price }) {
+  return WarpPackage.create({ store: storeId, name, seconds, price });
 }
 
-async function updatePackage(id, payload) {
-  return WarpPackage.findByIdAndUpdate(id, payload, { new: true });
+async function updatePackage({ id, storeId, payload }) {
+  const updatePayload = { ...payload };
+  if (storeId) {
+    return WarpPackage.findOneAndUpdate({ _id: id, store: storeId }, updatePayload, { new: true });
+  }
+  return WarpPackage.findByIdAndUpdate(id, updatePayload, { new: true });
 }
 
-async function deletePackage(id) {
+async function deletePackage({ id, storeId }) {
+  if (storeId) {
+    return WarpPackage.findOneAndDelete({ _id: id, store: storeId });
+  }
   return WarpPackage.findByIdAndDelete(id);
 }
 
-async function findPackageBySeconds(seconds) {
-  return WarpPackage.findOne({ seconds, isActive: true }).lean();
+async function findPackageBySeconds({ storeId, seconds }) {
+  const match = { seconds, isActive: true };
+  if (storeId) {
+    match.store = storeId;
+  }
+  return WarpPackage.findOne(match).lean();
 }
 
 module.exports = {

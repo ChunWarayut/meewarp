@@ -1,9 +1,10 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import Modal from '../Modal';
-import { API_ENDPOINTS } from '../../config';
 import Spinner from '../Spinner';
 import { resizeImageFile } from '../../utils/image';
 import ThankYouModal from './ThankYouModal';
+import { API_ENDPOINTS } from '../../config';
+import { resolveStoreSlug } from '../../utils/storeSlug';
 
 type WarpOption = {
   seconds: number;
@@ -59,9 +60,6 @@ const warpOptions: WarpOption[] = [
   { seconds: 90, price: 60, label: '90s' },
 ];
 
-const customerEndpoint = () =>
-  API_ENDPOINTS.topSupporters.replace('/leaderboard/top-supporters', '/public/transactions');
-
 const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalProps) => {
   const [form, setForm] = useState<FormState>(defaultState);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -71,14 +69,15 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
   const [transactionId, setTransactionId] = useState<string | null>(null);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [showThankYouModal, setShowThankYouModal] = useState(false);
+  const resolvedStoreSlug = resolveStoreSlug();
 
   useEffect(() => {
     if (isOpen) {
-      setForm((prev) => ({
+      setForm({
         ...defaultState,
         mode: 'self',
         profileCode: '',
-      }));
+      });
     }
   }, [isOpen]);
 
@@ -227,7 +226,7 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
         'Content-Type': 'application/json',
       };
 
-      const response = await fetch(customerEndpoint(), {
+      const response = await fetch(API_ENDPOINTS.publicTransactions(resolvedStoreSlug), {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
@@ -524,7 +523,7 @@ style={{ letterSpacing: '-0.02em' }}
                 setIsCheckingStatus(true);
                 setMessage('กำลังตรวจสอบสถานะการชำระเงิน...');
                 try {
-                  const response = await fetch('/api/v1/public/transactions/check-status', {
+                      const response = await fetch(API_ENDPOINTS.publicTransactionStatus(resolvedStoreSlug), {
                     method: 'POST',
                     headers: {
                       'Content-Type': 'application/json',

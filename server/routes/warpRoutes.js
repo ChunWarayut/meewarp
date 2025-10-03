@@ -3,8 +3,10 @@ const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 const WarpProfile = require('../models/WarpProfile');
 const config = require('../config/env');
-const adminAuth = require('../middlewares/adminAuth');
 const Admin = require('../models/Admin');
+const adminAuth = require('../middlewares/adminAuth');
+const storeContext = require('../middlewares/storeContext');
+const publicStore = require('../middlewares/publicStore');
 const { getSettings } = require('../services/settingsService');
 
 const router = express.Router();
@@ -27,7 +29,7 @@ router.post('/admin/login', loginLimiter, async (req, res) => {
     }
 
     const normalizedEmail = email.toLowerCase();
-    const adminUser = await Admin.findOne({ email: normalizedEmail, isActive: true });
+    const adminUser = await Admin.findOne({ email: normalizedEmail, isActive: true }).populate('store', 'name slug');
 
     if (adminUser) {
       const isValid = await adminUser.comparePassword(password);
@@ -38,12 +40,23 @@ router.post('/admin/login', loginLimiter, async (req, res) => {
       adminUser.lastLoginAt = new Date();
       await adminUser.save();
 
+      const storeInfo = adminUser.store
+        ? {
+            id: adminUser.store._id.toString(),
+            name: adminUser.store.name,
+            slug: adminUser.store.slug,
+          }
+        : null;
+
       const token = jwt.sign(
         {
           id: adminUser._id,
           email: adminUser.email,
           role: adminUser.role,
           displayName: adminUser.displayName || adminUser.email,
+          storeId: storeInfo?.id || null,
+          storeName: storeInfo?.name || null,
+          storeSlug: storeInfo?.slug || null,
         },
         config.auth.jwtSecret,
         { expiresIn: config.auth.tokenExpiresIn }
@@ -53,6 +66,7 @@ router.post('/admin/login', loginLimiter, async (req, res) => {
         token,
         role: adminUser.role,
         displayName: adminUser.displayName || adminUser.email,
+        store: storeInfo,
         expiresIn: config.auth.tokenExpiresIn,
       });
     }
@@ -75,6 +89,7 @@ router.post('/admin/login', loginLimiter, async (req, res) => {
         token,
         role: 'superadmin',
         displayName: 'Root Admin',
+        store: null,
         expiresIn: config.auth.tokenExpiresIn,
       });
     }
@@ -85,7 +100,7 @@ router.post('/admin/login', loginLimiter, async (req, res) => {
   }
 });
 
-router.post('/admin/warp', adminAuth, async (req, res) => {
+router.post('/admin/warp', adminAuth, storeContext(), async (req, res) => {
   try {
     const { code, name, socialLink, isActive } = req.body;
 
@@ -93,7 +108,13 @@ router.post('/admin/warp', adminAuth, async (req, res) => {
       return res.status(400).json({ message: 'code, name, and socialLink are required' });
     }
 
-    const warpProfile = await WarpProfile.create({ code, name, socialLink, isActive });
+    const warpProfile = await WarpProfile.create({
+      store: req.storeContext.storeId,
+      code,
+      name,
+      socialLink,
+      isActive,
+    });
     return res.status(201).json({
       id: warpProfile._id,
       code: warpProfile.code,
@@ -114,10 +135,10 @@ router.post('/admin/warp', adminAuth, async (req, res) => {
   }
 });
 
-router.get('/warp/:code', async (req, res) => {
+router.get('/warp/:code', publicStore, async (req, res) => {
   try {
     const { code } = req.params;
-    const warpProfile = await WarpProfile.findOne({ code });
+    const warpProfile = await WarpProfile.findOne({ code, store: req.store._id });
 
     if (!warpProfile || !warpProfile.isActive) {
       return res.status(404).json({ message: 'Warp profile not found' });
@@ -129,9 +150,9 @@ router.get('/warp/:code', async (req, res) => {
   }
 });
 
-router.get('/public/settings', async (req, res) => {
+router.get('/public/settings', publicStore, async (req, res) => {
   try {
-    const settings = await getSettings();
+    const settings = await getSettings({ storeId: req.store._id });
     return res.status(200).json(settings);
   } catch (error) {
     return res.status(500).json({ message: 'Failed to load settings' });

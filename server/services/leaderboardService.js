@@ -1,10 +1,13 @@
+const mongoose = require('mongoose');
 const WarpTransaction = require('../models/WarpTransaction');
 
-async function getTopSupporters(limit = 3) {
+async function getTopSupporters({ storeId, limit = 3 } = {}) {
+  const storeMatch = storeId ? { store: new mongoose.Types.ObjectId(storeId) } : {};
   const docs = await WarpTransaction.aggregate([
     {
       $match: {
         status: { $in: ['paid', 'displayed'] },
+        ...storeMatch,
       },
     },
     {

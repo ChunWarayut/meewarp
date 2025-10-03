@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
+import { resolveStoreSlug } from '../utils/storeSlug';
 
 const featureHighlights = [
   {
@@ -235,6 +236,12 @@ const contactInfo = {
 const MarketingLandingPage = () => {
   const [activeFeature, setActiveFeature] = useState(0);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const { storeSlug: routeSlug } = useParams<{ storeSlug?: string }>();
+  const storeSlug = resolveStoreSlug(routeSlug);
+  const storePathPrefix = storeSlug ? `/${storeSlug}` : '';
+  const homeLink = storePathPrefix || '/';
+  const tvLink = `${storePathPrefix}/tv`;
+  const selfWarpLink = `${storePathPrefix}/self-warp`;
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -254,7 +261,7 @@ const MarketingLandingPage = () => {
     <div className="min-h-screen text-white bg-slate-950 font-th">
       <header className="sticky top-0 z-40 border-b backdrop-blur border-white/10 bg-slate-950/80">
         <nav className="flex justify-between items-center px-4 mx-auto max-w-7xl h-16 sm:px-6 lg:px-8">
-          <Link to="/" className="text-xl font-bold tracking-tight text-cyan-400 sm:text-2xl">
+          <Link to={homeLink} className="text-xl font-bold tracking-tight text-cyan-400 sm:text-2xl">
             MEEWARP
           </Link>
 
@@ -268,7 +275,7 @@ const MarketingLandingPage = () => {
             <a href="#pricing" className="text-sm font-medium transition-colors text-slate-200 hover:text-cyan-400 font-en">
               Pricing
             </a>
-            <Link to="/tv" className="text-sm font-medium transition-colors text-slate-200 hover:text-cyan-400 font-en">
+            <Link to={tvLink} className="text-sm font-medium transition-colors text-slate-200 hover:text-cyan-400 font-en">
               TV demo
             </Link>
           </div>
@@ -281,7 +288,7 @@ const MarketingLandingPage = () => {
               Login
             </Link>
             <Link
-              to="/self-warp"
+              to={selfWarpLink}
               className="px-5 py-2 text-sm font-semibold bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg transition-all hover:from-cyan-400 hover:to-blue-500"
             >
               ลองใช้ฟรี
@@ -329,7 +336,7 @@ const MarketingLandingPage = () => {
                 Pricing
               </a>
               <Link
-                to="/tv"
+                to={tvLink}
                 className="block px-3 py-2 text-sm font-medium rounded-md transition-colors text-slate-200 hover:bg-white/10"
                 onClick={() => setShowMobileMenu(false)}
               >
@@ -344,7 +351,7 @@ const MarketingLandingPage = () => {
                   Login
                 </Link>
                 <Link
-                  to="/self-warp"
+                  to={selfWarpLink}
                   className="flex-1 px-3 py-2 text-sm font-semibold text-center bg-gradient-to-r from-cyan-500 to-blue-600 rounded-md transition-all hover:from-cyan-400 hover:to-blue-500"
                   onClick={() => setShowMobileMenu(false)}
                 >
@@ -394,13 +401,13 @@ const MarketingLandingPage = () => {
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                   <Link
-                    to="/self-warp"
+                    to={selfWarpLink}
                     className="px-8 py-3 text-base font-semibold text-center bg-gradient-to-r from-emerald-500 to-cyan-600 rounded-full transition-all hover:from-emerald-400 hover:to-cyan-500 hover:shadow-lg hover:shadow-emerald-500/30"
                   >
                     💰 เริ่มสร้างรายได้วันนี้ (ฟรี 30 วัน)
                   </Link>
                   <Link
-                    to="/tv"
+                    to={tvLink}
                     className="px-8 py-3 text-base font-semibold text-center rounded-full border transition-all border-white/20 text-slate-100 hover:border-cyan-400 hover:bg-white/5 font-th"
                   >
                     📊 ดูผลลัพธ์จริงจากลูกค้า
@@ -739,7 +746,7 @@ const MarketingLandingPage = () => {
                   </ul>
 
                   <Link
-                    to="/self-warp"
+                    to={selfWarpLink}
                     className={`mt-8 block rounded-xl py-3 text-center text-sm font-semibold transition-all ${
                       plan.popular
                         ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:from-cyan-400 hover:to-blue-500'
@@ -909,7 +916,7 @@ const MarketingLandingPage = () => {
                       นัดหมายปรึกษากับทีม Business Consultant ฟรี
                     </p>
                     <Link
-                      to="/self-warp"
+                      to={selfWarpLink}
                       className="inline-block px-4 py-2 mt-3 text-xs font-semibold text-white bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg transition-all hover:from-cyan-400 hover:to-blue-500"
                     >
                       นัดหมายเลย
@@ -933,7 +940,7 @@ const MarketingLandingPage = () => {
 
             <div className="flex flex-col gap-4 justify-center items-center mt-10 sm:flex-row">
               <Link
-                to="/self-warp"
+                to={selfWarpLink}
                 className="px-10 py-4 text-lg font-semibold bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full transition-all hover:from-cyan-400 hover:to-blue-500"
               >
                 🚀 เริ่มใช้งานฟรีเลย
@@ -968,7 +975,7 @@ const MarketingLandingPage = () => {
         <div className="px-6 mx-auto max-w-7xl">
           <div className="grid gap-10 md:grid-cols-4">
             <div className="md:col-span-2">
-              <Link to="/" className="text-2xl font-bold text-cyan-400">
+              <Link to={homeLink} className="text-2xl font-bold text-cyan-400">
                 MEEWARP
               </Link>
               <p className="mt-4 max-w-md text-sm text-slate-400">
@@ -1001,12 +1008,12 @@ const MarketingLandingPage = () => {
                   </a>
                 </li>
                 <li>
-                  <Link to="/tv" className="transition-colors hover:text-cyan-400">
+                  <Link to={tvLink} className="transition-colors hover:text-cyan-400">
                     TV Demo
                   </Link>
                 </li>
                 <li>
-                  <Link to="/self-warp" className="transition-colors hover:text-cyan-400">
+                  <Link to={selfWarpLink} className="transition-colors hover:text-cyan-400">
                     Try Free
                   </Link>
                 </li>
@@ -1056,7 +1063,7 @@ const MarketingLandingPage = () => {
 
       <div className="fixed right-6 bottom-6 z-50">
         <Link
-          to="/self-warp"
+          to={selfWarpLink}
           className="flex gap-3 items-center px-6 py-4 font-semibold text-white bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full shadow-xl transition-transform shadow-cyan-500/30 hover:-translate-y-1 hover:shadow-cyan-500/50"
         >
           <span className="text-xl">🎯</span>

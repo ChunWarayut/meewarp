@@ -1,6 +1,8 @@
 import { type FormEvent, useEffect, useState } from 'react';
 import { API_ENDPOINTS } from '../../config';
 import { useAuth } from '../../contexts/AuthContext';
+import { useStoreContext } from '../../contexts/StoreContext';
+import { buildAuthHeaders } from '../../utils/http';
 
 type Order = {
   _id: string;
@@ -21,6 +23,7 @@ type OrdersResponse = {
 
 const AdminOrdersPage = () => {
   const { token } = useAuth();
+  const { selectedStoreId, selectedStore, locked, loadingStores } = useStoreContext();
   const [orders, setOrders] = useState<OrdersResponse | null>(null);
   const [status, setStatus] = useState('');
   const [search, setSearch] = useState('');
@@ -28,7 +31,7 @@ const AdminOrdersPage = () => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchOrders = async () => {
-    if (!token) return;
+    if (!token || !selectedStoreId) return;
     setLoading(true);
     setError(null);
 
@@ -38,7 +41,7 @@ const AdminOrdersPage = () => {
 
     try {
       const response = await fetch(`${API_ENDPOINTS.adminOrders}?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: buildAuthHeaders(token, selectedStoreId ?? undefined),
       });
       if (!response.ok) {
         throw new Error('Failed to load orders');
@@ -53,14 +56,25 @@ const AdminOrdersPage = () => {
   };
 
   useEffect(() => {
-    fetchOrders();
+    if (token && selectedStoreId) {
+      fetchOrders();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, selectedStoreId]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!selectedStoreId) return;
     fetchOrders();
   };
+
+  if (!locked && !selectedStoreId) {
+    return (
+      <div className="space-y-6">
+        <p className="text-sm text-slate-300">เลือกสาขาเพื่อดูคำสั่งซื้อ</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -68,6 +82,9 @@ const AdminOrdersPage = () => {
         <p className="text-xs uppercase tracking-[0.4em] text-indigo-300">Orders</p>
         <h1 className="mt-2 text-3xl font-semibold text-white">Warp Orders</h1>
         <p className="mt-1 text-sm text-slate-300">ดูสถานะคำสั่งซื้อทั้งหมดและค้นหาตามชื่อหรือโค้ดได้</p>
+        {selectedStore ? (
+          <p className="mt-1 text-xs uppercase tracking-[0.35em] text-indigo-200">{selectedStore.name}</p>
+        ) : null}
       </header>
 
       <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3 rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -103,7 +120,7 @@ const AdminOrdersPage = () => {
         </button>
       </form>
 
-      {loading ? (
+      {loading || loadingStores ? (
         <p className="text-sm text-slate-300">Loading orders…</p>
       ) : error ? (
         <p className="text-sm text-rose-300">{error}</p>

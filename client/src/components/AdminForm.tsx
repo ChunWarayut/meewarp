@@ -1,5 +1,6 @@
 import { type ChangeEvent, type FormEvent, useState } from 'react';
 import { API_ENDPOINTS } from '../config';
+import { buildAuthHeaders } from '../utils/http';
 
 type FormValues = {
   code: string;
@@ -9,6 +10,7 @@ type FormValues = {
 
 type AdminFormProps = {
   authToken: string;
+  storeId: string;
   onSuccess?: () => void;
   onLogout?: () => void;
 };
@@ -19,7 +21,7 @@ const defaultValues: FormValues = {
   socialLink: '',
 };
 
-const AdminForm = ({ authToken, onSuccess, onLogout }: AdminFormProps) => {
+const AdminForm = ({ authToken, storeId, onSuccess, onLogout }: AdminFormProps) => {
   const [values, setValues] = useState<FormValues>(defaultValues);
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState<string>('');
@@ -34,13 +36,16 @@ const AdminForm = ({ authToken, onSuccess, onLogout }: AdminFormProps) => {
     setStatus('submitting');
     setMessage('');
 
+    if (!storeId) {
+      setStatus('error');
+      setMessage('กรุณาเลือกสาขาก่อนสร้างโปรไฟล์');
+      return;
+    }
+
     try {
       const response = await fetch(API_ENDPOINTS.createWarpProfile, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
-        },
+        headers: buildAuthHeaders(authToken, storeId, { 'Content-Type': 'application/json' }),
         body: JSON.stringify(values),
       });
 

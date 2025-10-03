@@ -15,7 +15,7 @@ module.exports = async function adminAuth(req, res, next) {
     const payload = jwt.verify(token, config.auth.jwtSecret);
 
     if (payload.id) {
-      const admin = await Admin.findById(payload.id).lean();
+      const admin = await Admin.findById(payload.id).populate('store', 'name slug').lean();
       if (!admin || !admin.isActive) {
         return res.status(401).json({ message: 'Account inactive' });
       }
@@ -24,12 +24,18 @@ module.exports = async function adminAuth(req, res, next) {
         email: admin.email,
         role: admin.role,
         displayName: admin.displayName || admin.email,
+        storeId: admin.store ? admin.store._id.toString() : null,
+        storeName: admin.store?.name || null,
+        storeSlug: admin.store?.slug || null,
       };
     } else {
       req.admin = {
         email: payload.email,
         role: payload.role || 'superadmin',
         displayName: payload.displayName || payload.email,
+        storeId: payload.storeId || null,
+        storeName: payload.storeName || null,
+        storeSlug: payload.storeSlug || null,
       };
     }
 

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { API_ENDPOINTS } from '../config';
+import { resolveStoreSlug } from '../utils/storeSlug';
 
 type Supporter = {
   customerName: string;
@@ -13,6 +15,8 @@ type AppSettings = {
   tagline?: string;
   primaryColor?: string;
   backgroundImage?: string;
+  backgroundImages?: string[];
+  backgroundRotationDuration?: number;
   logo?: string;
   promotionImages?: string[];
   promotionDuration?: number;
@@ -35,6 +39,36 @@ const fallbackSupporters: Supporter[] = [
     totalAmount: 0,
     customerAvatar: null,
   },
+  {
+    customerName: 'ยังว่างอันดับ 4',
+    totalAmount: 0,
+    customerAvatar: null,
+  },
+  {
+    customerName: 'ยังว่างอันดับ 5',
+    totalAmount: 0,
+    customerAvatar: null,
+  },
+  {
+    customerName: 'ยังว่างอันดับ 6',
+    totalAmount: 0,
+    customerAvatar: null,
+  },
+  {
+    customerName: 'ยังว่างอันดับ 7',
+    totalAmount: 0,
+    customerAvatar: null,
+  },
+  {
+    customerName: 'ยังว่างอันดับ 8',
+    totalAmount: 0,
+    customerAvatar: null,
+  },
+  {
+    customerName: 'ยังว่างอันดับ 9',
+    totalAmount: 0,
+    customerAvatar: null,
+  },
 ];
 
 type DisplayWarp = {
@@ -49,18 +83,24 @@ type DisplayWarp = {
 };
 
 const TvLandingPage = () => {
+  const { storeSlug: routeSlug } = useParams<{ storeSlug?: string }>();
+  const storeSlug = resolveStoreSlug(routeSlug);
   const [supporters, setSupporters] = useState<Supporter[]>([]);
   const [selfWarpUrl, setSelfWarpUrl] = useState<string>('');
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [currentWarp, setCurrentWarp] = useState<DisplayWarp | null>(null);
   const [countdown, setCountdown] = useState<number>(0);
   const [imageColors, setImageColors] = useState<{ primary: string; secondary: string } | null>(null);
+  const [currentBackgroundIndex, setCurrentBackgroundIndex] = useState<number>(0);
+  const [isBackgroundTransitioning, setIsBackgroundTransitioning] = useState<boolean>(false);
   const [currentPromotionIndex, setCurrentPromotionIndex] = useState<number>(0);
   const [isPromotionTransitioning, setIsPromotionTransitioning] = useState<boolean>(false);
   const isFetchingWarpRef = useRef(false);
   const currentWarpRef = useRef<DisplayWarp | null>(null);
   const fetchNextWarpRef = useRef<() => void>(() => { });
   const promotionIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const backgroundIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const backgroundTransitionTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
 
   const currencyFormatter = useMemo(
     () =>
@@ -81,7 +121,7 @@ const TvLandingPage = () => {
 
     const fetchSettings = async () => {
       try {
-        const response = await fetch('/api/v1/public/settings');
+        const response = await fetch(API_ENDPOINTS.publicSettings(storeSlug));
         if (!response.ok) {
           throw new Error('Failed to load settings');
         }
@@ -144,7 +184,7 @@ const TvLandingPage = () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('settingsUpdated', handleSettingsUpdate);
     };
-  }, []);
+  }, [storeSlug]);
 
   const resolveMediaSource = useCallback((raw?: string | null) => {
     if (!raw) {
@@ -161,7 +201,7 @@ const TvLandingPage = () => {
     }
 
     return raw;
-  }, []);
+  }, [storeSlug]);
 
   const extractImageColors = useCallback((imageUrl: string) => {
     const img = new Image();
@@ -233,7 +273,7 @@ const TvLandingPage = () => {
     };
 
     img.src = imageUrl;
-  }, []);
+  }, [storeSlug]);
 
   const formatSeconds = useCallback((value: number) => {
     const safe = Math.max(0, Math.floor(value));
@@ -249,7 +289,7 @@ const TvLandingPage = () => {
   const sanitizeName = useCallback((name: string) => {
     // Remove special characters, keep only Thai characters, English letters, numbers, and basic punctuation
     return name.replace(/[^\u0E00-\u0E7F\u0020-\u007E]/g, '').trim();
-  }, []);
+  }, [storeSlug]);
 
   const fetchNextWarp = useCallback(async () => {
     if (isFetchingWarpRef.current || currentWarpRef.current) {
@@ -259,7 +299,7 @@ const TvLandingPage = () => {
     isFetchingWarpRef.current = true;
 
     try {
-      const response = await fetch(API_ENDPOINTS.displayNext, {
+      const response = await fetch(API_ENDPOINTS.displayNext(storeSlug), {
         method: 'POST',
       });
 
@@ -292,7 +332,7 @@ const TvLandingPage = () => {
     } finally {
       isFetchingWarpRef.current = false;
     }
-  }, []);
+  }, [storeSlug]);
 
   const completeCurrentWarp = useCallback(async (transactionId: string) => {
     if (!transactionId) {
@@ -303,7 +343,7 @@ const TvLandingPage = () => {
     }
 
     try {
-      await fetch(API_ENDPOINTS.displayComplete(transactionId), {
+      await fetch(API_ENDPOINTS.displayComplete(transactionId, storeSlug), {
         method: 'POST',
       });
     } catch (error) {
@@ -315,7 +355,7 @@ const TvLandingPage = () => {
         fetchNextWarpRef.current?.();
       }, 500);
     }
-  }, []);
+  }, [storeSlug]);
 
   useEffect(() => {
     fetchNextWarpRef.current = fetchNextWarp;
@@ -351,7 +391,10 @@ const TvLandingPage = () => {
     let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const connect = () => {
-      eventSource = new EventSource(API_ENDPOINTS.displayStream);
+      if (eventSource) {
+        eventSource.close();
+      }
+      eventSource = new EventSource(API_ENDPOINTS.displayStream(storeSlug));
 
       eventSource.onmessage = (event) => {
         try {
@@ -394,13 +437,15 @@ const TvLandingPage = () => {
       }
       clearInterval(poller);
     };
-  }, []);
+  }, [storeSlug]);
 
   useEffect(() => {
     let isMounted = true;
     let eventSource: EventSource | null = null;
     if (typeof window !== 'undefined') {
-      setSelfWarpUrl(`${window.location.origin}/self-warp/?openExternalBrowser=1`);
+      const prefix = storeSlug ? `/${storeSlug}` : '';
+      const path = `${prefix}/self-warp/?openExternalBrowser=1`;
+      setSelfWarpUrl(`${window.location.origin}${path}`);
     }
 
     const normaliseSupporters = (list: unknown): Supporter[] => {
@@ -412,13 +457,13 @@ const TvLandingPage = () => {
           customerAvatar: item?.customerAvatar ?? null,
           totalSeconds: item?.totalSeconds ? Number(item.totalSeconds) : undefined,
         }))
-        .filter((entry) => entry.totalAmount > 0)
+        .filter((entry) => Number.isFinite(entry.totalAmount))
         .slice(0, 3);
     };
 
     const fetchInitial = async () => {
       try {
-        const response = await fetch(`${API_ENDPOINTS.topSupporters}?limit=3`);
+        const response = await fetch(`${API_ENDPOINTS.topSupporters(storeSlug)}&limit=3`);
         if (!response.ok) {
           throw new Error('Failed to fetch supporters');
         }
@@ -426,9 +471,7 @@ const TvLandingPage = () => {
         const body = await response.json();
         if (isMounted) {
           const parsed = normaliseSupporters(body?.supporters);
-          if (parsed.length > 0) {
-            setSupporters(parsed);
-          }
+          setSupporters(parsed);
         }
       } catch {
         // fall back silently to seeded supporters
@@ -440,16 +483,14 @@ const TvLandingPage = () => {
         return;
       }
 
-      eventSource = new EventSource(API_ENDPOINTS.leaderboardStream);
+      eventSource = new EventSource(API_ENDPOINTS.leaderboardStream(storeSlug));
 
       eventSource.onmessage = (event) => {
         if (!isMounted) return;
         try {
           const payload = JSON.parse(event.data);
           const parsed = normaliseSupporters(payload?.supporters);
-          if (parsed.length > 0) {
-            setSupporters(parsed);
-          }
+          setSupporters(parsed);
         } catch {
           // ignore malformed messages
         }
@@ -474,14 +515,17 @@ const TvLandingPage = () => {
     fetchInitial();
     setupStream();
 
+    const refreshInterval = setInterval(fetchInitial, 15000);
+
     return () => {
       isMounted = false;
       if (eventSource) {
         eventSource.close();
         eventSource = null;
       }
+      clearInterval(refreshInterval);
     };
-  }, []);
+  }, [storeSlug]);
 
   const hasLiveData = supporters.length > 0;
   const supportersToDisplay = hasLiveData ? supporters : fallbackSupporters;
@@ -594,27 +638,95 @@ const TvLandingPage = () => {
 
   const brandName = settings?.brandName?.trim() || '';
   const tagline = settings?.tagline?.trim() || '';
-  const backgroundImage = useMemo(() => {
-    if (!settings?.backgroundImage) {
+
+  const backgroundSources = useMemo(() => {
+    const rawList = Array.isArray(settings?.backgroundImages) && settings.backgroundImages.length > 0
+      ? settings.backgroundImages
+      : settings?.backgroundImage
+        ? [settings.backgroundImage]
+        : [];
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+
+    return rawList
+      .map((source) => {
+        if (!source) return null;
+        let value = source;
+        if (typeof source === 'object' && source !== null) {
+          value = source.url || source.path || source.src || null;
+        }
+
+        if (typeof value !== 'string' || value.length === 0) {
+          return null;
+        }
+
+        if (value.startsWith('/uploads/')) {
+          if (origin) {
+            return `${origin}/api${value}`;
+          }
+          return `/api${value}`;
+        }
+
+        return resolveMediaSource(value);
+      })
+      .filter((value): value is string => Boolean(value));
+  }, [settings?.backgroundImages, settings?.backgroundImage, resolveMediaSource]);
+
+  const backgroundSourcesKey = useMemo(() => backgroundSources.join('|'), [backgroundSources]);
+
+  useEffect(() => {
+    setCurrentBackgroundIndex(0);
+    setIsBackgroundTransitioning(false);
+  }, [backgroundSourcesKey]);
+
+  useEffect(() => {
+    backgroundTransitionTimeoutsRef.current.forEach((timeout) => clearTimeout(timeout));
+    backgroundTransitionTimeoutsRef.current = [];
+
+    if (backgroundIntervalRef.current) {
+      clearInterval(backgroundIntervalRef.current);
+      backgroundIntervalRef.current = null;
+    }
+
+    if (backgroundSources.length <= 1) {
+      setIsBackgroundTransitioning(false);
+      return undefined;
+    }
+
+    const duration = Math.max(3000, Number(settings?.backgroundRotationDuration) || 15000);
+
+    const rotateBackground = () => {
+      setIsBackgroundTransitioning(true);
+      const changeTimeout = setTimeout(() => {
+        setCurrentBackgroundIndex((prev) => (prev + 1) % backgroundSources.length);
+        const settleTimeout = setTimeout(() => {
+          setIsBackgroundTransitioning(false);
+        }, 60);
+        backgroundTransitionTimeoutsRef.current.push(settleTimeout);
+      }, 350);
+      backgroundTransitionTimeoutsRef.current.push(changeTimeout);
+    };
+
+    backgroundIntervalRef.current = setInterval(rotateBackground, duration);
+
+    return () => {
+      if (backgroundIntervalRef.current) {
+        clearInterval(backgroundIntervalRef.current);
+        backgroundIntervalRef.current = null;
+      }
+      backgroundTransitionTimeoutsRef.current.forEach((timeout) => clearTimeout(timeout));
+      backgroundTransitionTimeoutsRef.current = [];
+    };
+  }, [backgroundSources, settings?.backgroundRotationDuration]);
+
+  const backgroundImage = backgroundSources[currentBackgroundIndex] ?? null;
+
+  useEffect(() => {
+    if (!backgroundImage) {
       setImageColors(null);
-      return null;
+      return;
     }
-    // If it's a file path, serve from API, otherwise use resolveMediaSource for base64
-    let imageUrl;
-    if (settings.backgroundImage.startsWith('/uploads/')) {
-      imageUrl = `${window.location.origin}/api${settings.backgroundImage}`;
-    } else {
-      imageUrl = resolveMediaSource(settings.backgroundImage);
-    }
-    console.log('Background image URL:', imageUrl);
-
-    // Extract colors from the image
-    if (imageUrl) {
-      extractImageColors(imageUrl);
-    }
-
-    return imageUrl;
-  }, [settings?.backgroundImage, resolveMediaSource, extractImageColors]);
+    extractImageColors(backgroundImage);
+  }, [backgroundImage, extractImageColors]);
 
   const defaultPrimary = '#6366f1';
   const defaultSecondary = '#f472b6';
@@ -624,7 +736,8 @@ const TvLandingPage = () => {
   const displayTagline = tagline || null;
   const promotionEnabled = Boolean(settings?.promotionEnabled);
   const hasPromotionImages = Boolean(settings?.promotionImages && settings.promotionImages.length > 0);
-  const promotionImageSrc = hasPromotionImages
+  const showPromotions = promotionEnabled && hasPromotionImages;
+  const promotionImageSrc = showPromotions
     ? settings?.promotionImages?.[currentPromotionIndex] ?? null
     : null;
   const verticalLogoSrc = useMemo(() => {
@@ -812,22 +925,22 @@ const TvLandingPage = () => {
           </div>
 
           {warpSocialQr ? (
-              <div
-                className="items-center gap-4 px-5 py-4 rounded-[32px] border border-white/10 bg-white/10 text-left text-white shadow-[0_28px_90px_rgba(15,23,42,0.45)] warp-fade-up"
-                style={{ animationDelay: '0.5s' }}
-              >
-                <div className="flex overflow-hidden justify-center items-center p-5 w-full bg-current rounded-2xl">
-                  <img src={warpSocialQr} alt="Warp Spotlight QR" className="object-contain w-full h-full" />
-                </div>
-                <div className="flex-1 mt-2 text-center">
-                  <p className="text-xs uppercase tracking-[0.3em] text-white/70 text-center">สแกนเพื่อตาม</p>
-                  <p className="text-lg font-semibold">
-                    {sanitizeName(currentWarp.customerName || currentWarp.customerName)}
-                  </p>
-                  <p className="text-[11px] uppercase tracking-[0.35em] text-white/50">เปิดกล้องหรือ IG แล้วสแกน</p>
-                </div>
+            <div
+              className="items-center gap-4 px-5 py-4 rounded-[32px] border border-white/10 bg-white/10 text-left text-white shadow-[0_28px_90px_rgba(15,23,42,0.45)] warp-fade-up"
+              style={{ animationDelay: '0.5s' }}
+            >
+              <div className="flex overflow-hidden justify-center items-center p-5 w-full bg-current rounded-2xl">
+                <img src={warpSocialQr} alt="Warp Spotlight QR" className="object-contain w-full h-full" />
               </div>
-            ) : null}
+              <div className="flex-1 mt-2 text-center">
+                <p className="text-xs uppercase tracking-[0.3em] text-white/70 text-center">สแกนเพื่อตาม</p>
+                <p className="text-lg font-semibold">
+                  {sanitizeName(currentWarp.customerName || currentWarp.customerName)}
+                </p>
+                <p className="text-[11px] uppercase tracking-[0.35em] text-white/50">เปิดกล้องหรือ IG แล้วสแกน</p>
+              </div>
+            </div>
+          ) : null}
           <div
             className="flex flex-1 flex-col justify-between rounded-[36px] border border-white/10 bg-slate-900/65 p-6 text-left text-slate-100 shadow-[0_28px_95px_rgba(8,16,32,0.6)] warp-fade-up"
             style={{ animationDelay: '0.6s' }}
@@ -842,13 +955,13 @@ const TvLandingPage = () => {
     </div>
   ) : null;
 
-  const promotionPanel = (
+  const promotionPanel = !showPromotions ? null : (
     <div
       className="relative mx-auto flex h-full w-full items-center justify-center overflow-hidden rounded-[32px] border border-white/10 bg-white/10 shadow-[0_25px_60px_rgba(15,23,42,0.45)] backdrop-blur-xl"
       style={{ minHeight: promotionMinHeight, height: '100%' }}
     >
-      {promotionEnabled ? (
-        hasPromotionImages && promotionImageSrc ? (
+      {showPromotions ? (
+        promotionImageSrc ? (
           <img
             src={promotionImageSrc}
             alt={`โปรโมชั่น ${currentPromotionIndex + 1}`}
@@ -870,7 +983,8 @@ const TvLandingPage = () => {
             📺
           </div>
           <h4 className="text-lg font-semibold text-white lg:text-xl">เปิดโปรโมชั่นเพื่อแสดง</h4>
-          <p className="text-sm text-slate-300 lg:text-base">เปิดใช้งานในหลังบ้านเพื่อหมุนภาพบนจอ</p>
+          <p className="text-sm text-slate-300 lg:text-base">เปิดใช้งานในหลังบ้าน (Settings &gt;Warp Packages
+            Promotions) เพื่อหมุนภาพบนจอ</p>
         </div>
       )}
 
@@ -883,9 +997,9 @@ const TvLandingPage = () => {
                 {displayTagline}
               </span>
             ) : null}
-            <h1 className="font-display text-[clamp(48px,6vw,120px)] font-bold uppercase leading-none text-white drop-shadow-[0_0_35px_rgba(99,102,241,0.55)]">
+            {/* <h1 className="font-display text-[clamp(48px,6vw,120px)] font-bold uppercase leading-none text-white drop-shadow-[0_0_35px_rgba(99,102,241,0.55)]">
               {displayBrandName}
-            </h1>
+            </h1> */}
           </div>
           {currentWarp ? (
             <div className="flex items-center gap-3 rounded-2xl bg-slate-900/70 px-4 py-3 text-white shadow-[0_20px_40px_rgba(15,23,42,0.4)] backdrop-blur">
@@ -914,20 +1028,20 @@ const TvLandingPage = () => {
     </div>
   );
 
-  const logoPanel = (
-    <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-[28px] border border-white/10 bg-white/10 text-white shadow-[0_25px_60px_rgba(15,23,42,0.45)] backdrop-blur-xl">
-      {verticalLogoSrc ? (
-        <img src={verticalLogoSrc} alt={displayBrandName} className="object-cover w-full h-full" />
-      ) : (
-        <div className="flex flex-col gap-4 justify-center items-center w-full h-full text-center">
-          <div className="text-3xl font-black uppercase tracking-[0.4em] text-white">{displayBrandName}</div>
-        </div>
-      )}
-    </div>
-  );
+  const logoPanel = !showPromotions ? null : (
+      <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-[28px] border border-white/10 bg-white/10 text-white shadow-[0_25px_60px_rgba(15,23,42,0.45)] backdrop-blur-xl">
+        {verticalLogoSrc ? (
+          <img src={verticalLogoSrc} alt={displayBrandName} className="object-cover w-full h-full" />
+        ) : (
+          <div className="flex flex-col gap-4 justify-center items-center w-full h-full text-center">
+            <div className="text-3xl font-black uppercase tracking-[0.4em] text-white">{displayBrandName}</div>
+          </div>
+        )}
+      </div>
+    );
 
   const renderLeaderboard = (variant: 'full' | 'compact') => {
-    const previewSupporters = supportersToDisplay.slice(0, 3);
+    const previewSupporters = supportersToDisplay.slice(0, 9);
 
     if (variant === 'compact') {
       return (
@@ -966,8 +1080,8 @@ const TvLandingPage = () => {
                   </div>
                   <span
                     className={`flex items-center justify-center rounded-lg border px-2 py-1 text-[10px] font-semibold ${isPlaceholder
-                        ? 'border-white/10 text-slate-300'
-                        : 'text-rose-100 border-rose-400 bg-rose-500/20'
+                      ? 'border-white/10 text-slate-300'
+                      : 'text-rose-100 border-rose-400 bg-rose-500/20'
                       }`}
                   >
                     {amountLabel}
@@ -1015,8 +1129,8 @@ const TvLandingPage = () => {
                 </div>
                 <span
                   className={`flex items-center justify-center rounded-lg border px-3 py-1 text-xs font-semibold ${isPlaceholder
-                      ? 'border-white/10 text-slate-300'
-                      : 'text-rose-100 border-rose-400 bg-rose-500/20'
+                    ? 'border-white/10 text-slate-300'
+                    : 'text-rose-100 border-rose-400 bg-rose-500/20'
                     }`}
                 >
                   {amountLabel}
@@ -1066,63 +1180,28 @@ const TvLandingPage = () => {
   };
 
   return (
-    <div
-      className="flex overflow-hidden relative w-screen min-h-screen bg-slate-950 text-slate-100 font-th"
-      style={
-        backgroundImage
-          ? {
-            backgroundImage: `url(${backgroundImage})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-            backgroundColor: gradientPrimary || '#0f172a',
-            backgroundClip: 'padding-box',
-            backgroundOrigin: 'padding-box',
-            backgroundAttachment: 'fixed',
-          }
-          : undefined
-      }
-    >
-      {/* Blurred background image overlay */}
-      {backgroundImage && (
-        <div
-          className="fixed inset-0 pointer-events-none -z-20"
-          style={{
-            backgroundImage: `url(${backgroundImage})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-            filter: 'blur(20px)',
-            transform: 'scale(1.05)',
-            opacity: 0.25,
-            backgroundClip: 'padding-box',
-            backgroundOrigin: 'padding-box',
-          }}
-        />
-      )}
-
-      {/* Smooth edge transition overlay */}
-      {backgroundImage && (
-        <div
-          className="fixed inset-0 pointer-events-none -z-20"
-          style={{
-            background: `radial-gradient(ellipse at center, transparent 0%, transparent 40%, ${toRgba(gradientPrimary, 0.9)} 70%, ${toRgba(gradientPrimary, 1)} 100%)`,
-            opacity: 0.8,
-          }}
-        />
-      )}
-
-      {/* Gradient backdrops tuned to the hero palette (works with or without an uploaded image) */}
+    <div className="flex overflow-hidden relative w-screen min-h-screen text-slate-100 font-th">
+      <div className="absolute inset-0 -z-40" />
+      {backgroundImage ? (
+        <>
+          <div
+            key={backgroundImage}
+            className={`absolute inset-0 bg-center bg-cover duration-700 -z-30`}
+            style={{ backgroundImage: `url(${backgroundImage})` }}
+          />
+          {/* <div className="absolute inset-0 backdrop-blur -z-20" /> */}
+        </>
+      ) : null}
       <div
-        className="fixed inset-0 opacity-70 pointer-events-none -z-30"
+        className="absolute inset-0 opacity-70 pointer-events-none -z-10"
         style={{
-          background: `radial-gradient(120% 120% at 15% 20%, ${toRgba(gradientPrimary, 0.55)} 0%, transparent 70%), radial-gradient(120% 120% at 85% 80%, ${toRgba(gradientSecondary, 0.5)} 0%, transparent 72%)`,
+          background: `radial-gradient(120% 120% at 15% 20%, ${toRgba(gradientPrimary, 0.38)} 0%, transparent 70%), radial-gradient(120% 120% at 85% 80%, ${toRgba(gradientSecondary, 0.33)} 0%, transparent 72%)`,
         }}
       />
       <div
-        className="fixed inset-0 opacity-60 mix-blend-screen pointer-events-none -z-30"
+        className="absolute inset-0 mix-blend-screen pointer-events-none -z-5 opacity-55"
         style={{
-          background: `radial-gradient(140% 140% at 50% 120%, ${toRgba(gradientSecondary, 0.35)} 0%, transparent 65%)`,
+          background: `radial-gradient(140% 140% at 50% 120%, ${toRgba(gradientSecondary, 0.24)} 0%, transparent 65%)`,
         }}
       />
       {warpOverlay}

@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
+import { API_ENDPOINTS } from '../config';
 import { useAuth } from '../contexts/AuthContext';
+import { useStoreContext } from '../contexts/StoreContext';
+import { buildAuthHeaders } from '../utils/http';
 
 type ActivityEntry = {
   _id: string;
@@ -19,6 +22,7 @@ type ActivityEntry = {
 
 const AdminActivity = () => {
   const { token } = useAuth();
+  const { selectedStoreId, selectedStore, locked, loadingStores } = useStoreContext();
   const [entries, setEntries] = useState<ActivityEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,16 +33,22 @@ const AdminActivity = () => {
       return;
     }
 
+    if (!selectedStoreId && !locked) {
+      setError('เลือกสาขาเพื่อดู Activity log');
+      return;
+    }
+
     const controller = new AbortController();
 
     const fetchEntries = async () => {
+      if (!selectedStoreId) {
+        return;
+      }
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch('/api/v1/transactions/activity-log', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        const response = await fetch(API_ENDPOINTS.adminActivity, {
+          headers: buildAuthHeaders(token, selectedStoreId ?? undefined),
           signal: controller.signal,
         });
 
@@ -63,7 +73,7 @@ const AdminActivity = () => {
     return () => {
       controller.abort();
     };
-  }, [token]);
+  }, [token, selectedStoreId, locked]);
 
   return (
     <div className="space-y-6 text-slate-100">
@@ -73,6 +83,9 @@ const AdminActivity = () => {
         <p className="mt-2 text-sm text-slate-300">
           ดูรายการธุรกรรม Warp ล่าสุด พร้อมสถานะการชำระเงินและบันทึกจากระบบ
         </p>
+        {selectedStore ? (
+          <p className="mt-1 text-xs uppercase tracking-[0.35em] text-indigo-200">{selectedStore.name}</p>
+        ) : null}
       </div>
 
         {error ? (
@@ -94,7 +107,7 @@ const AdminActivity = () => {
               </tr>
             </thead>
             <tbody>
-              {isLoading ? (
+              {isLoading || loadingStores ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-6 text-center text-slate-300">
                     กำลังโหลด...
