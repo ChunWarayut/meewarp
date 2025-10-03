@@ -78,7 +78,9 @@ router.get('/admin/settings', requireRole('staff', 'manager', 'superadmin'), asy
 });
 
 router.put('/admin/settings', requireRole('manager', 'superadmin'), upload.fields([
-  { name: 'backgroundImage', maxCount: 1 }
+  { name: 'backgroundImage', maxCount: 1 },
+  { name: 'promotionImages', maxCount: 10 },
+  { name: 'logo', maxCount: 1 }
 ]), async (req, res) => {
   try {
     const payload = { ...req.body };
@@ -92,8 +94,47 @@ router.put('/admin/settings', requireRole('manager', 'superadmin'), upload.field
         }
         payload.backgroundImage = `/uploads/images/${req.files.backgroundImage[0].filename}`;
       }
+      
+      // Handle promotion images
+      if (req.files.promotionImages && req.files.promotionImages.length > 0) {
+        payload.promotionImages = req.files.promotionImages.map(file => `/uploads/images/${file.filename}`);
+      }
+
+      if (req.files.logo && req.files.logo[0]) {
+        if (req.body.oldLogo) {
+          deleteOldImage(req.body.oldLogo);
+        }
+        payload.logo = `/uploads/images/${req.files.logo[0].filename}`;
+      }
+    }
+
+    // Handle promotion settings
+    if (req.body.promotionEnabled !== undefined) {
+      payload.promotionEnabled = req.body.promotionEnabled === 'true';
+    }
+    if (req.body.promotionDuration !== undefined) {
+      payload.promotionDuration = parseInt(req.body.promotionDuration) || 5000;
     }
     
+    // Handle promotion images from JSON string (for now)
+    if (req.body.promotionImages) {
+      try {
+        payload.promotionImages = JSON.parse(req.body.promotionImages);
+      } catch (error) {
+        console.error('Error parsing promotionImages:', error);
+      }
+    }
+
+    if (req.body.logoRemoved === 'true') {
+      if (req.body.oldLogo) {
+        deleteOldImage(req.body.oldLogo);
+      }
+      payload.logo = '';
+    }
+
+    delete payload.logoRemoved;
+    delete payload.oldLogo;
+
     const settings = await updateSettings({ payload, adminId: req.admin.id });
     return res.status(200).json(settings);
   } catch (error) {

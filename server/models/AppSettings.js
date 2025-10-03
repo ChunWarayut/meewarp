@@ -63,6 +63,18 @@ const AppSettingsSchema = new mongoose.Schema(
       of: String,
       default: {},
     },
+    promotionImages: {
+      type: [String],
+      default: [],
+    },
+    promotionDuration: {
+      type: Number,
+      default: 5000, // 5 seconds in milliseconds
+    },
+    promotionEnabled: {
+      type: Boolean,
+      default: false,
+    },
     updatedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Admin',
