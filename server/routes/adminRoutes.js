@@ -321,6 +321,12 @@ router.post('/admin/packages', requireRole('manager', 'superadmin'), storeContex
     if (!name || !seconds || !price) {
       return res.status(400).json({ message: 'name, seconds, and price are required' });
     }
+    
+    // Check if store context is valid
+    if (!req.storeContext.storeId) {
+      return res.status(400).json({ message: 'Store context is required to create packages' });
+    }
+    
     const pkg = await createPackage({
       storeId: req.storeContext.storeId,
       name,
@@ -330,8 +336,17 @@ router.post('/admin/packages', requireRole('manager', 'superadmin'), storeContex
     return res.status(201).json(pkg);
   } catch (error) {
     if (error.code === 11000) {
-      return res.status(409).json({ message: 'Package with the same duration already exists' });
+      // Check if it's a duplicate duration error
+      if (error.keyPattern && error.keyPattern.seconds) {
+        return res.status(409).json({ message: 'Package with the same duration already exists in this store' });
+      }
+      // Check if it's a duplicate name error
+      if (error.keyPattern && error.keyPattern.name) {
+        return res.status(409).json({ message: 'Package with the same name already exists in this store' });
+      }
+      return res.status(409).json({ message: 'Package with duplicate values already exists' });
     }
+    console.error('Package creation error:', error);
     return res.status(500).json({ message: 'Failed to create package' });
   }
 });
