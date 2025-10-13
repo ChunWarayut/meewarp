@@ -833,8 +833,8 @@ const TvLandingPage = () => {
                 {warpImage ? (
                   <img src={warpImage} alt={currentWarp.customerName} className="object-cover w-full h-full" />
                 ) : (
-                  <div className="flex justify-center items-center w-full h-full text-4xl font-semibold text-slate-200">
-                    MeeWarp
+                  <div className="flex justify-center items-center w-full h-full">
+                    <img src="/logo_meewarp.png" alt="MeeWarp" className="max-w-[60%] max-h-[60%] object-contain" />
                   </div>
                 )}
                 <div className="absolute inset-x-0 bottom-0 h-60 bg-gradient-to-t to-transparent from-slate-950/90 via-slate-950/10" />

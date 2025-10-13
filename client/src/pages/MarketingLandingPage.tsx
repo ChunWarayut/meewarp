@@ -261,8 +261,8 @@ const MarketingLandingPage = () => {
     <div className="min-h-screen text-white bg-slate-950 font-th">
       <header className="sticky top-0 z-40 border-b backdrop-blur border-white/10 bg-slate-950/80">
         <nav className="flex justify-between items-center px-4 mx-auto max-w-7xl h-16 sm:px-6 lg:px-8">
-          <Link to={homeLink} className="text-xl font-bold tracking-tight text-cyan-400 sm:text-2xl">
-            MEEWARP
+          <Link to={homeLink} className="flex items-center">
+            <img src="/logo_meewarp.png" alt="MEEWARP" className="h-10 sm:h-12" />
           </Link>
 
           <div className="hidden gap-8 items-center lg:flex">
@@ -975,8 +975,8 @@ const MarketingLandingPage = () => {
         <div className="px-6 mx-auto max-w-7xl">
           <div className="grid gap-10 md:grid-cols-4">
             <div className="md:col-span-2">
-              <Link to={homeLink} className="text-2xl font-bold text-cyan-400">
-                MEEWARP
+              <Link to={homeLink} className="flex items-center">
+                <img src="/logo_meewarp.png" alt="MEEWARP" className="h-8" />
               </Link>
               <p className="mt-4 max-w-md text-sm text-slate-400">
                 แพลตฟอร์มจัดการคิว Warp แบบเรียลไทม์ที่ทำให้ธุรกิจของคุณเติบโตอย่างยั่งยืน พร้อมระบบที่เสถียรและใช้งานง่าย
