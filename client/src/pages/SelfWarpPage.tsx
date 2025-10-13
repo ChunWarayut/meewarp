@@ -192,9 +192,6 @@ const SelfWarpPage = () => {
       errors.profileCode = 'กรุณาอัปโหลดรูปภาพของคุณ';
     }
 
-    if (!form.selfDisplayName?.trim()) {
-      errors.selfDisplayName = 'กรุณากรอกชื่อที่จะโชว์บนจอ';
-    }
     if (!form.customerName.trim()) {
       errors.customerName = 'กรุณากรอก IG ของคุณ';
     }
