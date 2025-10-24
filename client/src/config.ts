@@ -31,6 +31,8 @@ export const API_ENDPOINTS = {
     withStoreQuery(`${API_BASE_URL}/v1/public/transactions`, storeSlug),
   publicTransactionStatus: (storeSlug?: string | null) =>
     withStoreQuery(`${API_BASE_URL}/v1/public/transactions/check-status`, storeSlug),
+  publicPaymentStatusCheck: (storeSlug?: string | null) =>
+    withStoreQuery(`${API_BASE_URL}/v1/public/check-payment-status`, storeSlug),
   adminDashboard: `${API_BASE_URL}/v1/admin/dashboard/overview`,
   adminStatistics: `${API_BASE_URL}/v1/admin/statistics`,
   adminCustomers: `${API_BASE_URL}/v1/admin/customers`,

@@ -150,6 +150,19 @@ function extractPromptPayDetails(paymentIntent, fallback = {}) {
 async function syncStripeTransaction(transaction, { actor = 'system' } = {}) {
   const existingPromptPayMetadata = transaction?.metadata?.promptpay || null;
 
+  // ตรวจสอบว่าธุรกรรมนี้ชำระเงินแล้วหรือยัง
+  if (transaction.status === 'paid') {
+    return {
+      status: transaction.status,
+      stripeStatus: {
+        session: transaction.metadata?.stripeCheckoutStatus || null,
+        paymentStatus: transaction.metadata?.stripePaymentStatus || 'succeeded',
+      },
+      note: 'Payment already completed',
+      promptPay: existingPromptPayMetadata,
+    };
+  }
+
   if (!isStripeConfigured()) {
     return {
       status: transaction.status,
@@ -1065,7 +1078,7 @@ router.post('/payments/webhook', express.raw({ type: 'application/json' }), asyn
       if (transactionId) {
         const transaction = await WarpTransaction.findById(transactionId);
 
-        if (transaction) {
+        if (transaction && transaction.status !== 'paid') {
           const updates = {
             status: 'paid',
             'metadata.stripeCheckoutSessionId': session.id,
@@ -1139,7 +1152,7 @@ router.post('/payments/webhook', express.raw({ type: 'application/json' }), asyn
 
       if (transactionId) {
         const transaction = await WarpTransaction.findById(transactionId);
-        if (transaction) {
+        if (transaction && transaction.status !== 'paid') {
           const updates = {
             status: 'paid',
             'metadata.stripePaymentIntentId': intent.id,

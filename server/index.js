@@ -10,6 +10,7 @@ const warpRoutes = require('./routes/warpRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const paymentStatusRoutes = require('./routes/paymentStatusRoutes');
 
 const app = express();
 
@@ -71,6 +72,7 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1', warpRoutes);
 app.use('/api/v1', transactionRoutes);
 app.use('/api/v1', adminRoutes);
+app.use('/api/v1', paymentStatusRoutes);
 
 async function start() {
   try {

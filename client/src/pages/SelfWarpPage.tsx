@@ -5,6 +5,7 @@ import Spinner from '../components/Spinner';
 import { resizeImageFile } from '../utils/image';
 import ThankYouModal from '../components/customer/ThankYouModal';
 import { resolveStoreSlug } from '../utils/storeSlug';
+import { usePaymentStatus } from '../hooks/usePaymentStatus';
 
 type WarpOption = {
   id?: string;
@@ -18,17 +19,17 @@ const paymentMethodOptions: Array<{
   label: string;
   description: string;
 }> = [
-  {
-    id: 'promptpay',
-    label: 'PromptPay QR',
-    description: 'สแกนด้วยแอปธนาคารหรือวอลเล็ตที่รองรับ',
-  },
-  {
-    id: 'checkout',
-    label: 'บัตรเครดิต / เดบิต',
-    description: 'ชำระผ่านหน้า Stripe Checkout',
-  },
-];
+    {
+      id: 'promptpay',
+      label: 'PromptPay QR',
+      description: 'สแกนด้วยแอปธนาคารหรือวอลเล็ตที่รองรับ',
+    },
+    {
+      id: 'checkout',
+      label: 'บัตรเครดิต / เดบิต',
+      description: 'ชำระผ่านหน้า Stripe Checkout',
+    },
+  ];
 
 
 type FormState = {
@@ -104,6 +105,7 @@ const SelfWarpPage = () => {
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [showThankYouModal, setShowThankYouModal] = useState(false);
   const [options, setOptions] = useState<WarpOption[]>([]);
+  const { checkPaymentStatus } = usePaymentStatus();
 
   const handleChange = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -401,7 +403,6 @@ const SelfWarpPage = () => {
         {/* Header */}
         <div className="flex flex-col gap-4 mb-10 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="font-en text-xs uppercase tracking-[0.5em] text-indigo-300">Self Warp</p>
             <h1
               lang="th"
               className="mt-2 text-4xl font-semibold text-white drop-shadow-[0_0_35px_rgba(99,102,241,0.45)] sm:text-5xl"
@@ -420,18 +421,15 @@ const SelfWarpPage = () => {
             {/* Step 1 */}
             <section>
               <h3 className="font-en text-xs uppercase tracking-[0.45em] text-indigo-300 sm:text-sm">Step 1</h3>
-              <p lang="th" className="mt-2 text-base font-semibold text-white sm:text-lg">
-                แจกวาร์ปตัวเอง
-              </p>
 
               <div className="grid gap-4 mt-4 sm:mt-6 sm:gap-6 lg:grid-cols-2">
                 <div>
                   <label
                     lang="th"
-                    className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
+                    className="block text-base font-semibold text-white sm:text-lg uppercase tracking-[0.35em] text-indigo-200"
                     style={{ letterSpacing: '-0.02em' }}
                   >
-                    ชื่อที่จะโชว์
+                    ชื่อที่จะโชว์ขึ้นจอ
                   </label>
                   <input
                     type="text"
@@ -446,10 +444,106 @@ const SelfWarpPage = () => {
                   ) : null}
                 </div>
 
+                {/* Additional Info */}
+                <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
+                  <div>
+                    <label
+                      lang="th"
+                      className="block text-base font-semibold text-white sm:text-lg uppercase tracking-[0.35em] text-indigo-200"
+                      style={{ letterSpacing: '-0.02em' }}
+                    >
+                      IG ของคุณ
+                    </label>
+                    <input
+                      type="text"
+                      value={form.customerName}
+                      onChange={(event) => handleInstagramChange(event.target.value)}
+                      placeholder="ตัวอย่าง: meewarp.official"
+                      required
+                      className="mt-2 w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
+                      style={{ letterSpacing: '-0.02em' }}
+                    />
+                    {fieldErrors.customerName ? (
+                      <p className="mt-1 text-xs text-rose-300">{fieldErrors.customerName}</p>
+                    ) : null}
+                  </div>
+                  <div className='hidden'>
+                    <label
+                      lang="th"
+                      className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
+                      style={{ letterSpacing: '-0.02em' }}
+                    >
+                      ลิงก์ Social
+                    </label>
+                    <input
+                      type="url"
+                      value={form.socialLink}
+                      placeholder="ตัวอย่าง: https://www.instagram.com/meewarp.official"
+                      required
+                      readOnly
+                      className="mt-2 w-full rounded-2xl border border-white/15 bg-slate-900/40 px-4 py-3 text-sm text-white opacity-80 shadow-[0_12px_30px_rgba(8,12,24,0.35)] focus:outline-none"
+                      style={{ letterSpacing: '-0.02em' }}
+                    />
+                    {fieldErrors.socialLink ? (
+                      <p className="mt-1 text-xs text-rose-300">{fieldErrors.socialLink}</p>
+                    ) : null}
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label
+                      lang="th"
+                      className="block text-base font-semibold text-white sm:text-lg uppercase tracking-[0.35em] text-indigo-200"
+                      style={{ letterSpacing: '-0.02em' }}
+                    >
+                      อีเมลสำหรับส่งสลิป
+                    </label>
+                    <input
+                      type="email"
+                      value={form.customerEmail}
+                      onChange={(event) => handleChange('customerEmail', event.target.value)}
+                      placeholder="ตัวอย่าง: yourname@example.com"
+                      required
+                      className="mt-2 w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
+                      style={{ letterSpacing: '-0.02em' }}
+                    />
+                    {fieldErrors.customerEmail ? (
+                      <p className="mt-1 text-xs text-rose-300">{fieldErrors.customerEmail}</p>
+                    ) : null}
+                  </div>
+                </section>
+
+                {/* Quote Section */}
+                <section>
+                  <label
+                    lang="th"
+                    className="block text-base font-semibold text-white sm:text-lg uppercase tracking-[0.35em] text-indigo-200"
+                    style={{ letterSpacing: '-0.02em' }}
+                  >
+                    คำคม / ข้อความ
+                  </label>
+                  <textarea
+                    value={form.quote}
+                    onChange={(event) => handleChange('quote', event.target.value)}
+                    placeholder="ใส่คำคมหรือข้อความที่อยากให้แสดงบนจอ..."
+                    maxLength={200}
+                    rows={3}
+                    className="mt-2 w-full resize-none rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
+                    style={{ letterSpacing: '-0.02em' }}
+                  />
+                  <div className="flex justify-between mt-1">
+                    <p lang="th" className="text-xs text-slate-400">
+                      คำคมนี้จะแสดงบนจอพร้อมกับวาร์ปของคุณ
+                    </p>
+                    <p className="text-xs font-en text-slate-400">{form.quote.length}/200</p>
+                  </div>
+                  {fieldErrors.quote ? (
+                    <p className="mt-1 text-xs text-rose-300">{fieldErrors.quote}</p>
+                  ) : null}
+                </section>
+
                 <div>
                   <label
                     lang="th"
-                    className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
+                    className="block text-base font-semibold text-white sm:text-lg uppercase tracking-[0.35em] text-indigo-200"
                     style={{ letterSpacing: '-0.02em' }}
                   >
                     อัปโหลดรูปของคุณ
@@ -502,12 +596,14 @@ const SelfWarpPage = () => {
                     <p className="mt-1 text-xs text-rose-300">{fieldErrors.profileCode}</p>
                   ) : null}
                 </div>
+
               </div>
             </section>
 
             {/* Step 2 */}
             <section>
               <h3 className="font-en text-xs uppercase tracking-[0.45em] text-pink-300 sm:text-sm">Step 2</h3>
+              <p lang="th" className="mt-2 text-sm font-semibold text-white">เลือกเวลาที่จะแสดงขึ้นจอ</p>
 
               <div className="grid grid-cols-2 gap-2 mt-4 sm:mt-6 sm:gap-4">
                 {options.map((option) => {
@@ -547,11 +643,10 @@ const SelfWarpPage = () => {
                       type="button"
                       key={option.id}
                       onClick={() => handleChange('paymentMethod', option.id)}
-                      className={`flex flex-col items-start gap-2 rounded-2xl border px-4 py-3 text-left shadow-[0_18px_45px_rgba(8,12,24,0.4)] transition sm:px-5 sm:py-4 ${
-                        isSelected
+                      className={`flex flex-col items-start gap-2 rounded-2xl border px-4 py-3 text-left shadow-[0_18px_45px_rgba(8,12,24,0.4)] transition sm:px-5 sm:py-4 ${isSelected
                           ? 'border-emerald-300/80 bg-gradient-to-br from-emerald-500/20 via-teal-500/20 to-indigo-500/15 text-white'
                           : 'border-white/10 bg-white/5 text-white/80 hover:border-emerald-300/60 hover:bg-emerald-500/10 hover:text-white'
-                      }`}
+                        }`}
                     >
                       <span className="text-sm font-semibold text-white sm:text-base">{option.label}</span>
                       <span className="text-xs text-slate-200/90">{option.description}</span>
@@ -564,102 +659,6 @@ const SelfWarpPage = () => {
                   );
                 })}
               </div>
-            </section>
-
-            {/* Additional Info */}
-            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
-              <div>
-                <label
-                  lang="th"
-                  className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
-                  style={{ letterSpacing: '-0.02em' }}
-                >
-                  IG ของคุณ
-                </label>
-                <input
-                  type="text"
-                  value={form.customerName}
-                  onChange={(event) => handleInstagramChange(event.target.value)}
-                  placeholder="ตัวอย่าง: meewarp.official"
-                  required
-                  className="mt-2 w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
-                  style={{ letterSpacing: '-0.02em' }}
-                />
-                {fieldErrors.customerName ? (
-                  <p className="mt-1 text-xs text-rose-300">{fieldErrors.customerName}</p>
-                ) : null}
-              </div>
-              <div>
-                <label
-                  lang="th"
-                  className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
-                  style={{ letterSpacing: '-0.02em' }}
-                >
-                  ลิงก์ Social
-                </label>
-                <input
-                  type="url"
-                  value={form.socialLink}
-                  placeholder="ตัวอย่าง: https://www.instagram.com/meewarp.official"
-                  required
-                  readOnly
-                  className="mt-2 w-full rounded-2xl border border-white/15 bg-slate-900/40 px-4 py-3 text-sm text-white opacity-80 shadow-[0_12px_30px_rgba(8,12,24,0.35)] focus:outline-none"
-                  style={{ letterSpacing: '-0.02em' }}
-                />
-                {fieldErrors.socialLink ? (
-                  <p className="mt-1 text-xs text-rose-300">{fieldErrors.socialLink}</p>
-                ) : null}
-              </div>
-              <div className="sm:col-span-2">
-                <label
-                  lang="th"
-                  className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
-                  style={{ letterSpacing: '-0.02em' }}
-                >
-                  อีเมลสำหรับส่งสลิป
-                </label>
-                <input
-                  type="email"
-                  value={form.customerEmail}
-                  onChange={(event) => handleChange('customerEmail', event.target.value)}
-                  placeholder="ตัวอย่าง: yourname@example.com"
-                  required
-                  className="mt-2 w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
-                  style={{ letterSpacing: '-0.02em' }}
-                />
-                {fieldErrors.customerEmail ? (
-                  <p className="mt-1 text-xs text-rose-300">{fieldErrors.customerEmail}</p>
-                ) : null}
-              </div>
-            </section>
-
-            {/* Quote Section */}
-            <section>
-              <label
-                lang="th"
-                className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
-                style={{ letterSpacing: '-0.02em' }}
-              >
-                คำคม / ข้อความ
-              </label>
-              <textarea
-                value={form.quote}
-                onChange={(event) => handleChange('quote', event.target.value)}
-                placeholder="ใส่คำคมหรือข้อความที่อยากให้แสดงบนจอ..."
-                maxLength={200}
-                rows={3}
-                className="mt-2 w-full resize-none rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
-                style={{ letterSpacing: '-0.02em' }}
-              />
-              <div className="flex justify-between mt-1">
-                <p lang="th" className="text-xs text-slate-400">
-                  คำคมนี้จะแสดงบนจอพร้อมกับวาร์ปของคุณ
-                </p>
-                <p className="text-xs font-en text-slate-400">{form.quote.length}/200</p>
-              </div>
-              {fieldErrors.quote ? (
-                <p className="mt-1 text-xs text-rose-300">{fieldErrors.quote}</p>
-              ) : null}
             </section>
 
             {/* Price Summary */}
@@ -760,47 +759,34 @@ const SelfWarpPage = () => {
                   onClick={async () => {
                     if (!transactionId) return;
                     setIsCheckingStatus(true);
-                    setMessage('กำลังตรวจสอบสถานะการชำระเงินจาก Stripe...');
+                    setMessage('กำลังตรวจสอบสถานะการชำระเงิน...');
+
                     try {
-                      const response = await fetch(API_ENDPOINTS.publicTransactionStatus(resolvedStoreSlug), {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ transactionId }),
-                      });
+                      const result = await checkPaymentStatus(transactionId, resolvedStoreSlug);
 
-                      const body = await response.json();
-                      const nextPromptPay = (body?.promptPay as PromptPayData | null) ?? null;
-
-                      setPromptPayData(nextPromptPay);
-
-                      if (!response.ok) {
-                        throw new Error(body?.message || 'ตรวจสอบสถานะไม่สำเร็จ');
+                      if (!result.success) {
+                        throw new Error(result.message || 'ตรวจสอบสถานะไม่สำเร็จ');
                       }
 
-                      if (body?.status === 'paid') {
+                      if (result.isAlreadyPaid || result.status === 'paid') {
                         setStatus('success');
                         setMessage('ชำระเงินเรียบร้อยแล้ว! ทีมงานจะดัน Warp ของคุณขึ้นจอทันที');
                         setCheckoutSession(null);
                         setPromptPayData(null);
+                        setTransactionId(null); // รีเซ็ต transaction ID เพื่อป้องกันการตรวจสอบซ้ำ
                         clearPendingTransaction();
                         setShowThankYouModal(true);
                       } else {
-                        const stripeStatus = body?.stripeStatus || {};
-                        const paymentStatus =
-                          stripeStatus.paymentStatus || stripeStatus.session || 'กำลังตรวจสอบ';
-                        const followupMessage = body?.note
-                          ? `${body.note} (สถานะ: ${paymentStatus})`
-                          : `สถานะปัจจุบัน: ${paymentStatus}`;
+                        // ถ้ายังไม่ชำระเงิน แสดงสถานะปัจจุบัน
+                        const followupMessage = result.message || `สถานะปัจจุบัน: ${result.status}`;
                         setStatus('success');
                         setMessage(followupMessage);
                         persistPendingTransaction({
                           transactionId,
                           checkoutSession,
-                          promptPay: nextPromptPay,
+                          promptPay: promptPayData,
                           message: followupMessage,
-                          status: body?.status || 'pending',
+                          status: result.status || 'pending',
                           savedAt: Date.now(),
                         });
                       }

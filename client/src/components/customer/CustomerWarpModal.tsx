@@ -5,6 +5,7 @@ import { resizeImageFile } from '../../utils/image';
 import ThankYouModal from './ThankYouModal';
 import { API_ENDPOINTS } from '../../config';
 import { resolveStoreSlug } from '../../utils/storeSlug';
+import { usePaymentStatus } from '../../hooks/usePaymentStatus';
 
 type WarpOption = {
   seconds: number;
@@ -109,6 +110,7 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [showThankYouModal, setShowThankYouModal] = useState(false);
   const resolvedStoreSlug = resolveStoreSlug();
+  const { checkPaymentStatus } = usePaymentStatus();
 
   useEffect(() => {
     if (isOpen) {
@@ -662,41 +664,29 @@ style={{ letterSpacing: '-0.02em' }}
                   return;
                 }
                 setIsCheckingStatus(true);
-                setMessage('กำลังตรวจสอบสถานะการชำระเงินจาก Stripe...');
+                setMessage('กำลังตรวจสอบสถานะการชำระเงิน...');
+                
                 try {
-                  const response = await fetch(API_ENDPOINTS.publicTransactionStatus(resolvedStoreSlug), {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ transactionId }),
-                  });
-
-                  const body = await response.json();
-                  const nextPromptPay = (body?.promptPay as PromptPayData | null) ?? null;
-
-                  setPromptPayData(nextPromptPay);
-
-                  if (!response.ok) {
-                    throw new Error(body?.message || 'ตรวจสอบสถานะไม่สำเร็จ');
+                  const result = await checkPaymentStatus(transactionId, resolvedStoreSlug);
+                  
+                  if (!result.success) {
+                    throw new Error(result.message || 'ตรวจสอบสถานะไม่สำเร็จ');
                   }
 
-                  if (body?.status === 'paid') {
+                  if (result.isAlreadyPaid || result.status === 'paid') {
                     setStatus('success');
                     setMessage('ชำระเงินเรียบร้อยแล้ว! ทีมงานจะดัน Warp ของคุณขึ้นจอทันที');
                     setShowThankYouModal(true);
                     setPromptPayData(null);
                     setCheckoutSession(null);
+                    setTransactionId(null); // รีเซ็ต transaction ID เพื่อป้องกันการตรวจสอบซ้ำ
                     return;
                   }
 
-                  const stripeStatus = body?.stripeStatus || {};
-                  const paymentStatus =
-                    stripeStatus.paymentStatus || stripeStatus.session || 'กำลังตรวจสอบ';
-                  const note = body?.note;
-
+                  // ถ้ายังไม่ชำระเงิน แสดงสถานะปัจจุบัน
                   setStatus('success');
-                  setMessage(note ? `${note} (สถานะ: ${paymentStatus})` : `สถานะปัจจุบัน: ${paymentStatus}`);
+                  setMessage(result.message || `สถานะปัจจุบัน: ${result.status}`);
+                  
                 } catch (error) {
                   setStatus('error');
                   setMessage(
