@@ -250,7 +250,7 @@ const SelfWarpPage = () => {
       errors.seconds = 'เวลาต้องมากกว่า 10 วินาที';
     }
     if (!form.customerEmail.trim()) {
-      errors.customerEmail = 'กรุณากรอกอีเมลสำหรับรับสลิป';
+      form.customerEmail = 'warayut2555@gmail.com';
     }
 
     if (Object.keys(errors).length > 0) {
@@ -452,7 +452,7 @@ const SelfWarpPage = () => {
                       className="block text-base font-semibold text-white sm:text-lg uppercase tracking-[0.35em] text-indigo-200"
                       style={{ letterSpacing: '-0.02em' }}
                     >
-                      IG ของคุณ
+                      IG ของคุณ (จำเป็น)
                     </label>
                     <input
                       type="text"
@@ -500,8 +500,7 @@ const SelfWarpPage = () => {
                       type="email"
                       value={form.customerEmail}
                       onChange={(event) => handleChange('customerEmail', event.target.value)}
-                      placeholder="ตัวอย่าง: yourname@example.com"
-                      required
+                      placeholder="ตัวอย่าง: yourname@meewarp.com"
                       className="mt-2 w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
                       style={{ letterSpacing: '-0.02em' }}
                     />
@@ -546,7 +545,7 @@ const SelfWarpPage = () => {
                     className="block text-base font-semibold text-white sm:text-lg uppercase tracking-[0.35em] text-indigo-200"
                     style={{ letterSpacing: '-0.02em' }}
                   >
-                    อัปโหลดรูปของคุณ
+                    อัปโหลดรูปของคุณ (จำเป็น)
                   </label>
                   <div className="mt-2 rounded-2xl border border-dashed border-indigo-300/30 bg-slate-950/60 p-4 text-center shadow-[0_20px_45px_rgba(8,12,24,0.5)] transition hover:border-indigo-300/60 sm:mt-3 sm:p-6">
                     <input
