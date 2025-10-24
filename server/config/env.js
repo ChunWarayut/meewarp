@@ -34,14 +34,13 @@ const config = {
     jwtSecret: process.env.ADMIN_JWT_SECRET || '',
     tokenExpiresIn: process.env.ADMIN_JWT_EXPIRES_IN || '1h',
   },
-  chillpay: {
-    merchantId: process.env.CHILLPAY_MERCHANT_ID || '',
-    apiKey: process.env.CHILLPAY_API_KEY || '',
-    secretKey: process.env.CHILLPAY_SECRET_KEY || '',
-    paymentBaseUrl: process.env.CHILLPAY_PAYMENT_URL || 'https://api.chillpay.co/api/v1',
-    webhookSecret: process.env.CHILLPAY_WEBHOOK_SECRET || '',
-    transactionBaseUrl:
-      process.env.CHILLPAY_TRANSACTION_URL || 'https://sandbox-api-transaction.chillpay.co/api/v1',
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY || '',
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+    publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
+    successUrl: process.env.STRIPE_SUCCESS_URL || '',
+    cancelUrl: process.env.STRIPE_CANCEL_URL || '',
+    promptPayExpiresAfterSeconds: parseInt(process.env.STRIPE_PROMPTPAY_EXPIRES_AFTER_SECONDS || '600', 10),
   },
   cloudflareImages: {
     accountId: process.env.CLOUDFLARE_IMAGES_ACCOUNT_ID || '',

@@ -2,9 +2,11 @@ const request = require('supertest');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const WarpTransaction = require('../models/WarpTransaction');
+const Store = require('../models/Store');
 
 let mongoServer;
 let app;
+let store;
 
 const adminCredentials = {
   email: 'admin@warp.dev',
@@ -52,8 +54,10 @@ beforeAll(async () => {
 
 afterEach(async () => {
   if (mongoose.connection.readyState === 1) {
-    await mongoose.connection.db.dropDatabase();
+    const collections = await mongoose.connection.db.collections();
+    await Promise.all(collections.map((collection) => collection.deleteMany({})));
   }
+  store = null;
 });
 
 afterAll(async () => {
@@ -69,10 +73,17 @@ describe('Warp display queue', () => {
   let authHeader;
 
   beforeEach(async () => {
+    store = await Store.create({
+      name: 'Test Store',
+      slug: 'test-store',
+      isActive: true,
+    });
+
     authHeader = await loginAndGetAuthHeader();
     await request(app)
       .post('/api/v1/admin/warp')
       .set('Authorization', authHeader)
+      .set('x-store-id', store._id.toString())
       .send(createWarpPayload);
   });
 
@@ -80,9 +91,10 @@ describe('Warp display queue', () => {
     await request(app)
       .post('/api/v1/transactions')
       .set('Authorization', authHeader)
+      .set('x-store-id', store._id.toString())
       .send(createTransactionPayload());
 
-    const firstLock = await request(app).post('/api/v1/public/display/next');
+    const firstLock = await request(app).post('/api/v1/public/display/next').set('x-store-slug', store.slug);
 
     expect(firstLock.status).toBe(200);
     expect(firstLock.body).toMatchObject({
@@ -96,18 +108,20 @@ describe('Warp display queue', () => {
     const inProgress = await WarpTransaction.findById(lockedId);
     expect(inProgress.status).toBe('displaying');
 
-    const secondCall = await request(app).post('/api/v1/public/display/next');
+    const secondCall = await request(app).post('/api/v1/public/display/next').set('x-store-slug', store.slug);
     expect(secondCall.status).toBe(200);
     expect(secondCall.body.id).toBe(lockedId);
 
-    const completeResponse = await request(app).post(`/api/v1/public/display/${lockedId}/complete`);
+    const completeResponse = await request(app)
+      .post(`/api/v1/public/display/${lockedId}/complete`)
+      .set('x-store-slug', store.slug);
     expect(completeResponse.status).toBe(200);
 
     const completed = await WarpTransaction.findById(lockedId);
     expect(completed.status).toBe('displayed');
     expect(completed.displayCompletedAt).toBeInstanceOf(Date);
 
-    const afterCompletion = await request(app).post('/api/v1/public/display/next');
+    const afterCompletion = await request(app).post('/api/v1/public/display/next').set('x-store-slug', store.slug);
     expect(afterCompletion.status).toBe(204);
   });
 
@@ -115,26 +129,34 @@ describe('Warp display queue', () => {
     await request(app)
       .post('/api/v1/transactions')
       .set('Authorization', authHeader)
+      .set('x-store-id', store._id.toString())
       .send(createTransactionPayload({ customerName: 'First Warp', displaySeconds: 10 }));
 
     await request(app)
       .post('/api/v1/transactions')
       .set('Authorization', authHeader)
+      .set('x-store-id', store._id.toString())
       .send(createTransactionPayload({ customerName: 'Second Warp', displaySeconds: 20, amount: 400 }));
 
-    const first = await request(app).post('/api/v1/public/display/next');
+    const first = await request(app).post('/api/v1/public/display/next').set('x-store-slug', store.slug);
     expect(first.status).toBe(200);
     expect(first.body.customerName).toBe('First Warp');
 
-    await request(app).post(`/api/v1/public/display/${first.body.id}/complete`).expect(200);
+    await request(app)
+      .post(`/api/v1/public/display/${first.body.id}/complete`)
+      .set('x-store-slug', store.slug)
+      .expect(200);
 
-    const second = await request(app).post('/api/v1/public/display/next');
+    const second = await request(app).post('/api/v1/public/display/next').set('x-store-slug', store.slug);
     expect(second.status).toBe(200);
     expect(second.body.customerName).toBe('Second Warp');
 
-    await request(app).post(`/api/v1/public/display/${second.body.id}/complete`).expect(200);
+    await request(app)
+      .post(`/api/v1/public/display/${second.body.id}/complete`)
+      .set('x-store-slug', store.slug)
+      .expect(200);
 
-    const final = await request(app).post('/api/v1/public/display/next');
+    const final = await request(app).post('/api/v1/public/display/next').set('x-store-slug', store.slug);
     expect(final.status).toBe(204);
   });
 });

@@ -13,6 +13,23 @@ type WarpOption = {
   price: number;
 };
 
+const paymentMethodOptions: Array<{
+  id: 'promptpay' | 'checkout';
+  label: string;
+  description: string;
+}> = [
+  {
+    id: 'promptpay',
+    label: 'PromptPay QR',
+    description: 'สแกนด้วยแอปธนาคารหรือวอลเล็ตที่รองรับ',
+  },
+  {
+    id: 'checkout',
+    label: 'บัตรเครดิต / เดบิต',
+    description: 'ชำระผ่านหน้า Stripe Checkout',
+  },
+];
+
 
 type FormState = {
   customerName: string;
@@ -25,6 +42,8 @@ type FormState = {
   selfDisplayName?: string;
   packageId?: string;
   quote: string;
+  paymentMethod: 'promptpay' | 'checkout';
+  customerEmail: string;
 };
 
 const defaultState: FormState = {
@@ -38,13 +57,33 @@ const defaultState: FormState = {
   selfImage: '',
   selfDisplayName: '',
   packageId: '',
+  paymentMethod: 'promptpay',
+  customerEmail: '',
 };
 
 const PENDING_TRANSACTION_STORAGE_KEY = 'selfWarpPendingTransaction';
 
+type CheckoutSessionInfo = {
+  url: string;
+  sessionId?: string;
+};
+
+type PromptPayData = {
+  qrImageUrl?: string;
+  qrImageUrlSvg?: string;
+  expiresAt?: string;
+  paymentIntentId?: string;
+  referenceNumber?: string;
+  amount?: number;
+  currency?: string;
+  status?: string;
+  paidAt?: string;
+};
+
 type PendingTransactionSnapshot = {
   transactionId: string;
-  paymentLink?: { url: string; reference?: string } | null;
+  checkoutSession?: CheckoutSessionInfo | null;
+  promptPay?: PromptPayData | null;
   message?: string;
   status?: string;
   savedAt: number;
@@ -59,7 +98,8 @@ const SelfWarpPage = () => {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState<string>('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [paymentLink, setPaymentLink] = useState<{ url: string; reference?: string } | null>(null);
+  const [checkoutSession, setCheckoutSession] = useState<CheckoutSessionInfo | null>(null);
+  const [promptPayData, setPromptPayData] = useState<PromptPayData | null>(null);
   const [transactionId, setTransactionId] = useState<string | null>(null);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [showThankYouModal, setShowThankYouModal] = useState(false);
@@ -155,7 +195,8 @@ const SelfWarpPage = () => {
         return;
       }
       setTransactionId(snapshot.transactionId);
-      setPaymentLink(snapshot.paymentLink ?? null);
+      setCheckoutSession(snapshot.checkoutSession ?? null);
+      setPromptPayData(snapshot.promptPay ?? null);
       setStatus('success');
       setMessage(snapshot.message || 'Warp ถูกบันทึกแล้ว กำลังรอตรวจสอบการชำระเงิน');
     } catch {
@@ -185,6 +226,8 @@ const SelfWarpPage = () => {
     setMessage('');
     setFieldErrors({});
     setShowThankYouModal(false);
+    setCheckoutSession(null);
+    setPromptPayData(null);
 
     const errors: Record<string, string> = {};
 
@@ -203,6 +246,9 @@ const SelfWarpPage = () => {
     }
     if (!form.seconds || form.seconds < 10) {
       errors.seconds = 'เวลาต้องมากกว่า 10 วินาที';
+    }
+    if (!form.customerEmail.trim()) {
+      errors.customerEmail = 'กรุณากรอกอีเมลสำหรับรับสลิป';
     }
 
     if (Object.keys(errors).length > 0) {
@@ -226,7 +272,8 @@ const SelfWarpPage = () => {
         quote: form.quote,
         displaySeconds: form.seconds,
         amount: form.price,
-        packageId: form.packageId,
+        packageId: form.packageId || undefined,
+        paymentMethod: form.paymentMethod,
         metadata: {
           source: 'self-warp-page',
           productImage: form.selfImage ? `data:image/jpeg;base64,${form.selfImage}` : undefined,
@@ -235,7 +282,10 @@ const SelfWarpPage = () => {
           expiresInMinutes: 120,
           packageName: options.find(opt => opt.id === form.packageId)?.label || `${form.seconds} วินาที`,
           selfDisplayName: form.selfDisplayName,
+          paymentMethod: form.paymentMethod,
+          customerEmail: form.customerEmail,
         },
+        customerEmail: form.customerEmail,
       };
 
       const headers: Record<string, string> = {
@@ -256,63 +306,73 @@ const SelfWarpPage = () => {
       const data = await response.json();
 
       const transactionIdValue = data?.id || referenceCode;
-      const providerMessage =
-        data?.providerMessage ||
-        'ขออภัย ท่านไม่สามารถใช้ลิงก์นี้ในการชำระเงินได้ เนื่องจากลิงก์ยังไม่ถึงกำหนดเวลาใช้งาน กรุณาติดต่อร้านค้า [ บริษัท มี พร้อมท์ เทคโนโลยี จํากัด, Contact: 0885941049 ]';
+      const checkoutUrl: string | undefined = data?.checkoutUrl;
+      const sessionId: string | undefined = data?.stripeSessionId;
+      const newStatus: string | undefined = data?.status;
+      const promptPay = (data?.promptPay as PromptPayData | null) ?? null;
+
       setTransactionId(transactionIdValue);
+      setPromptPayData(promptPay);
 
-      const linkUrl = data?.paymentUrl;
-      const reference = data?.paymentReference;
-      const newStatus = data?.status || 'success';
+      if (promptPay) {
+        const pendingMessage = promptPay.expiresAt
+          ? `สแกน QR PromptPay ก่อน ${new Date(promptPay.expiresAt).toLocaleString('th-TH')}`
+          : 'สแกน QR PromptPay เพื่อชำระเงิน';
 
-      if (newStatus === 'waiting') {
-        setPaymentLink(null);
-        setStatus('error');
-        setMessage(providerMessage);
+        setCheckoutSession(null);
+        setStatus('success');
+        setMessage(pendingMessage);
         persistPendingTransaction({
           transactionId: transactionIdValue,
-          paymentLink: null,
-          message: providerMessage,
-          status: newStatus,
+          checkoutSession: null,
+          promptPay,
+          message: pendingMessage,
+          status: newStatus || 'pending',
           savedAt: Date.now(),
         });
         return;
       }
 
-      if (linkUrl) {
-        const pendingMessage = 'สร้าง PayLink สำเร็จ! กรุณาชำระเงินในหน้าต่างใหม่ หากไม่ได้เปิดให้คลิกปุ่มด้านล่าง';
-        persistPendingTransaction({
-          transactionId: transactionIdValue,
-          paymentLink: { url: linkUrl, reference },
-          message: pendingMessage,
-          status: newStatus,
-          savedAt: Date.now(),
-        });
-        setPaymentLink({ url: linkUrl, reference });
+      if (checkoutUrl) {
+        const sessionInfo: CheckoutSessionInfo = { url: checkoutUrl, sessionId };
+        const pendingMessage = 'เปิดหน้าชำระเงิน Stripe ให้เรียบร้อยแล้ว หากยังไม่เปิดให้คลิกปุ่มด้านล่าง';
+
+        setCheckoutSession(sessionInfo);
         setStatus('success');
         setMessage(pendingMessage);
-        window.location.href = linkUrl;
+        persistPendingTransaction({
+          transactionId: transactionIdValue,
+          checkoutSession: sessionInfo,
+          promptPay: null,
+          message: pendingMessage,
+          status: newStatus || 'pending',
+          savedAt: Date.now(),
+        });
+
+        window.location.href = checkoutUrl;
         return;
       }
 
       const successMessage =
         newStatus === 'paid'
-          ? 'Warp ของคุณถูกบันทึกแล้ว!'
-          : 'Warp ถูกบันทึกแล้ว กำลังรอตรวจสอบการชำระเงิน';
+          ? 'Warp ของคุณถูกบันทึกและชำระเงินเรียบร้อยแล้ว!'
+          : 'Warp ถูกบันทึกแล้ว กรุณาชำระเงินผ่าน Stripe เพื่อให้ทีมงานดำเนินการต่อ';
 
+      setCheckoutSession(null);
+      setPromptPayData(null);
       setStatus('success');
       setMessage(successMessage);
 
       if (newStatus === 'paid') {
-        setPaymentLink(null);
         clearPendingTransaction();
         setShowThankYouModal(true);
       } else {
         persistPendingTransaction({
           transactionId: transactionIdValue,
-          paymentLink: null,
+          checkoutSession: null,
+          promptPay: null,
           message: successMessage,
-          status: newStatus,
+          status: newStatus || 'pending',
           savedAt: Date.now(),
         });
       }
@@ -475,6 +535,37 @@ const SelfWarpPage = () => {
               ) : null}
             </section>
 
+            {/* Step 3 */}
+            <section>
+              <h3 className="font-en text-xs uppercase tracking-[0.45em] text-teal-300 sm:text-sm">Step 3</h3>
+              <p lang="th" className="mt-2 text-sm font-semibold text-white">เลือกช่องทางการชำระเงิน</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {paymentMethodOptions.map((option) => {
+                  const isSelected = form.paymentMethod === option.id;
+                  return (
+                    <button
+                      type="button"
+                      key={option.id}
+                      onClick={() => handleChange('paymentMethod', option.id)}
+                      className={`flex flex-col items-start gap-2 rounded-2xl border px-4 py-3 text-left shadow-[0_18px_45px_rgba(8,12,24,0.4)] transition sm:px-5 sm:py-4 ${
+                        isSelected
+                          ? 'border-emerald-300/80 bg-gradient-to-br from-emerald-500/20 via-teal-500/20 to-indigo-500/15 text-white'
+                          : 'border-white/10 bg-white/5 text-white/80 hover:border-emerald-300/60 hover:bg-emerald-500/10 hover:text-white'
+                      }`}
+                    >
+                      <span className="text-sm font-semibold text-white sm:text-base">{option.label}</span>
+                      <span className="text-xs text-slate-200/90">{option.description}</span>
+                      {option.id === 'promptpay' ? (
+                        <span className="mt-1 inline-flex items-center gap-2 rounded-full border border-emerald-400/50 bg-emerald-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.3em] text-emerald-100">
+                          <span className="h-2 w-2 rounded-full bg-emerald-400" /> แนะนำ
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
             {/* Additional Info */}
             <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
               <div>
@@ -517,6 +608,27 @@ const SelfWarpPage = () => {
                 />
                 {fieldErrors.socialLink ? (
                   <p className="mt-1 text-xs text-rose-300">{fieldErrors.socialLink}</p>
+                ) : null}
+              </div>
+              <div className="sm:col-span-2">
+                <label
+                  lang="th"
+                  className="block text-xs uppercase tracking-[0.35em] text-indigo-200"
+                  style={{ letterSpacing: '-0.02em' }}
+                >
+                  อีเมลสำหรับส่งสลิป
+                </label>
+                <input
+                  type="email"
+                  value={form.customerEmail}
+                  onChange={(event) => handleChange('customerEmail', event.target.value)}
+                  placeholder="ตัวอย่าง: yourname@example.com"
+                  required
+                  className="mt-2 w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
+                  style={{ letterSpacing: '-0.02em' }}
+                />
+                {fieldErrors.customerEmail ? (
+                  <p className="mt-1 text-xs text-rose-300">{fieldErrors.customerEmail}</p>
                 ) : null}
               </div>
             </section>
@@ -572,20 +684,71 @@ const SelfWarpPage = () => {
               </div>
             ) : null}
 
+            {promptPayData?.qrImageUrl ? (
+              <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-5 text-sm text-emerald-50 shadow-[0_18px_45px_rgba(16,185,129,0.2)] sm:rounded-3xl sm:p-6">
+                <p className="font-en text-xs uppercase tracking-[0.4em] text-emerald-200">PromptPay QR</p>
+                <p lang="th" className="mt-2 text-xs text-emerald-100/90">
+                  สแกนโค้ดด้วยแอปธนาคารหรือวอลเล็ตที่รองรับ PromptPay เพื่อชำระเงินให้เสร็จสิ้น
+                </p>
+                <div className="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:items-start sm:gap-6">
+                  <div className="flex items-center justify-center rounded-2xl border border-emerald-200/40 bg-white p-3">
+                    <img
+                      src={promptPayData.qrImageUrl || promptPayData.qrImageUrlSvg || ''}
+                      alt="PromptPay QR Code"
+                      className="h-44 w-44 object-contain"
+                    />
+                  </div>
+                  <div className="flex flex-1 flex-col gap-2 text-xs text-emerald-100/80">
+                    {promptPayData.amount ? (
+                      <p>
+                        จำนวนเงิน:{' '}
+                        <span className="font-semibold text-emerald-50">
+                          {new Intl.NumberFormat('th-TH', {
+                            style: 'currency',
+                            currency: promptPayData.currency || 'THB',
+                            maximumFractionDigits: 0,
+                          }).format(promptPayData.amount)}
+                        </span>
+                      </p>
+                    ) : null}
+                    {promptPayData.referenceNumber ? (
+                      <p>
+                        Reference:{' '}
+                        <span className="font-mono tracking-widest text-emerald-50">
+                          {promptPayData.referenceNumber}
+                        </span>
+                      </p>
+                    ) : null}
+                    {promptPayData.expiresAt ? (
+                      <p>
+                        หมดอายุ:{' '}
+                        <span className="font-semibold text-emerald-50">
+                          {new Date(promptPayData.expiresAt).toLocaleString('th-TH')}
+                        </span>
+                      </p>
+                    ) : null}
+                    <p className="text-[11px] text-emerald-100/70">
+                      หลังชำระเงินแล้ว ระบบจะอัปเดตสถานะให้อัตโนมัติ หรือกดปุ่มตรวจสอบสถานะด้วยตัวเองได้
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             {/* Action Buttons */}
             <div className="flex flex-col gap-4">
-              {paymentLink ? (
+              {checkoutSession ? (
                 <button
                   type="button"
                   onClick={() => {
-                    window.location.href = paymentLink.url;
+                    window.location.href = checkoutSession.url;
                   }}
                   className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-400 px-4 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-emerald-950 shadow-[0_20px_40px_rgba(16,185,129,0.4)] transition hover:scale-[1.01] sm:px-6"
                 >
                   <span lang="th">ไปหน้าชำระเงิน</span>
-                  {paymentLink.reference ? (
+                  {checkoutSession.sessionId ? (
                     <span className="font-en rounded-full bg-emerald-500/30 px-2 py-0.5 text-[10px] tracking-widest text-emerald-100">
-                      Ref: {paymentLink.reference}
+                      Session: {checkoutSession.sessionId}
                     </span>
                   ) : null}
                 </button>
@@ -597,7 +760,7 @@ const SelfWarpPage = () => {
                   onClick={async () => {
                     if (!transactionId) return;
                     setIsCheckingStatus(true);
-                    setMessage('กำลังตรวจสอบสถานะการชำระเงิน...');
+                    setMessage('กำลังตรวจสอบสถานะการชำระเงินจาก Stripe...');
                     try {
                       const response = await fetch(API_ENDPOINTS.publicTransactionStatus(resolvedStoreSlug), {
                         method: 'POST',
@@ -608,6 +771,9 @@ const SelfWarpPage = () => {
                       });
 
                       const body = await response.json();
+                      const nextPromptPay = (body?.promptPay as PromptPayData | null) ?? null;
+
+                      setPromptPayData(nextPromptPay);
 
                       if (!response.ok) {
                         throw new Error(body?.message || 'ตรวจสอบสถานะไม่สำเร็จ');
@@ -616,18 +782,23 @@ const SelfWarpPage = () => {
                       if (body?.status === 'paid') {
                         setStatus('success');
                         setMessage('ชำระเงินเรียบร้อยแล้ว! ทีมงานจะดัน Warp ของคุณขึ้นจอทันที');
-                        setPaymentLink(null);
+                        setCheckoutSession(null);
+                        setPromptPayData(null);
                         clearPendingTransaction();
                         setShowThankYouModal(true);
                       } else {
+                        const stripeStatus = body?.stripeStatus || {};
+                        const paymentStatus =
+                          stripeStatus.paymentStatus || stripeStatus.session || 'กำลังตรวจสอบ';
                         const followupMessage = body?.note
-                          ? `${body.note} (สถานะ: ${body?.chillpayStatus || 'กำลังตรวจสอบ'})`
-                          : `สถานะปัจจุบัน: ${body?.chillpayStatus || 'กำลังตรวจสอบ'}`;
+                          ? `${body.note} (สถานะ: ${paymentStatus})`
+                          : `สถานะปัจจุบัน: ${paymentStatus}`;
                         setStatus('success');
                         setMessage(followupMessage);
                         persistPendingTransaction({
                           transactionId,
-                          paymentLink,
+                          checkoutSession,
+                          promptPay: nextPromptPay,
                           message: followupMessage,
                           status: body?.status || 'pending',
                           savedAt: Date.now(),

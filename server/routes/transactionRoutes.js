@@ -9,10 +9,342 @@ const storeContext = require('../middlewares/storeContext');
 const publicStore = require('../middlewares/publicStore');
 const { getTopSupporters } = require('../services/leaderboardService');
 const { appendActivity, listRecentActivities } = require('../services/activityLogger');
-const { createPayLink, isChillPayConfigured, verifyWebhookSignature } = require('../services/chillpayService');
-const { checkTransactionStatus } = require('../services/transactionStatusService');
+const {
+  isStripeConfigured,
+  createCheckoutSession,
+  createPromptPayPaymentIntent,
+  retrieveCheckoutSession,
+  retrievePaymentIntent,
+  constructStripeEvent,
+} = require('../services/stripeService');
+const config = require('../config/env');
 
 const router = express.Router();
+
+const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || 'http://localhost:5173';
+
+function emitStoreUpdates(storeId) {
+  if (!storeId) {
+    return;
+  }
+  const storeIdString = storeId.toString();
+  leaderboardEmitter.emit('update', { storeId: storeIdString });
+  displayEmitter.emit('update', { storeId: storeIdString });
+}
+
+function buildSuccessUrl(code, metadata = {}) {
+  if (metadata.successUrl) {
+    return metadata.successUrl;
+  }
+  if (metadata.returnUrl) {
+    return metadata.returnUrl;
+  }
+  if (config.stripe.successUrl) {
+    return config.stripe.successUrl;
+  }
+  return `${PUBLIC_BASE_URL}/warp/${code}`;
+}
+
+function buildCancelUrl(code, metadata = {}) {
+  if (metadata.cancelUrl) {
+    return metadata.cancelUrl;
+  }
+  if (config.stripe.cancelUrl) {
+    return config.stripe.cancelUrl;
+  }
+  return `${PUBLIC_BASE_URL}/warp/${code}`;
+}
+
+function toStripeMetadata(metadata = {}) {
+  const entries = {};
+  Object.entries(metadata).forEach(([key, value]) => {
+    if (value === undefined || value === null) {
+      return;
+    }
+
+    let stringValue;
+    if (typeof value === 'object') {
+      try {
+        stringValue = JSON.stringify(value);
+      } catch (error) {
+        return;
+      }
+    } else {
+      stringValue = String(value);
+    }
+
+    if (!stringValue) {
+      return;
+    }
+
+    if (stringValue.length > 500) {
+      // Skip oversized values (e.g. base64 images) to comply with Stripe limits.
+      return;
+    }
+
+    entries[key] = stringValue;
+  });
+  return entries;
+}
+
+function normalizePaymentMethod(rawMethod, fallback = 'checkout') {
+  if (!rawMethod) {
+    return fallback;
+  }
+  const normalized = String(rawMethod).trim().toLowerCase();
+  if (normalized === 'promptpay') {
+    return 'promptpay';
+  }
+  if (normalized === 'card' || normalized === 'checkout') {
+    return 'checkout';
+  }
+  return fallback;
+}
+
+function extractPromptPayDetails(paymentIntent, fallback = {}) {
+  if (!paymentIntent && !fallback) {
+    return null;
+  }
+
+  const details = { ...(fallback || {}) };
+
+  if (paymentIntent?.id) {
+    details.paymentIntentId = paymentIntent.id;
+  }
+
+  if (typeof paymentIntent?.amount === 'number') {
+    details.amount = paymentIntent.amount / 100;
+  }
+
+  if (paymentIntent?.currency) {
+    details.currency = paymentIntent.currency.toUpperCase();
+  }
+
+  if (paymentIntent?.status) {
+    details.status = paymentIntent.status;
+  }
+
+  const qrCode = paymentIntent?.next_action?.promptpay_display_qr_code;
+  if (qrCode) {
+    if (qrCode.image_url_png) {
+      details.qrImageUrl = qrCode.image_url_png;
+    }
+    if (qrCode.image_url_svg) {
+      details.qrImageUrlSvg = qrCode.image_url_svg;
+    }
+    if (typeof qrCode.expires_at === 'number') {
+      details.expiresAt = new Date(qrCode.expires_at * 1000).toISOString();
+    }
+    const references = qrCode.references || {};
+    details.referenceNumber =
+      references.number ||
+      references.transaction ||
+      references.reference_number ||
+      details.referenceNumber ||
+      null;
+  }
+
+  return Object.values(details).some((value) => value != null) ? details : null;
+}
+
+async function syncStripeTransaction(transaction, { actor = 'system' } = {}) {
+  const existingPromptPayMetadata = transaction?.metadata?.promptpay || null;
+
+  if (!isStripeConfigured()) {
+    return {
+      status: transaction.status,
+      stripeStatus: null,
+      note: 'Stripe integration is not configured',
+      promptPay: existingPromptPayMetadata,
+    };
+  }
+
+  const sessionId = transaction?.metadata?.stripeCheckoutSessionId;
+  const paymentIntentId = transaction?.metadata?.stripePaymentIntentId;
+
+  if (!sessionId && !paymentIntentId) {
+    return {
+      status: transaction.status,
+      stripeStatus: null,
+      note: 'No Stripe checkout session recorded for this transaction',
+      promptPay: existingPromptPayMetadata,
+    };
+  }
+
+  let session = null;
+  let sessionError = null;
+  if (sessionId) {
+    try {
+      session = await retrieveCheckoutSession(sessionId);
+    } catch (error) {
+      sessionError = error;
+    }
+  }
+
+  let paymentIntent = null;
+  let paymentIntentError = null;
+  const effectivePaymentIntentId = paymentIntentId || session?.payment_intent;
+  if (effectivePaymentIntentId) {
+    try {
+      paymentIntent = await retrievePaymentIntent(effectivePaymentIntentId);
+    } catch (error) {
+      paymentIntentError = error;
+    }
+  }
+
+  const stripeStatus = {
+    session: session?.status || null,
+    paymentStatus: paymentIntent?.status || session?.payment_status || null,
+  };
+  const promptPayDetails = extractPromptPayDetails(paymentIntent, existingPromptPayMetadata);
+
+  let note = 'Stripe status synced';
+  if (sessionError && !session) {
+    note = `Failed to load Stripe checkout session: ${sessionError.message}`;
+  } else if (paymentIntentError && !paymentIntent) {
+    note = `Failed to load Stripe payment intent: ${paymentIntentError.message}`;
+  } else if (!session && !paymentIntent) {
+    note = 'Stripe checkout session or payment intent not found';
+  } else if (stripeStatus.paymentStatus === 'succeeded' || session?.payment_status === 'paid') {
+    note = 'Payment completed';
+  } else if (session?.status === 'expired' || paymentIntent?.status === 'canceled') {
+    note = 'Payment expired or canceled';
+  } else if (stripeStatus.paymentStatus === 'requires_payment_method') {
+    note = 'Awaiting a valid payment method';
+  } else if (stripeStatus.paymentStatus === 'requires_action') {
+    note = 'Waiting for customer action';
+  }
+
+  let newStatus = transaction.status;
+  if (stripeStatus.paymentStatus === 'succeeded' || session?.payment_status === 'paid') {
+    newStatus = 'paid';
+  } else if (session?.status === 'expired' || paymentIntent?.status === 'canceled') {
+    newStatus = 'cancelled';
+  } else if (transaction.status === 'pending') {
+    newStatus = 'pending';
+  }
+
+  const now = new Date();
+  if (promptPayDetails && stripeStatus.paymentStatus === 'succeeded') {
+    promptPayDetails.paidAt = promptPayDetails.paidAt || now.toISOString();
+  }
+  const updates = {
+    'metadata.stripeCheckoutSessionId': session?.id || sessionId || null,
+    'metadata.stripeCheckoutUrl': session?.url || transaction?.metadata?.stripeCheckoutUrl || null,
+    'metadata.stripeCheckoutStatus': session?.status || null,
+    'metadata.stripePaymentStatus': stripeStatus.paymentStatus || null,
+    'metadata.stripePaymentIntentId': paymentIntent?.id || effectivePaymentIntentId || null,
+    'metadata.stripeCustomerEmail': session?.customer_details?.email || session?.customer_email || null,
+    'metadata.lastStripeSyncAt': now,
+    'metadata.stripeReceiptUrl':
+      paymentIntent?.charges?.data?.[0]?.receipt_url || transaction?.metadata?.stripeReceiptUrl || null,
+  };
+
+  if (promptPayDetails) {
+    updates['metadata.promptpay'] = { ...promptPayDetails };
+  }
+
+  if (session?.amount_total != null) {
+    updates['metadata.stripeAmountTotal'] = session.amount_total / 100;
+  }
+  if (paymentIntent?.amount_received != null) {
+    updates['metadata.stripeAmountReceived'] = paymentIntent.amount_received / 100;
+  }
+  if (session?.currency) {
+    updates['metadata.stripeCurrency'] = session.currency.toUpperCase();
+  } else if (paymentIntent?.currency) {
+    updates['metadata.stripeCurrency'] = paymentIntent.currency.toUpperCase();
+  }
+
+  const updateOps = { $set: updates };
+  if (newStatus !== transaction.status) {
+    updateOps.$set.status = newStatus;
+    if (newStatus === 'paid') {
+      updateOps.$set['metadata.paidAt'] = now;
+    }
+  }
+
+  const updated = await WarpTransaction.findByIdAndUpdate(transaction._id, updateOps, { new: true });
+
+  if (newStatus !== transaction.status) {
+    const description =
+      newStatus === 'paid'
+        ? `Payment completed via Stripe (${stripeStatus.paymentStatus || 'paid'})`
+        : `Status updated via Stripe sync -> ${newStatus}`;
+    await appendActivity(transaction._id, {
+      action: 'status_changed',
+      description,
+      actor,
+    });
+
+    if (newStatus === 'paid') {
+      emitStoreUpdates(transaction.store);
+    }
+  } else {
+    await appendActivity(transaction._id, {
+      action: 'status_check',
+      description: `Stripe status check executed (${note})`,
+      actor,
+    });
+  }
+
+  return {
+    status: updated.status,
+    stripeStatus,
+    note,
+    promptPay: promptPayDetails,
+  };
+}
+
+async function issueStripeCheckout({
+  transaction,
+  amount,
+  currency,
+  metadata,
+  storeName,
+  actor,
+  customerEmail,
+}) {
+  const successUrl = buildSuccessUrl(transaction.code, metadata);
+  const cancelUrl = buildCancelUrl(transaction.code, metadata);
+
+  const session = await createCheckoutSession({
+    amount,
+    currency,
+    metadata: toStripeMetadata({
+      ...metadata,
+      transactionId: transaction._id.toString(),
+      storeId: transaction.store?.toString(),
+      code: transaction.code,
+      source: metadata?.source || actor,
+    }),
+    successUrl,
+    cancelUrl,
+    customerEmail: customerEmail || metadata?.customerEmail,
+    description: `Warp for ${storeName} (${transaction.code})`,
+  });
+
+  await WarpTransaction.findByIdAndUpdate(transaction._id, {
+    $set: {
+      status: 'pending',
+      'metadata.stripeCheckoutSessionId': session.id,
+      'metadata.stripeCheckoutUrl': session.url,
+      'metadata.stripeAmountTotal': session.amount_total != null ? session.amount_total / 100 : amount,
+      'metadata.stripeCurrency': session.currency?.toUpperCase() || currency,
+      'metadata.stripeCustomerEmail': session.customer_email || metadata?.customerEmail || null,
+      'metadata.stripePaymentStatus': session.payment_status || null,
+      'metadata.lastStripeSyncAt': new Date(),
+    },
+  });
+
+  await appendActivity(transaction._id, {
+    action: 'checkout_session_created',
+    description: 'Stripe checkout session created',
+    actor,
+  });
+
+  return session;
+}
 
 router.get('/leaderboard/top-supporters', publicStore, async (req, res) => {
   try {
@@ -167,8 +499,9 @@ router.post('/transactions', adminAuth, storeContext(), async (req, res) => {
       amount: amountInput,
       currency,
       status,
-      metadata,
+      metadata = {},
       packageId,
+      customerEmail: customerEmailInput,
     } = req.body;
 
     if (!code || !customerName || !socialLink) {
@@ -179,10 +512,9 @@ router.post('/transactions', adminAuth, storeContext(), async (req, res) => {
     if (!storeId) {
       return res.status(400).json({ message: 'Store context missing' });
     }
-    const storeName = req.storeContext?.storeName || 'meeWarp';
 
+    const storeName = req.storeContext?.storeName || 'meeWarp';
     const profile = await WarpProfile.findOne({ code, store: storeId });
-    const supporterDisplayName = (metadata?.selfDisplayName || customerName || '').toString().trim();
 
     let displaySeconds = Number(displaySecondsInput);
     let amount = Number(amountInput);
@@ -201,6 +533,20 @@ router.post('/transactions', adminAuth, storeContext(), async (req, res) => {
       return res.status(400).json({ message: 'displaySeconds and amount are required' });
     }
 
+    const metadataBase =
+      metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? { ...metadata } : {};
+    const paymentMethod = normalizePaymentMethod(req.body.paymentMethod || metadataBase.paymentMethod, 'checkout');
+    const rawCustomerEmail = (typeof customerEmailInput === 'string' ? customerEmailInput : metadataBase.customerEmail || '')
+      .toString()
+      .trim();
+    metadataBase.paymentMethod = paymentMethod;
+    metadataBase.storeName = storeName;
+    if (rawCustomerEmail) {
+      metadataBase.customerEmail = rawCustomerEmail;
+    } else {
+      delete metadataBase.customerEmail;
+    }
+
     const transaction = await WarpTransaction.create({
       store: storeId,
       warpProfile: profile ? profile._id : undefined,
@@ -211,13 +557,10 @@ router.post('/transactions', adminAuth, storeContext(), async (req, res) => {
       quote,
       displaySeconds,
       amount,
-      currency,
+      currency: (currency || 'THB').toUpperCase(),
       packageId: packageRef?._id,
-      status: status || (isChillPayConfigured() ? 'pending' : 'paid'),
-      metadata: {
-        ...metadata,
-        storeName,
-      },
+      status: status || (isStripeConfigured() ? 'pending' : 'paid'),
+      metadata: metadataBase,
     });
 
     await appendActivity(transaction._id, {
@@ -234,80 +577,92 @@ router.post('/transactions', adminAuth, storeContext(), async (req, res) => {
       displaySeconds: transaction.displaySeconds,
       status: transaction.status,
       packageId: transaction.packageId,
+      paymentMethod,
     };
 
-    console.log('isChillPayConfigured():', isChillPayConfigured());
-    
-    if (isChillPayConfigured()) {
-      console.log('Creating ChillPay payment link...');
+    if (isStripeConfigured()) {
       try {
-        const payLinkResponse = await createPayLink({
-          referenceNo: `${transaction._id}`,
-          amount,
-          customerName,
-          customerEmail: metadata?.customerEmail || '',
-          customerPhone: metadata?.customerPhone || '',
-          description: `Warp for ${storeName} (${code})`,
-          returnUrl: metadata?.returnUrl || `${process.env.PUBLIC_BASE_URL || 'http://localhost:5173'}/warp/${code}`,
-          notifyUrl: metadata?.notifyUrl || `${process.env.PUBLIC_API_BASE_URL || 'http://localhost:7001'}/api/v1/payments/webhook`,
-          productImage: metadata?.productImage,
-          productDescription:
-            metadata?.productDescription || `${storeName} • ${supporterDisplayName.slice(0, 50)}`,
-          paymentLimit: metadata?.paymentLimit,
-          expiresInMinutes: metadata?.expiresInMinutes,
+        const stripeMetadata = toStripeMetadata({
+          ...metadataBase,
+          transactionId: transaction._id.toString(),
+          storeId: storeId.toString(),
+          code,
         });
 
-        console.log('payLinkResponse', payLinkResponse.data);
-        
+        if (paymentMethod === 'promptpay') {
+          const paymentIntent = await createPromptPayPaymentIntent({
+            amount,
+            currency: (currency || 'THB').toLowerCase(),
+            metadata: stripeMetadata,
+            description: `Warp for ${storeName} (${code})`,
+            customerEmail: rawCustomerEmail || undefined,
+            customerName,
+          });
 
-        const paymentUrl =
-          payLinkResponse?.data?.paymentUrl ||
-          payLinkResponse?.paymentUrl ||
-          payLinkResponse?.result?.paymentUrl ||
-          payLinkResponse?.data?.qrImage ||
-          '';
+          const promptPayDetails =
+            extractPromptPayDetails(paymentIntent, {
+              amount,
+              currency: (currency || 'THB').toUpperCase(),
+              status: paymentIntent.status,
+            }) || null;
+          const now = new Date();
 
-        await WarpTransaction.findByIdAndUpdate(transaction._id, {
-          $set: {
-            'metadata.payLink': paymentUrl,
-            'metadata.payLinkResponse': payLinkResponse,
-            'metadata.payLinkToken':
-              payLinkResponse?.data?.payLinkToken || payLinkResponse?.data?.payLinkId || null,
-          },
-        });
+          await WarpTransaction.findByIdAndUpdate(transaction._id, {
+            $set: {
+              'metadata.stripePaymentIntentId': paymentIntent.id,
+              'metadata.stripePaymentStatus': paymentIntent.status,
+              'metadata.stripeCurrency':
+                paymentIntent.currency?.toUpperCase() || (currency || 'THB').toUpperCase(),
+              'metadata.stripeAmountTotal':
+                typeof paymentIntent.amount === 'number' ? paymentIntent.amount / 100 : amount,
+              'metadata.lastStripeSyncAt': now,
+              'metadata.promptpay': promptPayDetails
+                ? { ...promptPayDetails, generatedAt: now.toISOString() }
+                : null,
+            },
+          });
 
-        await appendActivity(transaction._id, {
-          action: 'payment_link_created',
-          description: 'ChillPay payment link issued',
-          actor: 'system',
-        });
+          await appendActivity(transaction._id, {
+            action: 'promptpay_qr_issued',
+            description: 'Stripe PromptPay QR code generated',
+            actor: 'system',
+          });
 
-        responsePayload = {
-          ...responsePayload,
-          paymentUrl,
-          paymentReference:
-            payLinkResponse?.data?.payLinkToken || payLinkResponse?.referenceNo || transaction._id.toString(),
-        };
-      } catch (err) {
-        const status = err.response?.status;
-        const errData = err.response?.data ? JSON.stringify(err.response.data) : err.message;
-        console.error('ChillPay PayLink error:', status, errData);
+          responsePayload = {
+            ...responsePayload,
+            promptPay: promptPayDetails,
+          };
+        } else {
+          const session = await issueStripeCheckout({
+            transaction,
+            amount,
+            currency: (currency || 'THB').toLowerCase(),
+            metadata: stripeMetadata,
+            storeName,
+            actor: req.admin?.email || 'admin',
+            customerEmail: rawCustomerEmail || undefined,
+          });
 
+          responsePayload = {
+            ...responsePayload,
+            stripeSessionId: session.id,
+            checkoutUrl: session.url,
+          };
+        }
+      } catch (error) {
         await appendActivity(transaction._id, {
           action: 'payment_link_failed',
-          description: `Failed to create ChillPay link: ${errData}`,
+          description: `Stripe payment initialization failed: ${error.message}`,
           actor: 'system',
         });
 
         return res.status(502).json({
-          message: 'Failed to create payment link',
-          details: errData,
-          status,
+          message: 'Failed to initialize Stripe payment',
+          details: error.message,
         });
       }
     } else {
-      leaderboardEmitter.emit('update', { storeId });
-      displayEmitter.emit('update', { storeId });
+      emitStoreUpdates(storeId);
     }
 
     return res.status(201).json(responsePayload);
@@ -342,26 +697,19 @@ router.post('/transactions/:id/check-status', adminAuth, storeContext(), async (
       return res.status(404).json({ message: 'Transaction not found' });
     }
 
-    const result = await checkTransactionStatus({
-      transactionId: req.params.id,
-      actor: req.admin?.email || 'admin',
-    });
-
-    if (result.status === 'unconfigured') {
-      return res.status(400).json({ message: result.note });
-    }
+    const result = await syncStripeTransaction(transaction, { actor: req.admin?.email || 'admin' });
 
     return res.status(200).json({
       status: result.status,
-      chillpayStatus: result.chillpayStatus,
+      stripeStatus: result.stripeStatus,
       note: result.note,
+      promptPay: result.promptPay || null,
     });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to check transaction status' });
   }
 });
 
-// Public endpoint for customers to create transactions
 router.post('/public/transactions', publicStore, async (req, res) => {
   try {
     const {
@@ -371,14 +719,15 @@ router.post('/public/transactions', publicStore, async (req, res) => {
       quote,
       displaySeconds: displaySecondsInput,
       amount: amountInput,
-      metadata,
+      metadata = {},
       packageId,
+      customerEmail: customerEmailInput,
     } = req.body;
     const submittedCustomerName = (req.body.customerName || '').trim();
 
     if (!code || !submittedCustomerName || !socialLink) {
-      return res.status(400).json({ 
-        message: 'code, customerName, and socialLink are required' 
+      return res.status(400).json({
+        message: 'code, customerName, and socialLink are required',
       });
     }
 
@@ -403,8 +752,20 @@ router.post('/public/transactions', publicStore, async (req, res) => {
     }
 
     const storeName = req.store?.name || 'meeWarp';
-    const supporterDisplayName = (metadata?.selfDisplayName || submittedCustomerName || '').toString().trim();
-
+    const metadataBase =
+      metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? { ...metadata } : {};
+    const paymentMethod = normalizePaymentMethod(req.body.paymentMethod || metadataBase.paymentMethod, 'checkout');
+    const rawCustomerEmail = (typeof customerEmailInput === 'string' ? customerEmailInput : metadataBase.customerEmail || '')
+      .toString()
+      .trim();
+    metadataBase.paymentMethod = paymentMethod;
+    metadataBase.source = metadataBase.source || 'public-customer';
+    metadataBase.storeName = storeName;
+    if (rawCustomerEmail) {
+      metadataBase.customerEmail = rawCustomerEmail;
+    } else {
+      delete metadataBase.customerEmail;
+    }
     const transaction = await WarpTransaction.create({
       store: storeId,
       warpProfile: profile ? profile._id : undefined,
@@ -413,7 +774,9 @@ router.post('/public/transactions', publicStore, async (req, res) => {
       customerAvatar:
         customerAvatar ||
         (submittedCustomerName
-          ? `https://ui-avatars.com/api/?name=${encodeURIComponent(submittedCustomerName)}&background=6366f1&color=ffffff&size=200`
+          ? `https://ui-avatars.com/api/?name=${encodeURIComponent(
+              submittedCustomerName
+            )}&background=6366f1&color=ffffff&size=200`
           : ''),
       socialLink,
       quote,
@@ -421,12 +784,8 @@ router.post('/public/transactions', publicStore, async (req, res) => {
       amount,
       currency: 'THB',
       packageId: packageRef?._id,
-      status: isChillPayConfigured() ? 'pending' : 'paid',
-      metadata: {
-        ...metadata,
-        source: metadata?.source || 'public-customer',
-        storeName,
-      },
+      status: isStripeConfigured() ? 'pending' : 'paid',
+      metadata: metadataBase,
     });
 
     await appendActivity(transaction._id, {
@@ -443,158 +802,125 @@ router.post('/public/transactions', publicStore, async (req, res) => {
       displaySeconds: transaction.displaySeconds,
       status: transaction.status,
       packageId: transaction.packageId,
+      paymentMethod,
     };
 
-    console.log('PUBLIC: isChillPayConfigured():', isChillPayConfigured());
-    
-    if (isChillPayConfigured()) {
-      console.log('PUBLIC: Creating ChillPay payment link...');
+    if (isStripeConfigured()) {
       try {
-        const payLinkResponse = await createPayLink({
-          referenceNo: `${transaction._id}`,
-          amount,
-          customerName: submittedCustomerName,
-          customerEmail: metadata?.customerEmail || '',
-          customerPhone: metadata?.customerPhone || '',
-          description: `Warp for ${storeName} (${code})`,
-          returnUrl: metadata?.returnUrl || `${process.env.PUBLIC_BASE_URL || 'http://localhost:5173'}/warp/${code}`,
-          notifyUrl: metadata?.notifyUrl || `${process.env.PUBLIC_API_BASE_URL || 'http://localhost:7001'}/api/v1/payments/webhook`,
-          productImage: metadata?.productImage,
-          productDescription:
-            metadata?.productDescription || `${storeName} • ${supporterDisplayName || submittedCustomerName}`,
-          paymentLimit: metadata?.paymentLimit,
-          expiresInMinutes: metadata?.expiresInMinutes,
+        const stripeMetadata = toStripeMetadata({
+          ...metadataBase,
+          transactionId: transaction._id.toString(),
+          storeId: storeId.toString(),
+          code,
         });
 
-        console.log('PUBLIC: payLinkResponse', payLinkResponse.data);
-        
-        const payLinkPayload = payLinkResponse?.data || payLinkResponse?.result || {};
-        const rawStatus = payLinkPayload?.status || payLinkResponse?.status || '';
-        const normalizedStatus = rawStatus.toString().toUpperCase();
-        const paymentUrl =
-          payLinkPayload?.paymentUrl ||
-          payLinkResponse?.paymentUrl ||
-          payLinkPayload?.qrImage ||
-          '';
+        if (paymentMethod === 'promptpay') {
+          const paymentIntent = await createPromptPayPaymentIntent({
+            amount,
+            currency: 'thb',
+            metadata: stripeMetadata,
+            description: `Warp for ${storeName} (${code})`,
+            customerEmail: rawCustomerEmail || undefined,
+            customerName: submittedCustomerName,
+          });
 
-        const providerMessage =
-          payLinkResponse?.data?.message ||
-          payLinkResponse?.message ||
-          payLinkResponse?.result?.message ||
-          'ขออภัย ท่านไม่สามารถใช้ลิงก์นี้ในการชำระเงินได้ เนื่องจากลิงก์ยังไม่ถึงกำหนดเวลาใช้งาน กรุณาติดต่อร้านค้า [ บริษัท มี พร้อมท์ เทคโนโลยี จํากัด, Contact: 0885941049 ]';
+          const promptPayDetails =
+            extractPromptPayDetails(paymentIntent, {
+              amount,
+              currency: 'THB',
+              status: paymentIntent.status,
+            }) || null;
+          const now = new Date();
 
-        console.log('PUBLIC: paymentUrl', paymentUrl);
-
-        const isWaitingStatus = ['W', 'WAITING', 'PENDING', 'SCHEDULED'].includes(normalizedStatus);
-
-        if (!paymentUrl || isWaitingStatus) {
           await WarpTransaction.findByIdAndUpdate(transaction._id, {
             $set: {
-              'metadata.payLinkResponse': payLinkResponse,
-              'metadata.payLinkStatus': 'waiting',
-              'metadata.payLinkRawStatus': normalizedStatus,
-              'metadata.providerMessage': providerMessage,
+              'metadata.stripePaymentIntentId': paymentIntent.id,
+              'metadata.stripePaymentStatus': paymentIntent.status,
+              'metadata.stripeCurrency':
+                paymentIntent.currency?.toUpperCase() || 'THB',
+              'metadata.stripeAmountTotal':
+                typeof paymentIntent.amount === 'number' ? paymentIntent.amount / 100 : amount,
+              'metadata.lastStripeSyncAt': now,
+              'metadata.promptpay': promptPayDetails
+                ? { ...promptPayDetails, generatedAt: now.toISOString() }
+                : null,
             },
           });
 
           await appendActivity(transaction._id, {
-            action: 'payment_link_waiting',
-            description: providerMessage,
+            action: 'promptpay_qr_issued',
+            description: 'Stripe PromptPay QR code generated',
             actor: 'system',
           });
 
-          return res.status(202).json({
+          responsePayload = {
             ...responsePayload,
-            status: 'waiting',
-            providerMessage,
+            promptPay: promptPayDetails,
+          };
+        } else {
+          const session = await issueStripeCheckout({
+            transaction,
+            amount,
+            currency: 'thb',
+            metadata: stripeMetadata,
+            storeName,
+            actor: 'customer',
+            customerEmail: rawCustomerEmail || undefined,
           });
+          responsePayload = {
+            ...responsePayload,
+            stripeSessionId: session.id,
+            checkoutUrl: session.url,
+          };
         }
-
-        await WarpTransaction.findByIdAndUpdate(transaction._id, {
-          $set: {
-            'metadata.payLink': paymentUrl,
-            'metadata.payLinkResponse': payLinkResponse,
-            'metadata.payLinkToken':
-              payLinkResponse?.data?.payLinkToken || payLinkResponse?.data?.payLinkId || null,
-          },
-        });
-
+      } catch (error) {
         await appendActivity(transaction._id, {
-          action: 'payment_link_created',
-          description: 'ChillPay payment link issued',
+          action: 'payment_link_failed',
+          description: `Stripe payment initialization failed: ${error.message}`,
           actor: 'system',
         });
 
-        responsePayload = {
-          ...responsePayload,
-          paymentUrl,
-          paymentReference:
-            payLinkResponse?.data?.payLinkToken || payLinkResponse?.referenceNo || transaction._id.toString(),
-        };
-        
-        console.log('PUBLIC: Final responsePayload', responsePayload);
-      } catch (err) {
-        console.log('PUBLIC: ChillPay error:', err.message);
-        await appendActivity(transaction._id, {
-          action: 'payment_link_error',
-          description: `ChillPay error: ${err.message}`,
-          actor: 'system',
+        return res.status(502).json({
+          message: 'Failed to initialize Stripe payment',
+          details: error.message,
         });
       }
+    } else {
+      emitStoreUpdates(storeId);
     }
 
-    if (!isChillPayConfigured()) {
-      console.log('PUBLIC: ChillPay not configured, emitting updates');
-      leaderboardEmitter.emit('update', { storeId: storeId.toString() });
-      displayEmitter.emit('update', { storeId: storeId.toString() });
-    }
-
-    console.log('PUBLIC: Returning response:', responsePayload);
     return res.status(201).json(responsePayload);
   } catch (error) {
-    return res.status(500).json({ 
-      message: 'Failed to create transaction', 
-      details: error.message 
+    return res.status(500).json({
+      message: 'Failed to create transaction',
+      details: error.message,
     });
   }
 });
 
 router.post('/public/transactions/check-status', publicStore, async (req, res) => {
   try {
-    const { transactionId, reference } = req.body || {};
+    const { transactionId } = req.body || {};
 
     const storeId = req.store._id;
 
-    if (!transactionId && !reference) {
-      return res.status(400).json({ message: 'transactionId or reference is required' });
+    if (!transactionId) {
+      return res.status(400).json({ message: 'transactionId is required' });
     }
 
-    let transaction = null;
-
-    if (transactionId) {
-      transaction = await WarpTransaction.findOne({ _id: transactionId, store: storeId });
-    } else if (reference) {
-      transaction = await WarpTransaction.findOne({ 'metadata.payLinkToken': reference, store: storeId });
-    }
+    const transaction = await WarpTransaction.findOne({ _id: transactionId, store: storeId }).lean();
 
     if (!transaction) {
       return res.status(404).json({ message: 'Transaction not found' });
     }
 
-    const result = await checkTransactionStatus({
-      transactionId: transaction._id,
-      reference,
-      actor: 'customer',
-    });
-
-    if (result.status === 'unconfigured') {
-      return res.status(400).json({ message: result.note });
-    }
+    const result = await syncStripeTransaction(transaction, { actor: 'customer' });
 
     return res.status(200).json({
       status: result.status,
-      chillpayStatus: result.chillpayStatus,
+      stripeStatus: result.stripeStatus,
       note: result.note,
+      promptPay: result.promptPay || null,
     });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to check status', details: error.message });
@@ -712,67 +1038,145 @@ router.post('/public/display/:id/complete', publicStore, async (req, res) => {
 
 router.post('/payments/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   try {
-    const rawBody = req.body instanceof Buffer ? req.body.toString('utf8') : JSON.stringify(req.body);
-    const signature = req.headers['x-chillpay-signature'];
-
-    if (!verifyWebhookSignature(rawBody, signature)) {
-      return res.status(401).json({ message: 'Invalid signature' });
+    if (!isStripeConfigured()) {
+      return res.status(200).json({ received: true, note: 'Stripe disabled' });
     }
 
-    const payload = rawBody ? JSON.parse(rawBody) : {};
-    const referenceNo = payload?.referenceNo;
-    const status = payload?.status;
-    const amount = Number(payload?.amount || 0);
-
-    if (!referenceNo) {
-      return res.status(400).json({ message: 'Missing referenceNo' });
+    const signature = req.headers['stripe-signature'];
+    if (!signature) {
+      return res.status(400).json({ message: 'Missing stripe-signature header' });
     }
 
-    const transaction = await WarpTransaction.findById(referenceNo);
-
-    if (!transaction) {
-      return res.status(404).json({ message: 'Transaction not found' });
+    let event;
+    try {
+      event = constructStripeEvent(req.body, signature);
+    } catch (error) {
+      return res.status(400).json({ message: `Invalid signature: ${error.message}` });
     }
 
-    const updates = {};
-    const activities = [];
+    const { type, id: eventId, created } = event;
+    const now = new Date();
+    let eventHandled = false;
 
-    if (typeof status === 'string') {
-      let newStatus = transaction.status;
-      if (status.toLowerCase() === 'success') {
-        newStatus = 'paid';
-      } else if (status.toLowerCase() === 'fail') {
-        newStatus = 'failed';
+    if (type === 'checkout.session.completed' || type === 'checkout.session.async_payment_succeeded') {
+      const session = event.data.object;
+      const transactionId = session?.metadata?.transactionId;
+
+      if (transactionId) {
+        const transaction = await WarpTransaction.findById(transactionId);
+
+        if (transaction) {
+          const updates = {
+            status: 'paid',
+            'metadata.stripeCheckoutSessionId': session.id,
+            'metadata.stripeCheckoutStatus': session.status || null,
+            'metadata.stripePaymentStatus': session.payment_status || null,
+            'metadata.stripePaymentIntentId': session.payment_intent || null,
+            'metadata.stripeCheckoutUrl': session.url || transaction?.metadata?.stripeCheckoutUrl || null,
+            'metadata.stripeCustomerEmail': session.customer_details?.email || session.customer_email || null,
+            'metadata.stripeAmountTotal':
+              session.amount_total != null ? session.amount_total / 100 : transaction.amount,
+            'metadata.lastStripeEventId': eventId,
+            'metadata.lastStripeEventType': type,
+            'metadata.lastStripeWebhookAt': now,
+            'metadata.stripeEventCreatedAt': created ? new Date(created * 1000) : now,
+            'metadata.lastStripeSyncAt': now,
+          };
+
+          await WarpTransaction.findByIdAndUpdate(transaction._id, {
+            $set: updates,
+          });
+
+          await appendActivity(transaction._id, {
+            action: 'status_changed',
+            description: 'Payment marked as paid via Stripe webhook',
+            actor: 'stripe-webhook',
+          });
+
+          emitStoreUpdates(transaction.store);
+          eventHandled = true;
+        }
       }
+    } else if (type === 'payment_intent.payment_failed' || type === 'checkout.session.expired') {
+      const payload = event.data.object;
+      const transactionId = payload?.metadata?.transactionId;
 
-      if (newStatus !== transaction.status) {
-        updates.status = newStatus;
-        activities.push({
-          action: 'status_changed',
-          description: `Status updated to ${newStatus} via ChillPay webhook`,
-          actor: 'chillpay-webhook',
-        });
+      if (transactionId) {
+        const transaction = await WarpTransaction.findById(transactionId);
+
+        if (transaction && transaction.status === 'pending') {
+          const updates = {
+            status: 'cancelled',
+            'metadata.lastStripeEventId': eventId,
+            'metadata.lastStripeEventType': type,
+            'metadata.lastStripeWebhookAt': now,
+            'metadata.lastStripeSyncAt': now,
+          };
+
+          if (payload?.object === 'payment_intent') {
+            const promptPayDetails =
+              extractPromptPayDetails(payload, transaction.metadata?.promptpay || null) || null;
+            if (promptPayDetails) {
+              updates['metadata.promptpay'] = { ...promptPayDetails, failedAt: now.toISOString() };
+            }
+          }
+
+          await WarpTransaction.findByIdAndUpdate(transaction._id, {
+            $set: updates,
+          });
+
+          await appendActivity(transaction._id, {
+            action: 'status_changed',
+            description: `Payment marked as cancelled via Stripe webhook (${type})`,
+            actor: 'stripe-webhook',
+          });
+          eventHandled = true;
+        }
+      }
+    } else if (type === 'payment_intent.succeeded') {
+      const intent = event.data.object;
+      const transactionId = intent?.metadata?.transactionId;
+
+      if (transactionId) {
+        const transaction = await WarpTransaction.findById(transactionId);
+        if (transaction) {
+          const updates = {
+            status: 'paid',
+            'metadata.stripePaymentIntentId': intent.id,
+            'metadata.stripePaymentStatus': intent.status,
+            'metadata.stripeAmountReceived':
+              intent.amount_received != null ? intent.amount_received / 100 : transaction.amount,
+            'metadata.stripeReceiptUrl': intent.charges?.data?.[0]?.receipt_url || null,
+            'metadata.lastStripeEventId': eventId,
+            'metadata.lastStripeEventType': type,
+            'metadata.lastStripeWebhookAt': now,
+            'metadata.lastStripeSyncAt': now,
+          };
+
+          const promptPayDetails =
+            extractPromptPayDetails(intent, transaction.metadata?.promptpay || null) || null;
+          if (promptPayDetails) {
+            promptPayDetails.paidAt = promptPayDetails.paidAt || now.toISOString();
+            updates['metadata.promptpay'] = promptPayDetails;
+          }
+
+          await WarpTransaction.findByIdAndUpdate(transaction._id, {
+            $set: updates,
+          });
+
+          await appendActivity(transaction._id, {
+            action: 'status_changed',
+            description: 'Payment marked as paid via Stripe payment intent webhook',
+            actor: 'stripe-webhook',
+          });
+
+          emitStoreUpdates(transaction.store);
+          eventHandled = true;
+        }
       }
     }
 
-    updates[`metadata.webhookPayload`] = payload;
-    updates[`metadata.paidAmount`] = amount;
-
-    await WarpTransaction.findByIdAndUpdate(transaction._id, {
-      $set: updates,
-    });
-
-    for (const activity of activities) {
-      await appendActivity(transaction._id, activity);
-    }
-
-    if (updates.status === 'paid') {
-      const storeId = transaction.store ? transaction.store.toString() : null;
-      leaderboardEmitter.emit('update', { storeId });
-      displayEmitter.emit('update', { storeId });
-    }
-
-    return res.status(200).json({ received: true });
+    return res.status(200).json({ received: true, handled: eventHandled });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to process webhook' });
   }

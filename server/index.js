@@ -10,7 +10,6 @@ const warpRoutes = require('./routes/warpRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-const { startTransactionPolling } = require('./jobs/transactionPolling');
 
 const app = express();
 
@@ -81,8 +80,6 @@ async function start() {
     app.listen(config.port, () => {
       console.log(`Warp server listening on port ${config.port}`);
     });
-
-    startTransactionPolling();
   } catch (error) {
     console.error('Failed to start server', error);
     process.exit(1);

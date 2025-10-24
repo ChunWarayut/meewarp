@@ -1192,7 +1192,7 @@ const TvLandingPage = () => {
           {/* <div className="absolute inset-0 backdrop-blur -z-20" /> */}
         </>
       ) : null}
-      <div
+      {/* <div
         className="absolute inset-0 opacity-70 pointer-events-none -z-10"
         style={{
           background: `radial-gradient(120% 120% at 15% 20%, ${toRgba(gradientPrimary, 0.38)} 0%, transparent 70%), radial-gradient(120% 120% at 85% 80%, ${toRgba(gradientSecondary, 0.33)} 0%, transparent 72%)`,
@@ -1203,7 +1203,7 @@ const TvLandingPage = () => {
         style={{
           background: `radial-gradient(140% 140% at 50% 120%, ${toRgba(gradientSecondary, 0.24)} 0%, transparent 65%)`,
         }}
-      />
+      /> */}
       {warpOverlay}
       <main
         className={`flex relative z-10 justify-center items-stretch w-full ${mainPaddingClass} ${mainMinHeightClass}`}

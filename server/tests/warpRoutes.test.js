@@ -1,9 +1,12 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
+const Store = require('../models/Store');
+const WarpProfile = require('../models/WarpProfile');
 
 let mongoServer;
 let app;
+let store;
 
 beforeAll(async () => {
   mongoServer = await MongoMemoryServer.create({
@@ -22,12 +25,15 @@ beforeAll(async () => {
   ({ app } = require('../index'));
 
   await mongoose.connect(process.env.MONGODB_URI);
+  await WarpProfile.init();
 });
 
 afterEach(async () => {
   if (mongoose.connection.readyState === 1) {
-    await mongoose.connection.db.dropDatabase();
+    const collections = await mongoose.connection.db.collections();
+    await Promise.all(collections.map((collection) => collection.deleteMany({})));
   }
+  store = null;
 });
 
 afterAll(async () => {
@@ -56,6 +62,14 @@ const getAuthHeader = async () => {
 };
 
 describe('Warp routes', () => {
+  beforeEach(async () => {
+    store = await Store.create({
+      name: 'Test Store',
+      slug: 'test-store',
+      isActive: true,
+    });
+  });
+
   test('rejects admin actions without auth token', async () => {
     const response = await request(app).post('/api/v1/admin/warp').send(createPayload());
 
@@ -74,6 +88,7 @@ describe('Warp routes', () => {
     const response = await request(app)
       .post('/api/v1/admin/warp')
       .set('Authorization', authHeader)
+      .set('x-store-id', store._id.toString())
       .send(createPayload());
 
     expect(response.status).toBe(201);
@@ -90,10 +105,12 @@ describe('Warp routes', () => {
     await request(app)
       .post('/api/v1/admin/warp')
       .set('Authorization', authHeader)
+      .set('x-store-id', store._id.toString())
       .send(createPayload());
     const response = await request(app)
       .post('/api/v1/admin/warp')
       .set('Authorization', authHeader)
+      .set('x-store-id', store._id.toString())
       .send(createPayload());
 
     expect(response.status).toBe(409);
@@ -104,16 +121,17 @@ describe('Warp routes', () => {
     await request(app)
       .post('/api/v1/admin/warp')
       .set('Authorization', authHeader)
+      .set('x-store-id', store._id.toString())
       .send(createPayload());
 
-    const response = await request(app).get('/api/v1/warp/DJ001');
+    const response = await request(app).get('/api/v1/warp/DJ001').set('x-store-slug', store.slug);
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ socialLink: 'https://instagram.com/testdj' });
   });
 
   test('returns 404 for missing warp profile', async () => {
-    const response = await request(app).get('/api/v1/warp/UNKNOWN');
+    const response = await request(app).get('/api/v1/warp/UNKNOWN').set('x-store-slug', store.slug);
 
     expect(response.status).toBe(404);
   });
@@ -132,10 +150,17 @@ describe('Warp transactions & leaderboard', () => {
   });
 
   beforeEach(async () => {
+    store = await Store.create({
+      name: 'Test Store',
+      slug: 'test-store',
+      isActive: true,
+    });
+
     const authHeader = await getAuthHeader();
     await request(app)
       .post('/api/v1/admin/warp')
       .set('Authorization', authHeader)
+      .set('x-store-id', store._id.toString())
       .send(createPayload());
   });
 
@@ -153,9 +178,12 @@ describe('Warp transactions & leaderboard', () => {
     await request(app)
       .post('/api/v1/transactions')
       .set('Authorization', authHeader)
+      .set('x-store-id', store._id.toString())
       .send(createTransactionPayload());
 
-    const leaderboardResponse = await request(app).get('/api/v1/leaderboard/top-supporters');
+    const leaderboardResponse = await request(app)
+      .get('/api/v1/leaderboard/top-supporters')
+      .set('x-store-slug', store.slug);
 
     expect(leaderboardResponse.status).toBe(200);
     expect(Array.isArray(leaderboardResponse.body.supporters)).toBe(true);
@@ -171,11 +199,13 @@ describe('Warp transactions & leaderboard', () => {
     await request(app)
       .post('/api/v1/transactions')
       .set('Authorization', authHeader)
+      .set('x-store-id', store._id.toString())
       .send(createTransactionPayload({ customerName: 'Log Tester' }));
 
     const response = await request(app)
       .get('/api/v1/transactions/activity-log')
-      .set('Authorization', authHeader);
+      .set('Authorization', authHeader)
+      .set('x-store-id', store._id.toString());
 
     expect(response.status).toBe(200);
     expect(Array.isArray(response.body.entries)).toBe(true);

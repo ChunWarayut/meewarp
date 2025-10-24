@@ -77,27 +77,28 @@ GitHub Actions workflow at `.github/workflows/ci.yml` installs dependencies for 
 ## Realtime Leaderboard & Display Queue
 - `GET /api/v1/leaderboard/top-supporters` returns the latest top supporters (aggregated by amount).
 - `GET /api/v1/leaderboard/stream` exposes a Server-Sent Events stream; every transaction update pushes the refreshed leaderboard.
-- `POST /api/v1/transactions` (admin auth required) registers a warp transaction; หากตั้งค่า ChillPay ระบบจะออก PayLink และตั้งสถานะเป็น `pending`
+- `POST /api/v1/transactions` (admin auth required) registers a warp transaction; เมื่อเปิด Stripe ระบบจะออก Checkout Session พร้อมลิงก์ชำระเงินแล้วตั้งสถานะเป็น `pending`
 - `GET /api/v1/transactions/activity-log` (admin auth) ให้ทีมงานดึง last activities ของ Warp transactions (เช่น created/updated)
-- `POST /api/v1/transactions/:id/check-status` (admin auth) เชื่อม ChillPay Transaction API เพื่อตรวจสอบสถานะการชำระเงินตาม reference
-- `POST /api/v1/public/transactions/check-status` (public) ให้ลูกค้ากดตรวจสอบสถานะด้วย transactionId หรือ payLink token (อ่านอย่างเดียว)
+- `POST /api/v1/transactions/:id/check-status` (admin auth) ซิงค์สถานะกับ Stripe PaymentIntent/Checkout เพื่ออัปเดตการชำระเงินล่าสุด
+- `POST /api/v1/public/transactions/check-status` (public) ให้ลูกค้ากดตรวจสอบสถานะด้วย transactionId (อ่านอย่างเดียว, อัปเดต Stripe status ให้อัตโนมัติ)
 - `GET /api/v1/display/stream` เปิด Server-Sent Events สำหรับหน้าจอหลัก ใช้จับ queue / warp กำลังแสดงผลแบบเรียลไทม์
 - `POST /api/v1/public/display/next` ล็อก transaction ที่จ่ายแล้ว (`status: paid`) และอัปเดตเป็น `displaying` โดยคืนข้อมูลให้จอหลักนำไปเรนเดอร์ตามเวลาที่ซื้อมา
 - `POST /api/v1/public/display/:id/complete` (public) ให้จอหลักแจ้งว่า Warp แสดงผลครบเวลาแล้ว ระบบจะบันทึกสถานะเป็น `displayed`
 
-## ChillPay Integration (beta)
-- ตั้งค่า `CHILLPAY_*` ใน `server/.env` พร้อม `PUBLIC_BASE_URL` (URL ฝั่งลูกค้า) และ `PUBLIC_API_BASE_URL` (เช่น URL backend ที่สามารถรับ webhook/ใช้ตรวจสถานะได้)
-- `CHILLPAY_TRANSACTION_URL` ใช้เรียก Transaction API เพื่อตรวจสอบสถานะใน sandbox/production
-- `CHILLPAY_AUTO_POLL` (ค่าเริ่มต้น true) เปิด/ปิดการตรวจสถานะอัตโนมัติ, `CHILLPAY_POLL_CRON` ตั้ง cron pattern (ค่าเริ่มต้น `*/15 * * * * *`), `CHILLPAY_POLL_BATCH` กำหนดจำนวน transaction ในแต่ละรอบ
-- ถ้ายังไม่ configure ค่าเหล่านี้ ระบบจะบันทึกธุรกรรมเป็น `paid` แบบจำลอง และข้ามการสร้าง PayLink
-- เมื่อมี credential จริง ระบบจะสร้าง ChillPay PayLink หลังสร้าง transaction และตั้ง status เป็น `pending`
-- ระบบมี background job (15 วินาทีต่อครั้ง โดยตั้ง `CHILLPAY_POLL_CRON`/`CHILLPAY_AUTO_POLL`) สำหรับเช็กสถานะผ่าน Transaction API และอัปเดตเป็น `paid/failed` อัตโนมัติ เมื่อสำเร็จจะบันทึก activity log พร้อม refresh leaderboard; ทีมงานยังสามารถกด `POST /api/v1/transactions/:id/check-status` เพื่อบังคับตรวจได้เอง
+## Stripe Integration
+- ตั้งค่า `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_SUCCESS_URL`, และ `STRIPE_CANCEL_URL` ใน `server/.env`
+- URL สำเร็จ/ยกเลิกสามารถใช้ placeholder `{CHECKOUT_SESSION_ID}` เพื่อให้ Stripe สอดแทรกค่า session อัตโนมัติ
+- หากยังไม่กำหนดค่า Stripe ระบบจะถือว่าการชำระเงินสำเร็จทันที (โหมดจำลอง) เพื่อสะดวกต่อการเดโม/ทดสอบ
+- Webhook endpoint อยู่ที่ `/api/v1/payments/webhook` อย่าลืมตั้งค่า secret ให้ตรงกับ Stripe Dashboard
+- ปุ่มเช็กสถานะทั้งฝั่งผู้ดูแลและลูกค้าเรียก Stripe เพื่อตรวจสอบสถานะล่าสุดของการชำระเงินและอัปเดตธุรกรรมในระบบ
+- รองรับ PromptPay โดยส่ง `paymentMethod: "promptpay"` มายัง endpoint สร้างธุรกรรม ระบบจะสร้าง QR code ผ่าน Stripe PaymentIntent แล้วคืนรายละเอียดกลับให้
 
 ## Customer Warp Modal (Demo)
 - หน้า Landing (`/`) สรุปคุณค่าระบบ meeWarp พร้อมทางลัดไปยังโหมดต่าง ๆ
 - TV landing page (`/tv`) แสดง QR Code ให้ลูกค้าสแกนเพื่อไปยังหน้า `/self-warp` บนมือถือ
 - โมดัลจะเรียก `POST /api/v1/transactions` โดยดึง Bearer token แอดมินจาก Auth context (ล็อกอินใน `/admin` ก่อน)
-- ราคาเป็นการจำลองยังไม่ผูก Payment Gateway จริง; ปรับ Logic ใน `CustomerWarpModal` ได้เมื่อต้องการเชื่อมระบบชำระเงินจริง
+- หากตั้งค่า Stripe แล้ว โมดัลจะเปิดหน้า Checkout ทันที; กรณีไม่ได้ตั้งค่า ระบบจะถือว่าชำระเงินเสร็จเพื่อใช้เดโม
+- ลูกค้าสามารถเลือกชำระผ่าน PromptPay ได้ ระบบจะแสดง QR code พร้อมเวลาหมดอายุให้สแกน
 - โมดัลมี validation และ spinner แสดงสถานะ พร้อมข้อความบอกข้อผิดพลาด (ดู `client/src/components/customer/CustomerWarpModal.tsx`)
 - ลูกค้ากรอกข้อมูลและอัปโหลดรูปเอง ไม่มีขั้นตอนล็อกอินภายนอก (ดู `client/src/pages/SelfWarpPage.tsx`)
 

@@ -38,6 +38,25 @@ type FormState = {
   mode: 'profile' | 'self';
   selfImage?: string;
   selfDisplayName?: string;
+  paymentMethod: 'promptpay' | 'checkout';
+  customerEmail: string;
+};
+
+type CheckoutSessionInfo = {
+  url: string;
+  sessionId?: string;
+};
+
+type PromptPayData = {
+  qrImageUrl?: string;
+  qrImageUrlSvg?: string;
+  expiresAt?: string;
+  paymentIntentId?: string;
+  referenceNumber?: string;
+  amount?: number;
+  currency?: string;
+  status?: string;
+  paidAt?: string;
 };
 
 const defaultState: FormState = {
@@ -52,6 +71,8 @@ const defaultState: FormState = {
   mode: 'profile',
   selfImage: '',
   selfDisplayName: '',
+  paymentMethod: 'promptpay',
+  customerEmail: '',
 };
 
 const warpOptions: WarpOption[] = [
@@ -60,12 +81,30 @@ const warpOptions: WarpOption[] = [
   { seconds: 90, price: 60, label: '90s' },
 ];
 
+const paymentMethodOptions: Array<{
+  id: 'promptpay' | 'checkout';
+  label: string;
+  description: string;
+}> = [
+  {
+    id: 'promptpay',
+    label: 'PromptPay QR',
+    description: 'สแกนด้วยแอปธนาคารหรือโมบายวอลเล็ตที่รองรับ',
+  },
+  {
+    id: 'checkout',
+    label: 'บัตรเครดิต / เดบิต',
+    description: 'ชำระผ่านหน้า Stripe Checkout',
+  },
+];
+
 const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalProps) => {
   const [form, setForm] = useState<FormState>(defaultState);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState<string>('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [paymentLink, setPaymentLink] = useState<{ url: string; reference?: string } | null>(null);
+  const [checkoutSession, setCheckoutSession] = useState<CheckoutSessionInfo | null>(null);
+  const [promptPayData, setPromptPayData] = useState<PromptPayData | null>(null);
   const [transactionId, setTransactionId] = useState<string | null>(null);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [showThankYouModal, setShowThankYouModal] = useState(false);
@@ -137,7 +176,8 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
     setStatus('idle');
     setMessage('');
     setFieldErrors({});
-    setPaymentLink(null);
+    setCheckoutSession(null);
+    setPromptPayData(null);
     setTransactionId(null);
     setIsCheckingStatus(false);
     setShowThankYouModal(false);
@@ -162,6 +202,8 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
     setMessage('');
     setFieldErrors({});
     setShowThankYouModal(false);
+    setCheckoutSession(null);
+    setPromptPayData(null);
 
     const errors: Record<string, string> = {};
     if (form.mode === 'profile' && !form.profileCode) {
@@ -183,6 +225,9 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
     }
     if (!form.seconds || form.seconds < 10) {
       errors.seconds = 'เวลาต้องมากกว่า 10 วินาที';
+    }
+    if (!form.customerEmail.trim()) {
+      errors.customerEmail = 'กรุณากรอกอีเมลสำหรับส่งสลิปชำระเงิน';
     }
 
     if (Object.keys(errors).length > 0) {
@@ -209,6 +254,7 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
         quote: form.quote,
         displaySeconds: form.seconds,
         amount: form.price,
+        paymentMethod: form.paymentMethod,
         metadata: {
           source: 'landing-modal',
           productImage: form.selfImage ? `data:image/jpeg;base64,${form.selfImage}` : undefined,
@@ -219,7 +265,10 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
           paymentLimit: form.mode === 'self' ? 0 : undefined,
           expiresInMinutes: form.mode === 'self' ? 120 : undefined,
           selfDisplayName: form.selfDisplayName,
+          paymentMethod: form.paymentMethod,
+          customerEmail: form.customerEmail,
         },
+        customerEmail: form.customerEmail,
       };
 
       const headers: Record<string, string> = {
@@ -240,37 +289,44 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
       const data = await response.json();
 
       setTransactionId(data?.id || null);
+      const promptPay = (data?.promptPay as PromptPayData | null) ?? null;
+      setPromptPayData(promptPay);
 
-      const linkUrl = data?.paymentUrl;
-      const reference = data?.paymentReference;
-      const newStatus = data?.status || 'success';
-      const providerMessage =
-        data?.providerMessage ||
-        'ขออภัย ท่านไม่สามารถใช้ลิงก์นี้ในการชำระเงินได้ เนื่องจากลิงก์ยังไม่ถึงกำหนดเวลาใช้งาน กรุณาติดต่อร้านค้า [ บริษัท มี พร้อมท์ เทคโนโลยี จํากัด, Contact: 0885941049 ]';
+      const checkoutUrl: string | undefined = data?.checkoutUrl;
+      const sessionId: string | undefined = data?.stripeSessionId;
+      const newStatus: string | undefined = data?.status;
 
-      if (newStatus === 'waiting') {
-        setPaymentLink(null);
-        setStatus('error');
-        setMessage(providerMessage);
+      if (promptPay) {
+        setCheckoutSession(null);
+        const expiresText = promptPay.expiresAt
+          ? ` ก่อน ${new Date(promptPay.expiresAt).toLocaleString('th-TH')}`
+          : '';
+        setStatus('success');
+        setMessage(`สแกน QR PromptPay ด้วยแอปธนาคารของคุณ${expiresText}`);
         return;
       }
 
-      if (linkUrl) {
-        setPaymentLink({ url: linkUrl, reference });
+      if (checkoutUrl) {
+        setCheckoutSession({ url: checkoutUrl, sessionId });
         setStatus('success');
-        setMessage('สร้าง PayLink สำเร็จ! กรุณาชำระเงินในหน้าต่างใหม่ หากไม่ได้เปิดให้คลิกปุ่มด้านล่าง');
-        window.location.href = linkUrl;
-        return; // Exit early to prevent showing success message
-      } else if (newStatus === 'paid') {
-        setPaymentLink(null);
-        setStatus('success');
-        setMessage('Warp ของคุณถูกบันทึกแล้ว! (โหมดจำลอง)');
+        setMessage('เปิดหน้าชำระเงิน Stripe ให้เรียบร้อยแล้ว หากยังไม่เปิดขึ้นให้คลิกปุ่มด้านล่าง');
+        window.location.href = checkoutUrl;
         return;
       }
 
-      setPaymentLink(null);
+      if (newStatus === 'paid') {
+        setCheckoutSession(null);
+        setPromptPayData(null);
+        setStatus('success');
+        setMessage('Warp ของคุณถูกบันทึกและชำระเงินเรียบร้อยแล้ว!');
+        setShowThankYouModal(true);
+        return;
+      }
+
+      setCheckoutSession(null);
+      setPromptPayData(null);
       setStatus('success');
-      setMessage('Warp ถูกบันทึกแล้ว กำลังรอตรวจสอบการชำระเงิน');
+      setMessage('Warp ถูกบันทึกแล้ว กรุณาชำระเงินผ่าน Stripe เพื่อให้ทีมงานดำเนินการต่อ');
     } catch (error) {
       setStatus('error');
       setMessage(error instanceof Error ? error.message : 'เกิดข้อผิดพลาด');
@@ -402,6 +458,36 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
             </div>
           </section>
 
+          <section>
+            <h3 className="text-sm uppercase tracking-[0.4em] text-teal-300">Step 3</h3>
+            <p className="mt-2 text-sm font-semibold text-white">เลือกช่องทางการชำระเงิน</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {paymentMethodOptions.map((option) => {
+                const isSelected = form.paymentMethod === option.id;
+                return (
+                  <button
+                    type="button"
+                    key={option.id}
+                    onClick={() => handleChange('paymentMethod', option.id)}
+                    className={`flex h-full flex-col items-start gap-2 rounded-2xl border px-4 py-3 text-left transition ${
+                      isSelected
+                        ? 'border-emerald-300 bg-emerald-500/15 shadow-[0_20px_50px_rgba(16,185,129,0.25)]'
+                        : 'border-white/10 bg-white/5 hover:border-emerald-300/60 hover:bg-emerald-500/10'
+                    }`}
+                  >
+                    <span className="text-sm font-semibold text-white">{option.label}</span>
+                    <span className="text-xs text-slate-300">{option.description}</span>
+                    {option.id === 'promptpay' ? (
+                      <span className="mt-1 inline-flex items-center gap-2 rounded-full border border-emerald-400/50 bg-emerald-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.3em] text-emerald-100">
+                        <span className="h-2 w-2 rounded-full bg-emerald-400" /> แนะนำ
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
           <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="text-xs uppercase tracking-[0.3em] text-indigo-300" style={{ letterSpacing: '-0.02em' }}>IG ของคุณ</label>
@@ -431,6 +517,21 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
               />
               {fieldErrors.socialLink ? (
                 <p className="mt-1 text-xs text-rose-300">{fieldErrors.socialLink}</p>
+              ) : null}
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-xs uppercase tracking-[0.3em] text-indigo-300" style={{ letterSpacing: '-0.02em' }}>อีเมลสำหรับส่งสลิป</label>
+              <input
+                type="email"
+                value={form.customerEmail}
+                onChange={(event) => handleChange('customerEmail', event.target.value)}
+                placeholder="ตัวอย่าง: yourname@example.com"
+                required
+                className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/80 px-4 py-3 text-sm text-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/30"
+                style={{ letterSpacing: '-0.02em' }}
+              />
+              {fieldErrors.customerEmail ? (
+                <p className="mt-1 text-xs text-rose-300">{fieldErrors.customerEmail}</p>
               ) : null}
             </div>
           </section>
@@ -499,17 +600,55 @@ style={{ letterSpacing: '-0.02em' }}
           </div>
         ) : null}
 
+        {promptPayData?.qrImageUrl ? (
+          <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-5 text-sm text-emerald-50 shadow-[0_18px_45px_rgba(16,185,129,0.2)]">
+            <p className="font-semibold uppercase tracking-[0.3em] text-emerald-200">PromptPay QR</p>
+            <p className="mt-2 text-xs text-emerald-100/90">
+              สแกนโค้ดด้วยแอปธนาคารหรือวอลเล็ตที่รองรับ PromptPay เพื่อชำระเงินให้เสร็จสิ้น
+            </p>
+            <div className="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:items-start sm:gap-6">
+              <div className="flex items-center justify-center rounded-2xl border border-emerald-200/40 bg-white p-3">
+                <img
+                  src={promptPayData.qrImageUrl || promptPayData.qrImageUrlSvg || ''}
+                  alt="PromptPay QR Code"
+                  className="h-40 w-40 object-contain"
+                />
+              </div>
+              <div className="flex flex-1 flex-col gap-2 text-xs text-emerald-100/80">
+                {promptPayData.amount ? (
+                  <p>
+                    จำนวนเงิน: <span className="font-semibold text-emerald-50">{new Intl.NumberFormat('th-TH', { style: 'currency', currency: promptPayData.currency || 'THB', maximumFractionDigits: 0 }).format(promptPayData.amount)}</span>
+                  </p>
+                ) : null}
+                {promptPayData.referenceNumber ? (
+                  <p>
+                    Reference: <span className="font-mono tracking-widest text-emerald-50">{promptPayData.referenceNumber}</span>
+                  </p>
+                ) : null}
+                {promptPayData.expiresAt ? (
+                  <p>
+                    หมดอายุ: <span className="font-semibold text-emerald-50">{new Date(promptPayData.expiresAt).toLocaleString('th-TH')}</span>
+                  </p>
+                ) : null}
+                <p className="text-[11px] text-emerald-100/70">หลังชำระเงินแล้ว ระบบจะอัปเดตสถานะให้อัตโนมัติ หรือกดปุ่มตรวจสอบสถานะได้เอง</p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <div className="flex flex-col items-end gap-3">
-          {paymentLink ? (
+          {checkoutSession ? (
             <button
               type="button"
-              onClick={() => window.location.href = paymentLink.url}
+              onClick={() => {
+                window.location.href = checkoutSession.url;
+              }}
               className="flex items-center gap-2 rounded-xl border border-emerald-300/40 bg-emerald-500/20 px-5 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-emerald-100 hover:bg-emerald-500/30"
             >
-              ไปหน้าชำระเงิน
-              {paymentLink.reference ? (
+              เปิดหน้าชำระเงิน Stripe
+              {checkoutSession.sessionId ? (
                 <span className="rounded-full bg-emerald-500/30 px-2 py-0.5 text-[10px] tracking-widest">
-                  Ref: {paymentLink.reference}
+                  Session: {checkoutSession.sessionId}
                 </span>
               ) : null}
             </button>
@@ -519,11 +658,13 @@ style={{ letterSpacing: '-0.02em' }}
             <button
               type="button"
               onClick={async () => {
-                if (!transactionId) return;
+                if (!transactionId) {
+                  return;
+                }
                 setIsCheckingStatus(true);
-                setMessage('กำลังตรวจสอบสถานะการชำระเงิน...');
+                setMessage('กำลังตรวจสอบสถานะการชำระเงินจาก Stripe...');
                 try {
-                      const response = await fetch(API_ENDPOINTS.publicTransactionStatus(resolvedStoreSlug), {
+                  const response = await fetch(API_ENDPOINTS.publicTransactionStatus(resolvedStoreSlug), {
                     method: 'POST',
                     headers: {
                       'Content-Type': 'application/json',
@@ -532,6 +673,9 @@ style={{ letterSpacing: '-0.02em' }}
                   });
 
                   const body = await response.json();
+                  const nextPromptPay = (body?.promptPay as PromptPayData | null) ?? null;
+
+                  setPromptPayData(nextPromptPay);
 
                   if (!response.ok) {
                     throw new Error(body?.message || 'ตรวจสอบสถานะไม่สำเร็จ');
@@ -541,17 +685,23 @@ style={{ letterSpacing: '-0.02em' }}
                     setStatus('success');
                     setMessage('ชำระเงินเรียบร้อยแล้ว! ทีมงานจะดัน Warp ของคุณขึ้นจอทันที');
                     setShowThankYouModal(true);
-                  } else {
-                    setStatus('success');
-                    setMessage(
-                      body?.note
-                        ? `${body.note} (สถานะ: ${body?.chillpayStatus || 'กำลังตรวจสอบ'})`
-                        : `สถานะปัจจุบัน: ${body?.chillpayStatus || 'กำลังตรวจสอบ'}`
-                    );
+                    setPromptPayData(null);
+                    setCheckoutSession(null);
+                    return;
                   }
+
+                  const stripeStatus = body?.stripeStatus || {};
+                  const paymentStatus =
+                    stripeStatus.paymentStatus || stripeStatus.session || 'กำลังตรวจสอบ';
+                  const note = body?.note;
+
+                  setStatus('success');
+                  setMessage(note ? `${note} (สถานะ: ${paymentStatus})` : `สถานะปัจจุบัน: ${paymentStatus}`);
                 } catch (error) {
                   setStatus('error');
-                  setMessage(error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการตรวจสอบสถานะ');
+                  setMessage(
+                    error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการตรวจสอบสถานะ'
+                  );
                 } finally {
                   setIsCheckingStatus(false);
                 }
