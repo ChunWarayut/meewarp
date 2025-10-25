@@ -40,7 +40,7 @@ app.use(cors({
     'http://localhost:5173',
     'http://localhost:3000',
     'http://localhost:7064',
-    'https://meewarp.me-prompt-technology.com',
+    'https://mee-warp.com',
     process.env.PUBLIC_BASE_URL || 'http://localhost:5173'
   ].filter(Boolean),
   credentials: true,

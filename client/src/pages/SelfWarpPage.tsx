@@ -317,21 +317,10 @@ const SelfWarpPage = () => {
       setPromptPayData(promptPay);
 
       if (promptPay) {
-        const pendingMessage = promptPay.expiresAt
-          ? `สแกน QR PromptPay ก่อน ${new Date(promptPay.expiresAt).toLocaleString('th-TH')}`
-          : 'สแกน QR PromptPay เพื่อชำระเงิน';
-
-        setCheckoutSession(null);
-        setStatus('success');
-        setMessage(pendingMessage);
-        persistPendingTransaction({
-          transactionId: transactionIdValue,
-          checkoutSession: null,
-          promptPay,
-          message: pendingMessage,
-          status: newStatus || 'pending',
-          savedAt: Date.now(),
-        });
+        // Redirect ไปหน้า PromptPayPage
+        const promptPayData = encodeURIComponent(JSON.stringify(promptPay));
+        const promptPayUrl = `${window.location.pathname.replace('/self-warp', '/promptpay')}?transactionId=${transactionIdValue}&promptPay=${promptPayData}`;
+        window.location.href = promptPayUrl;
         return;
       }
 

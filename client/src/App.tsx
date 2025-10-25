@@ -3,6 +3,7 @@ import WarpRedirect from './pages/WarpRedirect';
 import MarketingLandingPage from './pages/MarketingLandingPage';
 import TvLandingPage from './pages/TvLandingPage';
 import SelfWarpPage from './pages/SelfWarpPage';
+import PromptPayPage from './pages/PromptPayPage';
 import { AuthProvider } from './contexts/AuthContext';
 import { StoreProvider } from './contexts/StoreContext';
 import AdminActivity from './pages/AdminActivity';
@@ -47,6 +48,8 @@ const AppRoutes = () => (
     </Route>
     <Route path="/self-warp" element={<SelfWarpPage />} />
     <Route path=":storeSlug/self-warp" element={<SelfWarpPage />} />
+    <Route path="/promptpay" element={<PromptPayPage />} />
+    <Route path=":storeSlug/promptpay" element={<PromptPayPage />} />
     <Route path="/warp/:code" element={<WarpRedirect />} />
     <Route path=":storeSlug/warp/:code" element={<WarpRedirect />} />
     <Route path="*" element={<Navigate to="/" replace />} />

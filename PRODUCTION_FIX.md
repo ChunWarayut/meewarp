@@ -98,7 +98,7 @@ ssh user@production-server "cd /path/to/meewarp && git pull origin main && npm r
 
 1. **ทดสอบ API**:
 ```bash
-curl -X POST https://api-meewarp.me-prompt-technology.com/api/v1/admin/packages \
+curl -X POST https://api.mee-warp.com/api/v1/admin/packages \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -d '{"name": "test", "seconds": 999, "price": 100}'
