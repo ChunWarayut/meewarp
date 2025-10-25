@@ -93,10 +93,10 @@ const PromptPayPage = () => {
         <div className="text-center text-white">
           <h1 className="text-2xl font-bold mb-4">ไม่พบข้อมูล PromptPay</h1>
           <button
-            onClick={() => navigate(homeLink)}
+            onClick={() => window.close()}
             className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
           >
-            กลับหน้าหลัก
+            ปิดหน้าต่าง
           </button>
         </div>
       </div>
@@ -237,10 +237,10 @@ const PromptPayPage = () => {
         {isPaid && (
           <div className="max-w-md mx-auto mt-6">
             <button
-              onClick={() => navigate(homeLink)}
+              onClick={() => window.close()}
               className="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
             >
-              กลับหน้าหลัก
+              ปิดหน้าต่าง
             </button>
           </div>
         )}
@@ -261,7 +261,7 @@ const PromptPayPage = () => {
         isOpen={showThankYouModal}
         onClose={() => {
           setShowThankYouModal(false);
-          navigate(homeLink);
+          window.close();
         }}
       />
     </div>
