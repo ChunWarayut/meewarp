@@ -79,12 +79,12 @@ async function checkPaymentStatus(transactionId, storeId, actor = 'customer') {
 }
 
 /**
- * API endpoint สำหรับลูกค้าตรวจสอบสถานะการชำระเงิน
+ * API endpoint สำหรับลูกค้าตรวจสอบสถานะการชำระเงิน (ไม่ต้องใช้ authentication)
  */
-router.post('/public/check-payment-status', publicStore, async (req, res) => {
+router.post('/public/check-payment-status', async (req, res) => {
   try {
     const { transactionId } = req.body || {};
-    const storeId = req.store._id;
+    const storeSlug = req.query.store;
 
     if (!transactionId) {
       return res.status(400).json({ 
@@ -93,7 +93,25 @@ router.post('/public/check-payment-status', publicStore, async (req, res) => {
       });
     }
 
-    const result = await checkPaymentStatus(transactionId, storeId, 'customer');
+    if (!storeSlug) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'store parameter is required' 
+      });
+    }
+
+    // หา store จาก slug
+    const Store = require('../models/Store');
+    const store = await Store.findOne({ slug: storeSlug, isActive: true }).lean();
+    
+    if (!store) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Store not found' 
+      });
+    }
+
+    const result = await checkPaymentStatus(transactionId, store._id, 'customer');
 
     if (!result.success) {
       return res.status(404).json(result);

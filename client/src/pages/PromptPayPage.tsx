@@ -60,7 +60,7 @@ const PromptPayPage = () => {
     setMessage('กำลังตรวจสอบสถานะการชำระเงิน...');
     
     try {
-      const result = await checkPaymentStatus(transactionId, resolvedStoreSlug);
+      const result = await checkPaymentStatus(transactionId, resolvedStoreSlug || 'default');
       
       if (!result.success) {
         throw new Error(result.message || 'ตรวจสอบสถานะไม่สำเร็จ');
@@ -185,14 +185,14 @@ const PromptPayPage = () => {
         )}
 
         {/* Back to Home Button */}
-        <div className="max-w-md mx-auto mt-4">
+        {/* <div className="max-w-md mx-auto mt-4">
           <button
             onClick={() => navigate(homeLink)}
             className="w-full px-4 py-2 text-sm text-slate-300 hover:text-white transition"
           >
             ← กลับหน้าหลัก
           </button>
-        </div>
+        </div> */}
       </div>
 
       {/* Thank You Modal */}
