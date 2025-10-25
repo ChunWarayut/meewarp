@@ -83,6 +83,8 @@ async function checkPaymentStatus(transactionId, storeId, actor = 'customer') {
  */
 router.post('/public/check-payment-status', async (req, res) => {
   try {
+    console.log('Payment status check request:', req.body, req.query);
+    
     const { transactionId } = req.body || {};
     const storeSlug = req.query.store;
 
