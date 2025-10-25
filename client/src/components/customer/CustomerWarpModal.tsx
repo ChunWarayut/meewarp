@@ -109,6 +109,7 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
   const [transactionId, setTransactionId] = useState<string | null>(null);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [showThankYouModal, setShowThankYouModal] = useState(false);
+  const [isPaid, setIsPaid] = useState(false);
   const resolvedStoreSlug = resolveStoreSlug();
   const { checkPaymentStatus } = usePaymentStatus();
 
@@ -119,8 +120,44 @@ const CustomerWarpModal = ({ isOpen, onClose, closeLabel }: CustomerWarpModalPro
         mode: 'self',
         profileCode: '',
       });
+      setIsPaid(false);
     }
   }, [isOpen]);
+
+  // Auto-polling payment status every 3 seconds
+  useEffect(() => {
+    if (!transactionId || !promptPayData || isPaid || isCheckingStatus || !isOpen) {
+      return undefined;
+    }
+
+    const pollPaymentStatus = async () => {
+      try {
+        const result = await checkPaymentStatus(transactionId, resolvedStoreSlug || 'default');
+        
+        if (result.success && (result.isAlreadyPaid || result.status === 'paid' || result.status === 'displayed')) {
+          setStatus('success');
+          setMessage('ชำระเงินเรียบร้อยแล้ว! ทีมงานจะดัน Warp ของคุณขึ้นจอทันที');
+          setIsPaid(true);
+          setCheckoutSession(null);
+          setPromptPayData(null);
+          setTransactionId(null);
+          setShowThankYouModal(true);
+        }
+      } catch (error) {
+        console.error('Auto-poll error:', error);
+      }
+    };
+
+    // Poll immediately on mount
+    pollPaymentStatus();
+
+    // Then poll every 3 seconds
+    const intervalId = setInterval(pollPaymentStatus, 3000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [transactionId, promptPayData, isPaid, isCheckingStatus, isOpen, resolvedStoreSlug, checkPaymentStatus]);
 
   const handleChange = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -632,7 +669,11 @@ style={{ letterSpacing: '-0.02em' }}
                     หมดอายุ: <span className="font-semibold text-emerald-50">{new Date(promptPayData.expiresAt).toLocaleString('th-TH')}</span>
                   </p>
                 ) : null}
-                <p className="text-[11px] text-emerald-100/70">หลังชำระเงินแล้ว ระบบจะอัปเดตสถานะให้อัตโนมัติ หรือกดปุ่มตรวจสอบสถานะได้เอง</p>
+                <div className="flex items-center gap-1.5 mt-2">
+                  <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                  <p className="text-[11px] text-emerald-100/90 font-medium">กำลังตรวจสอบสถานะอัตโนมัติ...</p>
+                </div>
+                <p className="text-[10px] text-emerald-100/60 mt-1">หลังชำระเงินแล้ว ระบบจะแจ้งเตือนให้ทันที</p>
               </div>
             </div>
           </div>

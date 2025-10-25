@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { resolveStoreSlug } from '../utils/storeSlug';
 import { usePaymentStatus } from '../hooks/usePaymentStatus';
 import ThankYouModal from '../components/customer/ThankYouModal';
@@ -13,11 +13,9 @@ type PromptPayData = {
 };
 
 const PromptPayPage = () => {
-  const navigate = useNavigate();
   const { storeSlug } = useParams<{ storeSlug?: string }>();
   const [searchParams] = useSearchParams();
   const resolvedStoreSlug = resolveStoreSlug(storeSlug);
-  const homeLink = resolvedStoreSlug ? `/${resolvedStoreSlug}` : '/';
   
   const [promptPayData, setPromptPayData] = useState<PromptPayData | null>(null);
   const [transactionId, setTransactionId] = useState<string | null>(null);
@@ -53,6 +51,38 @@ const PromptPayPage = () => {
       }
     }
   }, [searchParams]);
+
+  // Auto-polling payment status every 3 seconds
+  useEffect(() => {
+    if (!transactionId || isPaid || isCheckingStatus) {
+      return undefined;
+    }
+
+    const pollPaymentStatus = async () => {
+      try {
+        const result = await checkPaymentStatus(transactionId, resolvedStoreSlug || 'default');
+        
+        if (result.success && (result.isAlreadyPaid || result.status === 'paid' || result.status === 'displayed')) {
+          setStatus('success');
+          setMessage('ชำระเงินเรียบร้อยแล้ว! ทีมงานจะดัน Warp ของคุณขึ้นจอทันที');
+          setIsPaid(true);
+          setShowThankYouModal(true);
+        }
+      } catch (error) {
+        console.error('Auto-poll error:', error);
+      }
+    };
+
+    // Poll immediately on mount
+    pollPaymentStatus();
+
+    // Then poll every 3 seconds
+    const intervalId = setInterval(pollPaymentStatus, 3000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [transactionId, isPaid, isCheckingStatus, resolvedStoreSlug, checkPaymentStatus]);
 
   const handleCheckStatus = async () => {
     if (!transactionId) return;
@@ -151,8 +181,14 @@ const PromptPayPage = () => {
               </div>
               
               <div className="mt-6 text-center">
-                <p className="text-xs text-emerald-100/80">
-                  หลังชำระเงินแล้ว ระบบจะอัปเดตสถานะให้อัตโนมัติ หรือกดปุ่ม ตรวจสอบสถานะด้วยตัวเองได้
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <div className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+                  <p className="text-xs text-emerald-100/90 font-medium">
+                    กำลังตรวจสอบสถานะอัตโนมัติ...
+                  </p>
+                </div>
+                <p className="text-xs text-emerald-100/60">
+                  หลังชำระเงินแล้ว ระบบจะแจ้งเตือนให้ทันที
                 </p>
               </div>
             </div>
@@ -234,7 +270,7 @@ const PromptPayPage = () => {
         )}
 
         {/* Back to Home Button (show when paid) */}
-        {isPaid && (
+        {/* {isPaid && (
           <div className="max-w-md mx-auto mt-6">
             <button
               onClick={() => window.close()}
@@ -243,7 +279,7 @@ const PromptPayPage = () => {
               ปิดหน้าต่าง
             </button>
           </div>
-        )}
+        )} */}
 
         {/* Back to Home Button */}
         {/* <div className="max-w-md mx-auto mt-4">
