@@ -25,6 +25,7 @@ const PromptPayPage = () => {
   const [showThankYouModal, setShowThankYouModal] = useState(false);
   const [message, setMessage] = useState<string>('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [isPaid, setIsPaid] = useState(false);
   
   const { checkPaymentStatus } = usePaymentStatus();
 
@@ -69,6 +70,7 @@ const PromptPayPage = () => {
       if (result.isAlreadyPaid || result.status === 'paid') {
         setStatus('success');
         setMessage('ชำระเงินเรียบร้อยแล้ว! ทีมงานจะดัน Warp ของคุณขึ้นจอทันที');
+        setIsPaid(true);
         setShowThankYouModal(true);
         return;
       }
@@ -106,47 +108,94 @@ const PromptPayPage = () => {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">สแกน QR PromptPay เพื่อชำระเงิน</h1>
-          <p className="text-slate-300">กรุณาสแกน QR Code ด้วยแอปธนาคารหรือวอลเล็ตที่รองรับ PromptPay</p>
+          <h1 className="text-3xl font-bold text-white mb-2">
+            {isPaid ? 'ชำระเงินเรียบร้อยแล้ว' : 'สแกน QR PromptPay เพื่อชำระเงิน'}
+          </h1>
+          <p className="text-slate-300">
+            {isPaid 
+              ? 'ขอบคุณที่ใช้บริการ ทีมงานจะดัน Warp ของคุณขึ้นจอทันที'
+              : 'กรุณาสแกน QR Code ด้วยแอปธนาคารหรือวอลเล็ตที่รองรับ PromptPay'
+            }
+          </p>
         </div>
 
-        {/* PromptPay QR Card */}
-        <div className="max-w-md mx-auto">
-          <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-6 text-sm text-emerald-50 shadow-[0_18px_45px_rgba(16,185,129,0.2)]">
-            <p className="font-en text-xs uppercase tracking-[0.4em] text-emerald-200 text-center mb-4">PromptPay QR</p>
-            
-            <p className="text-xs text-emerald-100/90 text-center mb-6">
-              สแกนโค้ดด้วยแอปธนาคารหรือวอลเล็ตที่รองรับ PromptPay เพื่อชำระเงินให้เสร็จสิ้น
-            </p>
-            
-            <div className="flex flex-col items-center gap-4">
-              <div className="flex items-center justify-center rounded-2xl border border-emerald-200/40 bg-white p-4">
-                <img
-                  src={promptPayData.qrImageUrl || promptPayData.qrImageUrlSvg || ''}
-                  alt="PromptPay QR Code"
-                  className="h-48 w-48 object-contain"
-                />
+        {/* PromptPay QR Card or Thank You Message */}
+        {!isPaid ? (
+          <div className="max-w-md mx-auto">
+            <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-6 text-sm text-emerald-50 shadow-[0_18px_45px_rgba(16,185,129,0.2)]">
+              <p className="font-en text-xs uppercase tracking-[0.4em] text-emerald-200 text-center mb-4">PromptPay QR</p>
+              
+              <p className="text-xs text-emerald-100/90 text-center mb-6">
+                สแกนโค้ดด้วยแอปธนาคารหรือวอลเล็ตที่รองรับ PromptPay เพื่อชำระเงินให้เสร็จสิ้น
+              </p>
+              
+              <div className="flex flex-col items-center gap-4">
+                <div className="flex items-center justify-center rounded-2xl border border-emerald-200/40 bg-white p-4">
+                  <img
+                    src={promptPayData.qrImageUrl || promptPayData.qrImageUrlSvg || ''}
+                    alt="PromptPay QR Code"
+                    className="h-48 w-48 object-contain"
+                  />
+                </div>
+                
+                <div className="text-center">
+                  <p className="text-lg font-bold text-emerald-100">
+                    จำนวนเงิน: ฿{promptPayData.amount.toLocaleString('th-TH')}
+                  </p>
+                  {promptPayData.expiresAt && (
+                    <p className="text-xs text-emerald-200/80 mt-1">
+                      หมดอายุ: {new Date(promptPayData.expiresAt).toLocaleString('th-TH')}
+                    </p>
+                  )}
+                </div>
               </div>
               
-              <div className="text-center">
+              <div className="mt-6 text-center">
+                <p className="text-xs text-emerald-100/80">
+                  หลังชำระเงินแล้ว ระบบจะอัปเดตสถานะให้อัตโนมัติ หรือกดปุ่ม ตรวจสอบสถานะด้วยตัวเองได้
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="max-w-md mx-auto">
+            <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-8 text-center shadow-[0_18px_45px_rgba(16,185,129,0.2)]">
+              <div className="mb-6">
+                <svg
+                  className="mx-auto h-20 w-20 text-emerald-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              
+              <h2 className="text-2xl font-bold text-emerald-100 mb-3">
+                ขอบคุณที่ใช้บริการ!
+              </h2>
+              
+              <p className="text-emerald-200 mb-2">
+                การชำระเงินของคุณเสร็จสมบูรณ์แล้ว
+              </p>
+              
+              <p className="text-sm text-emerald-300/80 mb-6">
+                ทีมงานจะดัน Warp ของคุณขึ้นจอทันที
+              </p>
+              
+              <div className="rounded-xl border border-emerald-300/30 bg-emerald-500/5 px-4 py-3">
                 <p className="text-lg font-bold text-emerald-100">
                   จำนวนเงิน: ฿{promptPayData.amount.toLocaleString('th-TH')}
                 </p>
-                {promptPayData.expiresAt && (
-                  <p className="text-xs text-emerald-200/80 mt-1">
-                    หมดอายุ: {new Date(promptPayData.expiresAt).toLocaleString('th-TH')}
-                  </p>
-                )}
               </div>
             </div>
-            
-            <div className="mt-6 text-center">
-              <p className="text-xs text-emerald-100/80">
-                หลังชำระเงินแล้ว ระบบจะอัปเดตสถานะให้อัตโนมัติ หรือกดปุ่ม ตรวจสอบสถานะด้วยตัวเองได้
-              </p>
-            </div>
           </div>
-        </div>
+        )}
 
         {/* Status Message */}
         {status !== 'idle' && message && (
@@ -164,7 +213,7 @@ const PromptPayPage = () => {
         )}
 
         {/* Check Status Button */}
-        {transactionId && (
+        {transactionId && !isPaid && (
           <div className="max-w-md mx-auto mt-6">
             <button
               type="button"
@@ -180,6 +229,18 @@ const PromptPayPage = () => {
               ) : (
                 'ตรวจสอบสถานะการชำระ'
               )}
+            </button>
+          </div>
+        )}
+
+        {/* Back to Home Button (show when paid) */}
+        {isPaid && (
+          <div className="max-w-md mx-auto mt-6">
+            <button
+              onClick={() => navigate(homeLink)}
+              className="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+            >
+              กลับหน้าหลัก
             </button>
           </div>
         )}
