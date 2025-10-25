@@ -3,13 +3,13 @@ import { API_ENDPOINTS } from '../../config';
 import { useAuth } from '../../contexts/AuthContext';
 import { useStoreContext } from '../../contexts/StoreContext';
 import { buildAuthHeaders } from '../../utils/http';
-import ImageUpload from '../../components/ImageUpload';
 
 type AppSettings = {
   brandName: string;
   tagline?: string;
   primaryColor?: string;
   logo?: string;
+  logos?: string[];
   backgroundImage?: string;
   backgroundImages?: string[];
   backgroundRotationDuration?: number;
@@ -65,6 +65,7 @@ type FormData = {
   logoExistingPath?: string;
   oldLogo?: string;
   logoRemoved?: boolean;
+  logos?: BackgroundImageEntry[];
   contactEmail?: string;
   contactPhone?: string;
   siteDescription?: string;
@@ -95,6 +96,7 @@ const AdminSettingsPage = () => {
     logoExistingPath: '',
     oldLogo: '',
     logoRemoved: false,
+    logos: [],
     contactEmail: '',
     contactPhone: '',
     siteDescription: '',
@@ -141,6 +143,14 @@ const AdminSettingsPage = () => {
       isNew: false,
     }));
 
+    const logoList = Array.isArray(data.logos) ? data.logos : [];
+    const logoEntries: BackgroundImageEntry[] = logoList.map((imageUrl) => ({
+      id: imageUrl,
+      preview: resolveImagePreview(imageUrl),
+      url: imageUrl,
+      isNew: false,
+    }));
+
     setInitialBackgroundImages(backgroundList);
     setInitialPromotionImages(promotionList);
 
@@ -154,6 +164,7 @@ const AdminSettingsPage = () => {
       logoExistingPath: data.logo || '',
       oldLogo: data.logo || '',
       logoRemoved: false,
+      logos: logoEntries,
       contactEmail: data.contactEmail || '',
       contactPhone: data.contactPhone || '',
       siteDescription: data.siteDescription || '',
@@ -283,6 +294,25 @@ const AdminSettingsPage = () => {
         }
       });
 
+      // Handle logos
+      const logoEntries = formData.logos || [];
+      const existingLogoUrls = logoEntries
+        .filter((entry) => !entry.isNew && entry.url)
+        .map((entry) => entry.url as string);
+      const newLogoFiles = logoEntries.filter((entry) => entry.isNew && entry.file);
+
+      if (existingLogoUrls.length > 0) {
+        formDataToSend.append('logosExisting', JSON.stringify(existingLogoUrls));
+      } else {
+        formDataToSend.append('logosExisting', JSON.stringify([]));
+      }
+
+      newLogoFiles.forEach((entry) => {
+        if (entry.file) {
+          formDataToSend.append('logos', entry.file, entry.file.name);
+        }
+      });
+
       const response = await fetch(API_ENDPOINTS.adminSettings, {
         method: 'PUT',
         headers: buildAuthHeaders(token, selectedStoreId ?? undefined),
@@ -301,13 +331,13 @@ const AdminSettingsPage = () => {
         : data.backgroundImage
           ? [data.backgroundImage]
           : [];
-      const nextBackgroundEntries: BackgroundImageEntry[] = nextBackgroundList.map((imageUrl) => ({
+      const nextBackgroundEntries: BackgroundImageEntry[] = nextBackgroundList.map((imageUrl: string) => ({
         id: imageUrl,
         preview: resolveImagePreview(imageUrl),
         url: imageUrl,
         isNew: false,
       }));
-      const nextPromotionEntries = (data.promotionImages || []).map((imageUrl) => ({
+      const nextPromotionEntries = (data.promotionImages || []).map((imageUrl: string) => ({
         id: imageUrl,
         preview: resolveImagePreview(imageUrl),
         url: imageUrl,
@@ -359,25 +389,6 @@ const AdminSettingsPage = () => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleLogoChange = (file: File | null) => {
-    setFormData((prev) => {
-      if (file) {
-        return {
-          ...prev,
-          logoFile: file,
-          logoRemoved: false,
-        };
-      }
-
-      return {
-        ...prev,
-        logoFile: null,
-        logoRemoved: true,
-        logoExistingPath: '',
-        oldLogo: prev.oldLogo || prev.logoExistingPath || '',
-      };
-    });
-  };
 
   useEffect(() => {
     return () => {
@@ -394,6 +405,14 @@ const AdminSettingsPage = () => {
         .forEach((entry) => URL.revokeObjectURL(entry.preview));
     };
   }, [formData.backgroundImages]);
+
+  useEffect(() => {
+    return () => {
+      (formData.logos || [])
+        .filter((entry) => entry.isNew && entry.preview.startsWith('blob:'))
+        .forEach((entry) => URL.revokeObjectURL(entry.preview));
+    };
+  }, [formData.logos]);
 
   if (!locked && !selectedStoreId) {
     return <p className="text-sm font-th text-slate-300">เลือกสาขาเพื่อแก้ไขการตั้งค่า</p>;
@@ -481,16 +500,107 @@ const AdminSettingsPage = () => {
             </div> */}
 
             <div className="space-y-4">
-              <div className="space-y-2">
-                <ImageUpload
-                  value={formData.logoExistingPath || ''}
-                  onChange={handleLogoChange}
-                  label="Vertical Logo"
-                  placeholder="อัปโหลดโลโก้แนวตั้งสำหรับจอ TV"
-                />
-                <p className="text-xs text-slate-400">
-                  แนะนำขนาดอัตราส่วน 9:16 (เช่น 1080x1920) เพื่อให้โลโก้เต็มคอลัมน์ด้านซ้ายของจอ TV
-                </p>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-white">Vertical Logo</label>
+                  <p className="mt-1 text-xs text-slate-400">
+                    อัปโหลดได้หลายโลโก้ ระบบจะสลับโลโก้อัตโนมัติ (แนะนำอัตราส่วน 9:16 เช่น 1080x1920)
+                  </p>
+
+                  <div className="mt-3">
+                    <label className="cursor-pointer">
+                      <div className="flex gap-2 justify-center items-center p-4 rounded-lg border-2 border-dashed transition-colors border-white/20 bg-slate-900/30 hover:border-indigo-400 hover:bg-slate-900/50">
+                        <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        <span className="text-sm text-slate-300">เพิ่มโลโก้</span>
+                      </div>
+                      <p className="mt-2 text-xs text-slate-400 text-center">
+                        PNG, JPG, GIF (สูงสุด 5MB ต่อไฟล์) • อัปโหลดได้สูงสุด 10 รูป
+                      </p>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={(event) => {
+                          const files = Array.from(event.target.files || []);
+                          if (files.length === 0) return;
+
+                          // Validate file size (5MB limit)
+                          const oversizedFiles = files.filter(file => file.size > 5 * 1024 * 1024);
+                          if (oversizedFiles.length > 0) {
+                            alert(`ไฟล์ต่อไปนี้มีขนาดเกิน 5MB: ${oversizedFiles.map(f => f.name).join(', ')}`);
+                            return;
+                          }
+
+                          // Validate total count (10 limit)
+                          const currentCount = formData.logos?.length || 0;
+                          if (currentCount + files.length > 10) {
+                            alert(`สามารถอัปโหลดได้สูงสุด 10 รูป (ปัจจุบัน: ${currentCount} รูป)`);
+                            return;
+                          }
+
+                          const newEntries: BackgroundImageEntry[] = files.map((file) => ({
+                            id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                            preview: URL.createObjectURL(file),
+                            file,
+                            isNew: true,
+                          }));
+
+                          updateField('logos', [...(formData.logos || []), ...newEntries]);
+                          event.target.value = '';
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-3 space-y-3">
+                    {formData.logos?.map((entry, index) => (
+                      <div
+                        key={entry.id}
+                        className="flex gap-3 items-center p-3 rounded-lg border border-white/10 bg-slate-900/30"
+                      >
+                        <img
+                          src={entry.preview}
+                          alt={`โลโก้ ${index + 1}`}
+                          className="object-cover w-20 h-14 rounded-lg border border-white/10"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-white truncate">โลโก้ {index + 1}</p>
+                          <p className="text-xs text-slate-400 truncate">
+                            {entry.isNew ? entry.file?.name ?? 'ไฟล์ใหม่' : entry.url}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const removedEntry = formData.logos?.[index];
+                            if (removedEntry?.isNew && removedEntry.preview.startsWith('blob:')) {
+                              URL.revokeObjectURL(removedEntry.preview);
+                            }
+                            const next = formData.logos?.filter((_, i) => i !== index) || [];
+                            updateField('logos', next);
+                          }}
+                          className="p-2 text-rose-400 transition-colors hover:text-rose-300"
+                          title="ลบโลโก้นี้"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    )) || (
+                      <div className="text-center py-6 text-slate-400">
+                        <svg className="mx-auto h-12 w-12 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <p className="mt-2 text-sm">ยังไม่มีโลโก้</p>
+                        <p className="text-xs">เพิ่มโลโก้เพื่อให้ TV แสดงแบบสลับอัตโนมัติ</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-4">
