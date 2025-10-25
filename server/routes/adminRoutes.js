@@ -320,6 +320,14 @@ router.put(
         payload.promotionDuration = parseInt(req.body.promotionDuration, 10) || 5000;
       }
 
+      if (req.body.logoEnabled !== undefined) {
+        payload.logoEnabled = req.body.logoEnabled === 'true';
+      }
+
+      if (req.body.backgroundEnabled !== undefined) {
+        payload.backgroundEnabled = req.body.backgroundEnabled === 'true';
+      }
+
       delete payload.logoRemoved;
       delete payload.oldLogo;
       delete payload.oldBackgroundImage;

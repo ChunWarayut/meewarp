@@ -10,8 +10,10 @@ type AppSettings = {
   primaryColor?: string;
   logo?: string;
   logos?: string[];
+  logoEnabled?: boolean;
   backgroundImage?: string;
   backgroundImages?: string[];
+  backgroundEnabled?: boolean;
   backgroundRotationDuration?: number;
   socialLinks?: Record<string, string>;
   contactEmail?: string;
@@ -60,12 +62,14 @@ type FormData = {
   tagline?: string;
   primaryColor?: string;
   backgroundImages?: BackgroundImageEntry[];
+  backgroundEnabled?: boolean;
   backgroundRotationDuration?: number;
   logoFile?: File | null;
   logoExistingPath?: string;
   oldLogo?: string;
   logoRemoved?: boolean;
   logos?: BackgroundImageEntry[];
+  logoEnabled?: boolean;
   contactEmail?: string;
   contactPhone?: string;
   siteDescription?: string;
@@ -91,12 +95,14 @@ const AdminSettingsPage = () => {
     tagline: '',
     primaryColor: '#6366F1',
     backgroundImages: [],
+    backgroundEnabled: true,
     backgroundRotationDuration: 15000,
     logoFile: null,
     logoExistingPath: '',
     oldLogo: '',
     logoRemoved: false,
     logos: [],
+    logoEnabled: true,
     contactEmail: '',
     contactPhone: '',
     siteDescription: '',
@@ -159,12 +165,14 @@ const AdminSettingsPage = () => {
       tagline: data.tagline || '',
       primaryColor: data.primaryColor || '#6366F1',
       backgroundImages: backgroundEntries,
+      backgroundEnabled: data.backgroundEnabled !== false,
       backgroundRotationDuration: data.backgroundRotationDuration || 15000,
       logoFile: null,
       logoExistingPath: data.logo || '',
       oldLogo: data.logo || '',
       logoRemoved: false,
       logos: logoEntries,
+      logoEnabled: data.logoEnabled !== false,
       contactEmail: data.contactEmail || '',
       contactPhone: data.contactPhone || '',
       siteDescription: data.siteDescription || '',
@@ -230,6 +238,8 @@ const AdminSettingsPage = () => {
       formDataToSend.append('promotionEnabled', formData.promotionEnabled?.toString() || 'false');
       formDataToSend.append('logoRemoved', formData.logoRemoved ? 'true' : 'false');
       formDataToSend.append('oldLogo', formData.oldLogo || '');
+      formDataToSend.append('logoEnabled', formData.logoEnabled ? 'true' : 'false');
+      formDataToSend.append('backgroundEnabled', formData.backgroundEnabled ? 'true' : 'false');
       
       if (formData.logoFile) {
         formDataToSend.append('logo', formData.logoFile);
@@ -499,13 +509,25 @@ const AdminSettingsPage = () => {
               </div>
             </div> */}
 
-            <div className="space-y-4">
-              <div className="space-y-4">
+            {/* Vertical Logo Card */}
+            <div className="p-6 rounded-2xl border border-white/10 bg-white/5">
+              <div className="flex justify-between items-center mb-6">
                 <div>
-                  <label className="text-sm font-medium text-white">Vertical Logo</label>
+                  <h3 className="text-lg font-semibold text-white">Vertical Logo</h3>
                   <p className="mt-1 text-xs text-slate-400">
                     อัปโหลดได้หลายโลโก้ ระบบจะสลับโลโก้อัตโนมัติ (แนะนำอัตราส่วน 9:16 เช่น 1080x1920)
                   </p>
+                </div>
+                <label className="inline-flex relative items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.logoEnabled || false}
+                    onChange={(event) => updateField('logoEnabled', event.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
+                </label>
+              </div>
 
                   <div className="mt-3">
                     <label className="cursor-pointer">
@@ -601,14 +623,27 @@ const AdminSettingsPage = () => {
                     )}
                   </div>
                 </div>
-              </div>
+            </div>
 
-              <div className="space-y-4">
+            {/* Background Images Card */}
+            <div className="p-6 rounded-2xl border border-white/10 bg-white/5">
+              <div className="flex justify-between items-center mb-6">
                 <div>
-                  <label className="text-sm font-medium text-white">ภาพพื้นหลัง</label>
+                  <h3 className="text-lg font-semibold text-white">ภาพพื้นหลัง</h3>
                   <p className="mt-1 text-xs text-slate-400">
                     อัปโหลดได้หลายภาพ ระบบจะสลับพื้นหลังอัตโนมัติ (แนะนำอัตราส่วน 16:9 เช่น 1920x1080)
                   </p>
+                </div>
+                <label className="inline-flex relative items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.backgroundEnabled || false}
+                    onChange={(event) => updateField('backgroundEnabled', event.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
+                </label>
+              </div>
 
               <div className="mt-3">
                 <label className="cursor-pointer">
@@ -718,7 +753,6 @@ const AdminSettingsPage = () => {
                     className="px-3 py-2 mt-2 w-full text-sm text-white rounded-lg border border-white/10 bg-slate-900/60 focus:border-indigo-400 focus:outline-none"
                   />
                 </div>
-              </div>
             </div>
           </div>
         </section>
