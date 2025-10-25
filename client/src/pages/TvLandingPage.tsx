@@ -17,8 +17,11 @@ type AppSettings = {
   primaryColor?: string;
   backgroundImage?: string;
   backgroundImages?: string[];
+  backgroundEnabled?: boolean;
   backgroundRotationDuration?: number;
   logo?: string;
+  logos?: string[];
+  logoEnabled?: boolean;
   promotionImages?: string[];
   promotionDuration?: number;
   promotionEnabled?: boolean;
@@ -99,9 +102,9 @@ const TvLandingPage = () => {
   const isFetchingWarpRef = useRef(false);
   const currentWarpRef = useRef<DisplayWarp | null>(null);
   const fetchNextWarpRef = useRef<() => void>(() => { });
-  const promotionIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const backgroundIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const backgroundTransitionTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
+  const promotionIntervalRef = useRef<number | null>(null);
+  const backgroundIntervalRef = useRef<number | null>(null);
+  const backgroundTransitionTimeoutsRef = useRef<number[]>([]);
 
   const currencyFormatter = useMemo(
     () =>
@@ -615,7 +618,7 @@ const TvLandingPage = () => {
         setIsPromotionTransitioning(true);
 
         setTimeout(() => {
-          setCurrentPromotionIndex((prev) => (prev + 1) % settings.promotionImages.length);
+          setCurrentPromotionIndex((prev) => (prev + 1) % (settings.promotionImages?.length || 1));
           setIsPromotionTransitioning(false);
         }, 500); // Half of transition duration
       }, duration);
@@ -641,6 +644,11 @@ const TvLandingPage = () => {
   const tagline = settings?.tagline?.trim() || '';
 
   const backgroundSources = useMemo(() => {
+    // Check if background is enabled
+    if (settings?.backgroundEnabled === false) {
+      return [];
+    }
+
     const rawList = Array.isArray(settings?.backgroundImages) && settings.backgroundImages.length > 0
       ? settings.backgroundImages
       : settings?.backgroundImage
@@ -653,7 +661,7 @@ const TvLandingPage = () => {
         if (!source) return null;
         let value = source;
         if (typeof source === 'object' && source !== null) {
-          value = source.url || source.path || source.src || null;
+          value = (source as any).url || (source as any).path || (source as any).src || null;
         }
 
         if (typeof value !== 'string' || value.length === 0) {
@@ -670,7 +678,7 @@ const TvLandingPage = () => {
         return resolveMediaSource(value);
       })
       .filter((value): value is string => Boolean(value));
-  }, [settings?.backgroundImages, settings?.backgroundImage, resolveMediaSource]);
+  }, [settings?.backgroundImages, settings?.backgroundImage, settings?.backgroundEnabled, resolveMediaSource]);
 
   const backgroundSourcesKey = useMemo(() => backgroundSources.join('|'), [backgroundSources]);
 
@@ -742,17 +750,32 @@ const TvLandingPage = () => {
     ? settings?.promotionImages?.[currentPromotionIndex] ?? null
     : null;
   const verticalLogoSrc = useMemo(() => {
-    if (!settings?.logo) {
+    // Check if logo is enabled
+    if (settings?.logoEnabled === false) {
       return null;
     }
-    if (settings.logo.startsWith('/uploads/')) {
-      if (typeof window === 'undefined') {
-        return settings.logo;
-      }
-      return `${window.location.origin}/api${settings.logo}`;
+
+    // Use multiple logos if available, otherwise fall back to single logo
+    const logoList = Array.isArray(settings?.logos) && settings.logos.length > 0
+      ? settings.logos
+      : settings?.logo
+        ? [settings.logo]
+        : [];
+
+    if (logoList.length === 0) {
+      return null;
     }
-    return resolveMediaSource(settings.logo);
-  }, [settings?.logo, resolveMediaSource]);
+
+    // For now, use the first logo (can be enhanced to rotate logos later)
+    const logo = logoList[0];
+    if (logo.startsWith('/uploads/')) {
+      if (typeof window === 'undefined') {
+        return logo;
+      }
+      return `${window.location.origin}/api${logo}`;
+    }
+    return resolveMediaSource(logo);
+  }, [settings?.logo, settings?.logos, settings?.logoEnabled, resolveMediaSource]);
 
   const [viewport, setViewport] = useState(() => {
     if (typeof window === 'undefined') {
