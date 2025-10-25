@@ -36,10 +36,17 @@ async function ensureBucket() {
         ],
       };
       await minioClient.setBucketPolicy(bucketName, JSON.stringify(policy));
+    } else {
+      console.log(`✅ MinIO bucket already exists: ${bucketName}`);
     }
   } catch (error) {
+    // Ignore "BucketAlreadyOwnedByYou" error
+    if (error.code === 'BucketAlreadyOwnedByYou' || error.message.includes('already own it')) {
+      console.log(`✅ MinIO bucket already exists: ${bucketName}`);
+      return;
+    }
     console.error('❌ MinIO bucket initialization failed:', error.message);
-    throw error;
+    // Don't throw, just log - allow service to continue
   }
 }
 
