@@ -9,6 +9,7 @@ const storeContext = require('../middlewares/storeContext');
 const publicStore = require('../middlewares/publicStore');
 const { getTopSupporters } = require('../services/leaderboardService');
 const { appendActivity, listRecentActivities } = require('../services/activityLogger');
+const { uploadImageFromBase64, deleteImageByUrl } = require('../services/minioService');
 const {
   isStripeConfigured,
   createCheckoutSession,
@@ -779,18 +780,40 @@ router.post('/public/transactions', publicStore, async (req, res) => {
     } else {
       delete metadataBase.customerEmail;
     }
+    // Handle customer avatar: upload Base64 to MinIO if needed
+    let finalCustomerAvatar = customerAvatar;
+    
+    if (customerAvatar && customerAvatar.startsWith('data:image/')) {
+      // It's a Base64 image, upload to MinIO
+      try {
+        const uploaded = await uploadImageFromBase64(customerAvatar, 'avatar.jpg', {
+          type: 'avatar',
+          storeId: storeId.toString(),
+          customerName: submittedCustomerName,
+        });
+        finalCustomerAvatar = uploaded.url;
+      } catch (error) {
+        console.error('Failed to upload avatar to MinIO:', error.message);
+        // Fallback to ui-avatars.com
+        finalCustomerAvatar = submittedCustomerName
+          ? `https://ui-avatars.com/api/?name=${encodeURIComponent(
+              submittedCustomerName
+            )}&background=6366f1&color=ffffff&size=200`
+          : '';
+      }
+    } else if (!finalCustomerAvatar && submittedCustomerName) {
+      // No avatar provided, use ui-avatars.com
+      finalCustomerAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+        submittedCustomerName
+      )}&background=6366f1&color=ffffff&size=200`;
+    }
+
     const transaction = await WarpTransaction.create({
       store: storeId,
       warpProfile: profile ? profile._id : undefined,
       code,
       customerName: submittedCustomerName,
-      customerAvatar:
-        customerAvatar ||
-        (submittedCustomerName
-          ? `https://ui-avatars.com/api/?name=${encodeURIComponent(
-              submittedCustomerName
-            )}&background=6366f1&color=ffffff&size=200`
-          : ''),
+      customerAvatar: finalCustomerAvatar,
       socialLink,
       quote,
       displaySeconds,
@@ -1031,6 +1054,19 @@ router.post('/public/display/:id/complete', publicStore, async (req, res) => {
 
     if (!transaction) {
       return res.status(404).json({ message: 'Display session not found' });
+    }
+
+    // Delete customer avatar from MinIO (if it's from MinIO)
+    // Check for both Kong domain and direct IP
+    if (transaction.customerAvatar && 
+        (transaction.customerAvatar.includes('s3.mee-warp.com') || 
+         transaction.customerAvatar.includes('43.249.35.14'))) {
+      try {
+        await deleteImageByUrl(transaction.customerAvatar);
+        console.log(`🗑️  Deleted avatar after warp displayed: ${transaction.customerAvatar}`);
+      } catch (error) {
+        console.error('Failed to delete avatar:', error.message);
+      }
     }
 
     await appendActivity(transaction._id, {

@@ -24,12 +24,24 @@ const AppSettingsSchema = new mongoose.Schema(
     logo: {
       type: String,
     },
+    logos: {
+      type: [String],
+      default: [],
+    },
+    logoEnabled: {
+      type: Boolean,
+      default: true,
+    },
     backgroundImage: {
       type: String,
     },
     backgroundImages: {
       type: [String],
       default: [],
+    },
+    backgroundEnabled: {
+      type: Boolean,
+      default: true,
     },
     backgroundRotationDuration: {
       type: Number,

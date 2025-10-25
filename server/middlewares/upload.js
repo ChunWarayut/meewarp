@@ -1,7 +1,7 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { deleteImageByUrl } = require('../services/cloudflareImagesService');
+const { deleteImageByUrl } = require('../services/minioService');
 
 const uploadsDir = path.join(__dirname, '../uploads/images');
 
@@ -29,14 +29,18 @@ const upload = multer({
 // Helper function to delete old image
 const deleteOldImage = async (imagePath) => {
   if (!imagePath) {
+    console.log('🗑️  deleteOldImage: No image path provided');
     return;
   }
+
+  console.log(`🗑️  deleteOldImage: Attempting to delete ${imagePath}`);
 
   if (imagePath.startsWith('http')) {
     try {
       await deleteImageByUrl(imagePath);
+      console.log(`✅ deleteOldImage: Successfully deleted ${imagePath}`);
     } catch (error) {
-      console.error('Failed to delete Cloudflare image', error);
+      console.error('❌ deleteOldImage: Failed to delete image', error);
     }
     return;
   }
@@ -44,6 +48,9 @@ const deleteOldImage = async (imagePath) => {
   const fullPath = path.join(uploadsDir, path.basename(imagePath));
   if (fs.existsSync(fullPath)) {
     fs.unlinkSync(fullPath);
+    console.log(`✅ deleteOldImage: Successfully deleted local file ${fullPath}`);
+  } else {
+    console.log(`⚠️  deleteOldImage: Local file not found ${fullPath}`);
   }
 };
 
