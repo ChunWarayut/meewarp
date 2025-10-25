@@ -2,7 +2,7 @@ const express = require('express');
 const adminAuth = require('../middlewares/adminAuth');
 const requireRole = require('../middlewares/requireRole');
 const { upload, deleteOldImage } = require('../middlewares/upload');
-const { uploadImageFromMulterFile } = require('../services/cloudflareImagesService');
+const { uploadImageFromMulterFile } = require('../services/minioService');
 const storeContext = require('../middlewares/storeContext');
 const {
   getDashboardOverview,
@@ -291,7 +291,7 @@ router.put(
     } catch (error) {
       console.error('Failed to update settings', error);
       const message = error instanceof Error ? error.message : 'Failed to update settings';
-      const statusCode = message.includes('Cloudflare Images') ? 400 : 500;
+      const statusCode = message.includes('MinIO') ? 400 : 500;
       return res.status(statusCode).json({ message });
     }
   }

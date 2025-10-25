@@ -1,7 +1,7 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { deleteImageByUrl } = require('../services/cloudflareImagesService');
+const { deleteImageByUrl } = require('../services/minioService');
 
 const uploadsDir = path.join(__dirname, '../uploads/images');
 

@@ -48,6 +48,14 @@ const config = {
     deliveryUrl: process.env.CLOUDFLARE_IMAGES_DELIVERY_URL || '',
     defaultVariant: process.env.CLOUDFLARE_IMAGES_DEFAULT_VARIANT || '',
   },
+  minio: {
+    endpoint: process.env.MINIO_ENDPOINT || 's3.mee-warp.com',
+    accessKey: process.env.MINIO_ACCESS_KEY || 'admin',
+    secretKey: process.env.MINIO_SECRET_KEY || 'minio123456',
+    bucketName: process.env.MINIO_BUCKET_NAME || 'meewarp',
+    useSSL: process.env.MINIO_USE_SSL !== 'false',
+    port: parseInt(process.env.MINIO_PORT || '443', 10),
+  },
 };
 
 module.exports = config;
