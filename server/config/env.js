@@ -52,7 +52,7 @@ const config = {
     endpoint: process.env.MINIO_ENDPOINT || 's3.mee-warp.com',
     accessKey: process.env.MINIO_ACCESS_KEY || 'admin',
     secretKey: process.env.MINIO_SECRET_KEY || 'minio123456',
-    bucketName: process.env.MINIO_BUCKET_NAME || 'meewarp',
+    bucketName: process.env.MINIO_BUCKET_NAME || 'mee-warp',
     useSSL: process.env.MINIO_USE_SSL !== 'false',
     port: parseInt(process.env.MINIO_PORT || '443', 10),
   },
