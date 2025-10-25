@@ -1057,7 +1057,8 @@ router.post('/public/display/:id/complete', publicStore, async (req, res) => {
     }
 
     // Delete customer avatar from MinIO (if it's from MinIO)
-    if (transaction.customerAvatar && transaction.customerAvatar.includes('s3.mee-warp.com')) {
+    const minioEndpoint = require('../config/env').minio.endpoint;
+    if (transaction.customerAvatar && transaction.customerAvatar.includes(minioEndpoint)) {
       try {
         await deleteImageByUrl(transaction.customerAvatar);
         console.log(`🗑️  Deleted avatar after warp displayed: ${transaction.customerAvatar}`);

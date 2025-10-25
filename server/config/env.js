@@ -49,12 +49,12 @@ const config = {
     defaultVariant: process.env.CLOUDFLARE_IMAGES_DEFAULT_VARIANT || '',
   },
   minio: {
-    endpoint: process.env.MINIO_ENDPOINT || 's3.mee-warp.com',
+    endpoint: process.env.MINIO_ENDPOINT || '43.249.35.14',
     accessKey: process.env.MINIO_ACCESS_KEY || 'admin',
     secretKey: process.env.MINIO_SECRET_KEY || 'minio123456',
     bucketName: process.env.MINIO_BUCKET_NAME || 'mee-warp',
-    useSSL: process.env.MINIO_USE_SSL !== 'false',
-    port: parseInt(process.env.MINIO_PORT || '443', 10),
+    useSSL: process.env.MINIO_USE_SSL === 'true',
+    port: parseInt(process.env.MINIO_PORT || '29000', 10),
   },
 };
 

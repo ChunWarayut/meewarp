@@ -2,16 +2,19 @@ const { Client } = require('minio');
 const crypto = require('crypto');
 const config = require('../config/env');
 
-// MinIO client configuration
+// MinIO client configuration - Use Direct IP to bypass Kong/SSL issues
 const minioClient = new Client({
-  endPoint: 's3.mee-warp.com',
-  port: 443,
-  useSSL: true,
-  accessKey: config.minio.accessKey || 'admin',
-  secretKey: config.minio.secretKey || 'minio123456',
+  endPoint: config.minio.endpoint,
+  port: config.minio.port,
+  useSSL: config.minio.useSSL,
+  accessKey: config.minio.accessKey,
+  secretKey: config.minio.secretKey,
 });
 
-const bucketName = config.minio.bucketName || 'meewarp';
+const bucketName = config.minio.bucketName;
+
+console.log(`🔗 MinIO Config: ${config.minio.endpoint}:${config.minio.port} (SSL: ${config.minio.useSSL})`);
+console.log(`📦 Bucket: ${bucketName}`);
 
 /**
  * Initialize MinIO bucket
@@ -81,7 +84,9 @@ async function uploadImageFromBuffer(buffer, fileName, metadata = {}) {
 
     await minioClient.putObject(bucketName, objectName, buffer, buffer.length, metaData);
 
-    const url = `https://s3.mee-warp.com/${bucketName}/${objectName}`;
+    // Build URL using config
+    const protocol = config.minio.useSSL ? 'https' : 'http';
+    const url = `${protocol}://${config.minio.endpoint}:${config.minio.port}/${bucketName}/${objectName}`;
 
     return {
       id: objectName,
@@ -134,7 +139,7 @@ function extractObjectNameFromUrl(imageUrl) {
   try {
     const url = new URL(imageUrl);
     // Extract path after bucket name
-    // Format: https://s3.mee-warp.com/meewarp/prefix/filename.ext
+    // Format: http://43.249.35.14:29000/mee-warp/prefix/filename.ext
     const pathParts = url.pathname.split('/').filter(Boolean);
     
     if (pathParts.length >= 2 && pathParts[0] === bucketName) {
