@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { API_ENDPOINTS } from '../config';
 import { resolveStoreSlug } from '../utils/storeSlug';
+import { SongRequestDisplay } from '../components/tv/SongRequestDisplay';
 
 type Supporter = {
   customerName: string;
@@ -444,7 +445,7 @@ const TvLandingPage = () => {
     let eventSource: EventSource | null = null;
     if (typeof window !== 'undefined') {
       const prefix = storeSlug ? `/${storeSlug}` : '';
-      const path = `${prefix}/self-warp/?openExternalBrowser=1`;
+      const path = `${prefix}/start/?openExternalBrowser=1`;
       setSelfWarpUrl(`${window.location.origin}${path}`);
     }
 
@@ -1205,6 +1206,7 @@ const TvLandingPage = () => {
         }}
       /> */}
       {warpOverlay}
+      <SongRequestDisplay storeSlug={storeSlug} show={!currentWarp} />
       <main
         className={`flex relative z-10 justify-center items-stretch w-full ${mainPaddingClass} ${mainMinHeightClass}`}
       >

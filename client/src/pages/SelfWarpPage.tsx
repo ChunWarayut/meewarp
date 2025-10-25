@@ -418,7 +418,7 @@ const SelfWarpPage = () => {
                     className="block text-base font-semibold text-white sm:text-lg uppercase tracking-[0.35em] text-indigo-200"
                     style={{ letterSpacing: '-0.02em' }}
                   >
-                    ชื่อที่จะโชว์ขึ้นจอ
+                    ชื่อที่จะโชว์ขึ้นจอ (ถ้ามี)
                   </label>
                   <input
                     type="text"
@@ -483,7 +483,7 @@ const SelfWarpPage = () => {
                       className="block text-base font-semibold text-white sm:text-lg uppercase tracking-[0.35em] text-indigo-200"
                       style={{ letterSpacing: '-0.02em' }}
                     >
-                      อีเมลสำหรับส่งสลิป
+                      อีเมลสำหรับส่งสลิป (ถ้ามี)
                     </label>
                     <input
                       type="email"
@@ -506,7 +506,7 @@ const SelfWarpPage = () => {
                     className="block text-base font-semibold text-white sm:text-lg uppercase tracking-[0.35em] text-indigo-200"
                     style={{ letterSpacing: '-0.02em' }}
                   >
-                    คำคม / ข้อความ
+                    คำคม / ข้อความ (ถ้ามี)
                   </label>
                   <textarea
                     value={form.quote}
@@ -519,7 +519,7 @@ const SelfWarpPage = () => {
                   />
                   <div className="flex justify-between mt-1">
                     <p lang="th" className="text-xs text-slate-400">
-                      คำคมนี้จะแสดงบนจอพร้อมกับวาร์ปของคุณ
+                      คำคมนี้จะแสดงบนจอพร้อมกับวาร์ปของคุณ 
                     </p>
                     <p className="text-xs font-en text-slate-400">{form.quote.length}/200</p>
                   </div>

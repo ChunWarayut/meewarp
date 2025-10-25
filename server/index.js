@@ -41,11 +41,14 @@ app.use(cors({
     'http://localhost:3000',
     'http://localhost:7064',
     'https://mee-warp.com',
+    'https://www.mee-warp.com',
     process.env.PUBLIC_BASE_URL || 'http://localhost:5173'
   ].filter(Boolean),
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'x-store-id']
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'x-store-id'],
+  exposedHeaders: ['Content-Length', 'X-Request-Id'],
+  maxAge: 86400, // 24 hours
 }));
 
 app.use(morgan('combined'));
@@ -72,6 +75,7 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1', paymentStatusRoutes);
 app.use('/api/v1', warpRoutes);
 app.use('/api/v1', transactionRoutes);
+app.use('/api/v1', require('./routes/songRequestRoutes'));
 app.use('/api/v1', adminRoutes);
 
 async function start() {

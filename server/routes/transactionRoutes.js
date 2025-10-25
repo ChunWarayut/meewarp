@@ -1074,8 +1074,53 @@ router.post('/payments/webhook', express.raw({ type: 'application/json' }), asyn
     if (type === 'checkout.session.completed' || type === 'checkout.session.async_payment_succeeded') {
       const session = event.data.object;
       const transactionId = session?.metadata?.transactionId;
+      const songRequestId = session?.metadata?.songRequestId;
+      const metadataType = session?.metadata?.type;
 
-      if (transactionId) {
+      // Handle Song Request payment
+      if (metadataType === 'song_request' && songRequestId) {
+        console.log(`🎵 Webhook: Song Request payment (checkout) - ID: ${songRequestId}`);
+        const SongRequest = require('../models/SongRequest');
+        const songRequest = await SongRequest.findById(songRequestId);
+
+        if (songRequest && songRequest.status !== 'paid') {
+          console.log(`✅ Updating song request ${songRequestId} to paid, setting paidAt: ${now.toISOString()}`);
+          const updates = {
+            status: 'paid',
+            paidAt: now,
+            'metadata.stripeCheckoutSessionId': session.id,
+            'metadata.stripeCheckoutStatus': session.status || null,
+            'metadata.stripePaymentStatus': session.payment_status || null,
+            'metadata.stripePaymentIntentId': session.payment_intent || null,
+            'metadata.stripeCustomerEmail': session.customer_details?.email || session.customer_email || null,
+            'metadata.stripeAmountTotal':
+              session.amount_total != null ? session.amount_total / 100 : songRequest.amount,
+            'metadata.lastStripeEventId': eventId,
+            'metadata.lastStripeEventType': type,
+            'metadata.lastStripeWebhookAt': now,
+            'metadata.stripeEventCreatedAt': created ? new Date(created * 1000) : now,
+            'metadata.lastStripeSyncAt': now,
+          };
+
+          // Update and push activity in one operation
+          await SongRequest.findByIdAndUpdate(songRequest._id, {
+            $set: updates,
+            $push: {
+              activityLog: {
+                action: 'status_changed',
+                description: 'Payment marked as paid via Stripe webhook (Checkout)',
+                actor: 'stripe-webhook',
+                timestamp: now,
+              },
+            },
+          });
+
+          console.log(`✅ Song Request ${songRequestId} marked as paid via webhook`);
+          eventHandled = true;
+        }
+      }
+      // Handle Warp Transaction payment
+      else if (transactionId) {
         const transaction = await WarpTransaction.findById(transactionId);
 
         if (transaction && transaction.status !== 'paid') {
@@ -1149,8 +1194,57 @@ router.post('/payments/webhook', express.raw({ type: 'application/json' }), asyn
     } else if (type === 'payment_intent.succeeded') {
       const intent = event.data.object;
       const transactionId = intent?.metadata?.transactionId;
+      const songRequestId = intent?.metadata?.songRequestId;
+      const metadataType = intent?.metadata?.type;
 
-      if (transactionId) {
+      // Handle Song Request payment
+      if (metadataType === 'song_request' && songRequestId) {
+        console.log(`🎵 Webhook: Song Request payment (PromptPay) - ID: ${songRequestId}`);
+        const SongRequest = require('../models/SongRequest');
+        const songRequest = await SongRequest.findById(songRequestId);
+
+        if (songRequest && songRequest.status !== 'paid') {
+          console.log(`✅ Updating song request ${songRequestId} to paid, setting paidAt: ${now.toISOString()}`);
+          const updates = {
+            status: 'paid',
+            paidAt: now,
+            'metadata.stripePaymentIntentId': intent.id,
+            'metadata.stripePaymentStatus': intent.status,
+            'metadata.stripeAmountReceived':
+              intent.amount_received != null ? intent.amount_received / 100 : songRequest.amount,
+            'metadata.stripeReceiptUrl': intent.charges?.data?.[0]?.receipt_url || null,
+            'metadata.lastStripeEventId': eventId,
+            'metadata.lastStripeEventType': type,
+            'metadata.lastStripeWebhookAt': now,
+            'metadata.lastStripeSyncAt': now,
+          };
+
+          const promptPayDetails =
+            extractPromptPayDetails(intent, songRequest.metadata?.promptpay || null) || null;
+          if (promptPayDetails) {
+            promptPayDetails.paidAt = promptPayDetails.paidAt || now.toISOString();
+            updates['metadata.promptpay'] = promptPayDetails;
+          }
+
+          // Update and push activity in one operation
+          await SongRequest.findByIdAndUpdate(songRequest._id, {
+            $set: updates,
+            $push: {
+              activityLog: {
+                action: 'status_changed',
+                description: 'Payment marked as paid via Stripe payment intent webhook (PromptPay)',
+                actor: 'stripe-webhook',
+                timestamp: now,
+              },
+            },
+          });
+
+          console.log(`✅ Song Request ${songRequestId} marked as paid via PromptPay webhook`);
+          eventHandled = true;
+        }
+      }
+      // Handle Warp Transaction payment
+      else if (transactionId) {
         const transaction = await WarpTransaction.findById(transactionId);
         if (transaction && transaction.status !== 'paid') {
           const updates = {
