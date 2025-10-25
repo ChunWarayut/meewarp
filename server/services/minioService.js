@@ -84,9 +84,9 @@ async function uploadImageFromBuffer(buffer, fileName, metadata = {}) {
 
     await minioClient.putObject(bucketName, objectName, buffer, buffer.length, metaData);
 
-    // Build URL using config
-    const protocol = config.minio.useSSL ? 'https' : 'http';
-    const url = `${protocol}://${config.minio.endpoint}:${config.minio.port}/${bucketName}/${objectName}`;
+    // Use Kong domain for public URLs (for display/download)
+    // Direct IP is only for upload/delete operations
+    const url = `https://s3.mee-warp.com/${bucketName}/${objectName}`;
 
     return {
       id: objectName,
@@ -139,7 +139,8 @@ function extractObjectNameFromUrl(imageUrl) {
   try {
     const url = new URL(imageUrl);
     // Extract path after bucket name
-    // Format: http://43.249.35.14:29000/mee-warp/prefix/filename.ext
+    // Format: https://s3.mee-warp.com/mee-warp/prefix/filename.ext
+    // Or: http://43.249.35.14:29000/mee-warp/prefix/filename.ext
     const pathParts = url.pathname.split('/').filter(Boolean);
     
     if (pathParts.length >= 2 && pathParts[0] === bucketName) {

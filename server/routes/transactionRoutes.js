@@ -1057,8 +1057,10 @@ router.post('/public/display/:id/complete', publicStore, async (req, res) => {
     }
 
     // Delete customer avatar from MinIO (if it's from MinIO)
-    const minioEndpoint = require('../config/env').minio.endpoint;
-    if (transaction.customerAvatar && transaction.customerAvatar.includes(minioEndpoint)) {
+    // Check for both Kong domain and direct IP
+    if (transaction.customerAvatar && 
+        (transaction.customerAvatar.includes('s3.mee-warp.com') || 
+         transaction.customerAvatar.includes('43.249.35.14'))) {
       try {
         await deleteImageByUrl(transaction.customerAvatar);
         console.log(`🗑️  Deleted avatar after warp displayed: ${transaction.customerAvatar}`);
