@@ -52,7 +52,7 @@ const config = {
     endpoint: process.env.MINIO_ENDPOINT || '43.249.35.14',
     accessKey: process.env.MINIO_ACCESS_KEY || 'admin',
     secretKey: process.env.MINIO_SECRET_KEY || 'minio123456',
-    bucketName: process.env.MINIO_BUCKET_NAME || 'mee-warp',
+    bucketName: process.env.MINIO_BUCKET_NAME || 'meewarp',
     useSSL: process.env.MINIO_USE_SSL === 'true',
     port: parseInt(process.env.MINIO_PORT || '29000', 10),
   },
