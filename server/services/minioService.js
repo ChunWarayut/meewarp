@@ -84,8 +84,8 @@ async function uploadImageFromBuffer(buffer, fileName, metadata = {}) {
 
     await minioClient.putObject(bucketName, objectName, buffer, buffer.length, metaData);
 
-    // Use Direct IP for public URLs (Kong has issues with MinIO GET requests)
-    // TODO: Fix Kong configuration for MinIO GET requests
+    // Use Direct IP for all operations (Kong doesn't support MinIO GET requests)
+    // This provides faster, more reliable image loading
     const protocol = config.minio.useSSL ? 'https' : 'http';
     const url = `${protocol}://${config.minio.endpoint}:${config.minio.port}/${bucketName}/${objectName}`;
 
