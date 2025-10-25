@@ -16,6 +16,7 @@ const navItems: NavItem[] = [
   { label: 'Customers', to: '/admin/customers' },
   { label: 'Packages', to: '/admin/packages', roles: ['manager', 'superadmin'] },
   { label: 'Orders', to: '/admin/orders' },
+  { label: '🎵 Song Requests', to: '/admin/song-requests' },
   { label: 'Settings', to: '/admin/settings', roles: ['manager', 'superadmin'] },
   { label: 'Admin Users', to: '/admin/users', roles: ['superadmin'] },
   { label: 'Stores', to: '/admin/stores', roles: ['superadmin'] },

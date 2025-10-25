@@ -36,6 +36,7 @@ export const API_ENDPOINTS = {
   adminDashboard: `${API_BASE_URL}/v1/admin/dashboard/overview`,
   adminStatistics: `${API_BASE_URL}/v1/admin/statistics`,
   adminCustomers: `${API_BASE_URL}/v1/admin/customers`,
+  adminSongRequests: `${API_BASE_URL}/v1/admin/song-requests`,
   adminOrders: `${API_BASE_URL}/v1/admin/orders`,
   adminSettings: `${API_BASE_URL}/v1/admin/settings`,
   adminPackages: `${API_BASE_URL}/v1/admin/packages`,

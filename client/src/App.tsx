@@ -4,6 +4,8 @@ import MarketingLandingPage from './pages/MarketingLandingPage';
 import TvLandingPage from './pages/TvLandingPage';
 import SelfWarpPage from './pages/SelfWarpPage';
 import PromptPayPage from './pages/PromptPayPage';
+import QrLandingPage from './pages/QrLandingPage';
+import SongRequestPage from './pages/SongRequestPage';
 import { AuthProvider } from './contexts/AuthContext';
 import { StoreProvider } from './contexts/StoreContext';
 import AdminActivity from './pages/AdminActivity';
@@ -21,6 +23,7 @@ import AdminUsersPage from './pages/admin/AdminUsersPage';
 import AdminCreateWarpPage from './pages/admin/AdminCreateWarpPage';
 import AdminSuperReport from './pages/admin/AdminSuperReport';
 import AdminStoresPage from './pages/admin/AdminStoresPage';
+import AdminSongRequestsPage from './pages/admin/AdminSongRequestsPage';
 
 const AppRoutes = () => (
   <Routes>
@@ -42,12 +45,17 @@ const AppRoutes = () => (
         <Route path="users" element={<AdminUsersPage />} />
         <Route path="create-warp" element={<AdminCreateWarpPage />} />
         <Route path="activity" element={<AdminActivity />} />
+        <Route path="song-requests" element={<AdminSongRequestsPage />} />
         <Route path="super-report" element={<AdminSuperReport />} />
         <Route path="stores" element={<AdminStoresPage />} />
       </Route>
     </Route>
+    <Route path="/start" element={<QrLandingPage />} />
+    <Route path=":storeSlug/start" element={<QrLandingPage />} />
     <Route path="/self-warp" element={<SelfWarpPage />} />
     <Route path=":storeSlug/self-warp" element={<SelfWarpPage />} />
+    <Route path="/song-request" element={<SongRequestPage />} />
+    <Route path=":storeSlug/song-request" element={<SongRequestPage />} />
     <Route path="/promptpay" element={<PromptPayPage />} />
     <Route path=":storeSlug/promptpay" element={<PromptPayPage />} />
     <Route path="/warp/:code" element={<WarpRedirect />} />
