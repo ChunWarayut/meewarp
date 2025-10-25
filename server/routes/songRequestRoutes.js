@@ -330,11 +330,19 @@ router.get('/public/song-requests/:id', publicStore, async (req, res) => {
  */
 router.get('/admin/song-requests', adminAuth, async (req, res) => {
   try {
-    const { status, limit = 50, offset = 0 } = req.query;
+    const { status, limit = 50, offset = 0, store } = req.query;
 
     const filter = {};
     if (status) {
       filter.status = status;
+    }
+    
+    // Filter by store if provided
+    if (store) {
+      filter.store = store;
+    } else if (req.admin?.storeId) {
+      // If no store specified but admin has a store, filter by admin's store
+      filter.store = req.admin.storeId;
     }
 
     const songRequests = await SongRequest.find(filter)
@@ -369,6 +377,11 @@ router.patch('/admin/song-requests/:id', adminAuth, async (req, res) => {
 
     if (!songRequest) {
       return res.status(404).json({ message: 'Song request not found' });
+    }
+
+    // Check store ownership for non-superadmin users
+    if (req.admin?.role !== 'superadmin' && req.admin?.storeId && songRequest.store.toString() !== req.admin.storeId) {
+      return res.status(403).json({ message: 'Access denied: Song request belongs to different store' });
     }
 
     if (status) {
@@ -410,11 +423,18 @@ router.patch('/admin/song-requests/:id', adminAuth, async (req, res) => {
  */
 router.delete('/admin/song-requests/:id', adminAuth, async (req, res) => {
   try {
-    const songRequest = await SongRequest.findByIdAndDelete(req.params.id);
+    const songRequest = await SongRequest.findById(req.params.id);
 
     if (!songRequest) {
       return res.status(404).json({ message: 'Song request not found' });
     }
+
+    // Check store ownership for non-superadmin users
+    if (req.admin?.role !== 'superadmin' && req.admin?.storeId && songRequest.store.toString() !== req.admin.storeId) {
+      return res.status(403).json({ message: 'Access denied: Song request belongs to different store' });
+    }
+
+    await SongRequest.findByIdAndDelete(req.params.id);
 
     return res.json({
       message: 'Song request deleted successfully',

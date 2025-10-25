@@ -24,6 +24,9 @@ import AdminCreateWarpPage from './pages/admin/AdminCreateWarpPage';
 import AdminSuperReport from './pages/admin/AdminSuperReport';
 import AdminStoresPage from './pages/admin/AdminStoresPage';
 import AdminSongRequestsPage from './pages/admin/AdminSongRequestsPage';
+import AdminStoreAccountingPage from './pages/admin/AdminStoreAccountingPage';
+import AdminStoreAccountingSettingsPage from './pages/admin/AdminStoreAccountingSettingsPage';
+import AdminWeeklySettlementPage from './pages/admin/AdminWeeklySettlementPage';
 
 const AppRoutes = () => (
   <Routes>
@@ -46,6 +49,9 @@ const AppRoutes = () => (
         <Route path="create-warp" element={<AdminCreateWarpPage />} />
         <Route path="activity" element={<AdminActivity />} />
         <Route path="song-requests" element={<AdminSongRequestsPage />} />
+        <Route path="store-accounting" element={<AdminStoreAccountingPage />} />
+        <Route path="store-accounting-settings" element={<AdminStoreAccountingSettingsPage />} />
+        <Route path="weekly-settlement" element={<AdminWeeklySettlementPage />} />
         <Route path="super-report" element={<AdminSuperReport />} />
         <Route path="stores" element={<AdminStoresPage />} />
       </Route>

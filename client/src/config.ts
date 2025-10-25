@@ -36,7 +36,8 @@ export const API_ENDPOINTS = {
   adminDashboard: `${API_BASE_URL}/v1/admin/dashboard/overview`,
   adminStatistics: `${API_BASE_URL}/v1/admin/statistics`,
   adminCustomers: `${API_BASE_URL}/v1/admin/customers`,
-  adminSongRequests: `${API_BASE_URL}/v1/admin/song-requests`,
+  adminSongRequests: (storeId?: string | null) => 
+    storeId ? `${API_BASE_URL}/v1/admin/song-requests?store=${encodeURIComponent(storeId)}` : `${API_BASE_URL}/v1/admin/song-requests`,
   adminOrders: `${API_BASE_URL}/v1/admin/orders`,
   adminSettings: `${API_BASE_URL}/v1/admin/settings`,
   adminPackages: `${API_BASE_URL}/v1/admin/packages`,
@@ -44,6 +45,14 @@ export const API_ENDPOINTS = {
   adminActivity: `${API_BASE_URL}/v1/transactions/activity-log`,
   adminStores: `${API_BASE_URL}/v1/admin/stores`,
   adminSuperReport: `${API_BASE_URL}/v1/admin/super/reports/overview`,
+  adminStoreAccounting: `${API_BASE_URL}/v1/admin/store-accounting`,
+  adminStoreAccountingSummary: `${API_BASE_URL}/v1/admin/store-accounting/summary`,
+  adminStoreAccountingSettlement: (storeId: string, period?: string) =>
+    `${API_BASE_URL}/v1/admin/store-accounting/${storeId}/settlement${period ? `?period=${period}` : ''}`,
+  adminStoreAccountingWeeklySettlement: (week?: number, year?: number) =>
+    `${API_BASE_URL}/v1/admin/store-accounting/weekly-settlement${week || year ? `?${week ? `week=${week}` : ''}${week && year ? '&' : ''}${year ? `year=${year}` : ''}` : ''}`,
+  adminStoreAccountingWeeklySettlementByStore: (storeId: string, week?: number, year?: number) =>
+    `${API_BASE_URL}/v1/admin/store-accounting/weekly-settlement/store/${storeId}${week || year ? `?${week ? `week=${week}` : ''}${week && year ? '&' : ''}${year ? `year=${year}` : ''}` : ''}`,
   adminOrdersExport: (format: 'csv' | 'pdf', params: string) =>
     `${API_BASE_URL}/v1/admin/orders?format=${format}${params ? `&${params}` : ''}`,
   authVerify: `${API_BASE_URL}/v1/auth/verify`,

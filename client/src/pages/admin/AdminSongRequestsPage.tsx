@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { API_ENDPOINTS } from '../../config';
 import { useAuth } from '../../contexts/AuthContext';
+import { useStoreContext } from '../../contexts/StoreContext';
 
 type SongRequestStatus = 'pending' | 'paid' | 'playing' | 'played' | 'rejected';
 
@@ -42,6 +43,7 @@ const statusLabels: Record<SongRequestStatus, string> = {
 
 const AdminSongRequestsPage = () => {
   const { token } = useAuth();
+  const { selectedStoreId, selectedStore } = useStoreContext();
   const [songRequests, setSongRequests] = useState<SongRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,8 +61,9 @@ const AdminSongRequestsPage = () => {
       }
       params.append('limit', '100');
 
+      const baseUrl = API_ENDPOINTS.adminSongRequests(selectedStoreId);
       const response = await fetch(
-        `${API_ENDPOINTS.adminSongRequests}?${params}`,
+        `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${params}`,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -83,11 +86,17 @@ const AdminSongRequestsPage = () => {
   };
 
   useEffect(() => {
+    if (!selectedStoreId) {
+      setSongRequests([]);
+      setLoading(false);
+      return;
+    }
+    
     fetchSongRequests();
     // Auto-refresh every 10 seconds
     const interval = setInterval(fetchSongRequests, 10000);
     return () => clearInterval(interval);
-  }, [selectedStatus]);
+  }, [selectedStatus, selectedStoreId]);
 
   const handleUpdateStatus = async (requestId: string, newStatus: SongRequestStatus) => {
     try {
@@ -157,15 +166,35 @@ const AdminSongRequestsPage = () => {
     .filter((r) => ['paid', 'playing', 'played'].includes(r.status))
     .reduce((sum, r) => sum + r.amount, 0);
 
+  if (!selectedStoreId) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">🎵 Song Requests</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            จัดการคำขอเพลงและ donate จากผู้ใช้
+          </p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-12 text-center">
+          <p className="text-slate-500">กรุณาเลือกสาขาเพื่อดู Song Requests</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">🎵 Song Requests</h1>
-        <p className="mt-1 text-sm text-slate-600">
+      <header>
+        <p className="text-xs uppercase tracking-[0.4em] text-indigo-300">Song Requests</p>
+        <h1 className="mt-2 text-3xl font-semibold text-white">🎵 Song Requests</h1>
+        {selectedStore ? (
+          <p className="mt-1 text-xs uppercase tracking-[0.35em] text-indigo-200">{selectedStore.name}</p>
+        ) : null}
+        <p className="mt-3 text-sm text-slate-300">
           จัดการคำขอเพลงและ donate จากผู้ใช้
         </p>
-      </div>
+      </header>
 
       {/* Stats Cards */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -254,11 +283,11 @@ const AdminSongRequestsPage = () => {
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setSelectedStatus('all')}
-          className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
-            selectedStatus === 'all'
-              ? 'bg-indigo-600 text-white'
-              : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
-          }`}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+              selectedStatus === 'all'
+                ? 'bg-indigo-500 text-white shadow-[0_16px_40px_rgba(99,102,241,0.35)]'
+                : 'bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10'
+            }`}
         >
           ทั้งหมด ({songRequests.length})
         </button>
@@ -268,8 +297,8 @@ const AdminSongRequestsPage = () => {
             onClick={() => setSelectedStatus(status)}
             className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
               selectedStatus === status
-                ? 'bg-indigo-600 text-white'
-                : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+                ? 'bg-indigo-500 text-white shadow-[0_16px_40px_rgba(99,102,241,0.35)]'
+                : 'bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10'
             }`}
           >
             {statusLabels[status]} ({songRequests.filter((r) => r.status === status).length})
@@ -278,7 +307,7 @@ const AdminSongRequestsPage = () => {
       </div>
 
       {/* Song Requests List */}
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="rounded-2xl border border-white/10 bg-white/5 shadow-[0_25px_60px_rgba(15,23,42,0.45)] backdrop-blur-sm">
         {loading ? (
           <div className="flex items-center justify-center p-12">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
@@ -332,7 +361,7 @@ const AdminSongRequestsPage = () => {
                         </svg>
                       </div>
                       <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-slate-900">
+                        <h3 className="text-lg font-semibold text-slate-500">
                           {request.songTitle}
                           {request.artistName && (
                             <span className="text-slate-500"> - {request.artistName}</span>

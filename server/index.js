@@ -41,6 +41,7 @@ app.use(cors({
     'http://localhost:3000',
     'http://localhost:7064',
     'https://mee-warp.com',
+    'https://api.mee-warp.com',
     'https://www.mee-warp.com',
     process.env.PUBLIC_BASE_URL || 'http://localhost:5173'
   ].filter(Boolean),
@@ -76,6 +77,7 @@ app.use('/api/v1', paymentStatusRoutes);
 app.use('/api/v1', warpRoutes);
 app.use('/api/v1', transactionRoutes);
 app.use('/api/v1', require('./routes/songRequestRoutes'));
+app.use('/api/v1', require('./routes/storeAccountingRoutes'));
 app.use('/api/v1', adminRoutes);
 
 async function start() {
