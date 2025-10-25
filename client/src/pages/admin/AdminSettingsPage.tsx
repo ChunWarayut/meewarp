@@ -28,6 +28,10 @@ type AppSettings = {
   promotionImages?: string[];
   promotionDuration?: number;
   promotionEnabled?: boolean;
+  selfWarpEnabled?: boolean;
+  selfWarpPrice?: number;
+  selfWarpMinAmount?: number;
+  selfWarpMaxAmount?: number;
 };
 
 type BackgroundImageEntry = {
@@ -82,6 +86,10 @@ type FormData = {
   promotionImages?: PromotionImageEntry[];
   promotionDuration?: number;
   promotionEnabled?: boolean;
+  selfWarpEnabled?: boolean;
+  selfWarpPrice?: number;
+  selfWarpMinAmount?: number;
+  selfWarpMaxAmount?: number;
 };
 
 const AdminSettingsPage = () => {
@@ -90,6 +98,7 @@ const AdminSettingsPage = () => {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [initialBackgroundImages, setInitialBackgroundImages] = useState<string[]>([]);
   const [initialPromotionImages, setInitialPromotionImages] = useState<string[]>([]);
+  const [initialLogos, setInitialLogos] = useState<string[]>([]);
   const [formData, setFormData] = useState<FormData>({
     brandName: '',
     tagline: '',
@@ -115,6 +124,10 @@ const AdminSettingsPage = () => {
     promotionImages: [],
     promotionDuration: 5000,
     promotionEnabled: false,
+    selfWarpEnabled: false,
+    selfWarpPrice: 0,
+    selfWarpMinAmount: 0,
+    selfWarpMaxAmount: 0,
   });
   const [message, setMessage] = useState<string>('');
   const [status, setStatus] = useState<'idle' | 'saving' | 'error' | 'success'>('idle');
@@ -159,6 +172,7 @@ const AdminSettingsPage = () => {
 
     setInitialBackgroundImages(backgroundList);
     setInitialPromotionImages(promotionList);
+    setInitialLogos(logoList);
 
     setFormData({
       brandName: data.brandName || '',
@@ -185,6 +199,10 @@ const AdminSettingsPage = () => {
       promotionImages: promotionEntries,
       promotionDuration: data.promotionDuration || 5000,
       promotionEnabled: data.promotionEnabled || false,
+      selfWarpEnabled: data.selfWarpEnabled || false,
+      selfWarpPrice: data.selfWarpPrice || 0,
+      selfWarpMinAmount: data.selfWarpMinAmount || 0,
+      selfWarpMaxAmount: data.selfWarpMaxAmount || 0,
     });
   }, [token, selectedStoreId]);
 
@@ -236,6 +254,10 @@ const AdminSettingsPage = () => {
       formDataToSend.append('tiktokUrl', formData.tiktokUrl || '');
       formDataToSend.append('promotionDuration', formData.promotionDuration?.toString() || '5000');
       formDataToSend.append('promotionEnabled', formData.promotionEnabled?.toString() || 'false');
+      formDataToSend.append('selfWarpEnabled', formData.selfWarpEnabled ? 'true' : 'false');
+      formDataToSend.append('selfWarpPrice', formData.selfWarpPrice?.toString() || '0');
+      formDataToSend.append('selfWarpMinAmount', formData.selfWarpMinAmount?.toString() || '0');
+      formDataToSend.append('selfWarpMaxAmount', formData.selfWarpMaxAmount?.toString() || '0');
       formDataToSend.append('logoRemoved', formData.logoRemoved ? 'true' : 'false');
       formDataToSend.append('oldLogo', formData.oldLogo || '');
       formDataToSend.append('logoEnabled', formData.logoEnabled ? 'true' : 'false');
@@ -317,6 +339,14 @@ const AdminSettingsPage = () => {
         formDataToSend.append('logosExisting', JSON.stringify([]));
       }
 
+      const removedLogos = initialLogos.filter(
+        (url) => !existingLogoUrls.includes(url)
+      );
+
+      if (removedLogos.length > 0) {
+        formDataToSend.append('logosRemoved', JSON.stringify(removedLogos));
+      }
+
       newLogoFiles.forEach((entry) => {
         if (entry.file) {
           formDataToSend.append('logos', entry.file, entry.file.name);
@@ -361,9 +391,20 @@ const AdminSettingsPage = () => {
       (formData.promotionImages || [])
         .filter((entry) => entry.isNew && entry.preview.startsWith('blob:'))
         .forEach((entry) => URL.revokeObjectURL(entry.preview));
+      (formData.logos || [])
+        .filter((entry) => entry.isNew && entry.preview.startsWith('blob:'))
+        .forEach((entry) => URL.revokeObjectURL(entry.preview));
 
       setInitialBackgroundImages(nextBackgroundList);
       setInitialPromotionImages(data.promotionImages || []);
+      setInitialLogos(data.logos || []);
+
+      const nextLogoEntries = (data.logos || []).map((imageUrl: string) => ({
+        id: imageUrl,
+        preview: resolveImagePreview(imageUrl),
+        url: imageUrl,
+        isNew: false,
+      }));
 
       setFormData((prev) => ({
         ...prev,
@@ -373,6 +414,7 @@ const AdminSettingsPage = () => {
         logoExistingPath: data.logo || '',
         oldLogo: data.logo || '',
         logoRemoved: false,
+        logos: nextLogoEntries,
         promotionImages: nextPromotionEntries,
       }));
       setStatus('success');
@@ -397,6 +439,37 @@ const AdminSettingsPage = () => {
 
   const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  // Function to convert image to WebP
+  const convertToWebP = (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        
+        ctx?.drawImage(img, 0, 0);
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const webpFile = new File([blob], file.name.replace(/\.[^/.]+$/, '.webp'), {
+              type: 'image/webp',
+              lastModified: Date.now()
+            });
+            resolve(webpFile);
+          } else {
+            reject(new Error('Failed to convert to WebP'));
+          }
+        }, 'image/webp', 0.9);
+      };
+      
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = URL.createObjectURL(file);
+    });
   };
 
 
@@ -538,13 +611,13 @@ const AdminSettingsPage = () => {
                         <span className="text-sm text-slate-300">เพิ่มโลโก้</span>
                       </div>
                       <p className="mt-2 text-xs text-slate-400 text-center">
-                        PNG, JPG, GIF (สูงสุด 5MB ต่อไฟล์) • อัปโหลดได้สูงสุด 10 รูป
+                        PNG, JPG, GIF → WebP (สูงสุด 5MB ต่อไฟล์) • อัปโหลดได้สูงสุด 10 รูป
                       </p>
                       <input
                         type="file"
                         multiple
                         accept="image/*"
-                        onChange={(event) => {
+                        onChange={async (event) => {
                           const files = Array.from(event.target.files || []);
                           if (files.length === 0) return;
 
@@ -562,14 +635,25 @@ const AdminSettingsPage = () => {
                             return;
                           }
 
-                          const newEntries: BackgroundImageEntry[] = files.map((file) => ({
-                            id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-                            preview: URL.createObjectURL(file),
-                            file,
-                            isNew: true,
-                          }));
+                          try {
+                            // Convert all files to WebP
+                            const webpFiles = await Promise.all(
+                              files.map(file => convertToWebP(file))
+                            );
 
-                          updateField('logos', [...(formData.logos || []), ...newEntries]);
+                            const newEntries: BackgroundImageEntry[] = webpFiles.map((file) => ({
+                              id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                              preview: URL.createObjectURL(file),
+                              file,
+                              isNew: true,
+                            }));
+
+                            updateField('logos', [...(formData.logos || []), ...newEntries]);
+                          } catch (error) {
+                            console.error('Error converting to WebP:', error);
+                            alert('เกิดข้อผิดพลาดในการแปลงรูปภาพเป็น WebP');
+                          }
+                          
                           event.target.value = '';
                         }}
                         className="hidden"
@@ -612,17 +696,18 @@ const AdminSettingsPage = () => {
                           </svg>
                         </button>
                       </div>
-                    )) || (
-                      <div className="text-center py-6 text-slate-400">
-                        <svg className="mx-auto h-12 w-12 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    ))}
+
+                    {(!formData.logos || formData.logos.length === 0) && (
+                      <div className="py-6 text-center text-slate-400 border border-dashed border-white/10 rounded-xl bg-slate-900/30">
+                        <svg className="mx-auto mb-2 w-12 h-12 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        <p className="mt-2 text-sm">ยังไม่มีโลโก้</p>
-                        <p className="text-xs">เพิ่มโลโก้เพื่อให้ TV แสดงแบบสลับอัตโนมัติ</p>
+                        <p className="text-sm">ยังไม่มีโลโก้</p>
+                        <p className="mt-1 text-xs">เพิ่มโลโก้เพื่อให้ TV แสดงแบบสลับอัตโนมัติ</p>
                       </div>
                     )}
                   </div>
-                </div>
             </div>
 
             {/* Background Images Card */}
@@ -654,13 +739,13 @@ const AdminSettingsPage = () => {
                     <span className="text-sm text-slate-300">เพิ่มภาพพื้นหลัง</span>
                   </div>
                   <p className="mt-2 text-xs text-slate-400 text-center">
-                    PNG, JPG, GIF (สูงสุด 5MB ต่อไฟล์) • อัปโหลดได้สูงสุด 15 รูป
+                    PNG, JPG, GIF → WebP (สูงสุด 5MB ต่อไฟล์) • อัปโหลดได้สูงสุด 15 รูป
                   </p>
                       <input
                         type="file"
                         multiple
                         accept="image/*"
-                        onChange={(event) => {
+                        onChange={async (event) => {
                           const files = Array.from(event.target.files || []);
                           if (files.length === 0) return;
 
@@ -678,14 +763,25 @@ const AdminSettingsPage = () => {
                             return;
                           }
 
-                          const newEntries: BackgroundImageEntry[] = files.map((file) => ({
-                            id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-                            preview: URL.createObjectURL(file),
-                            file,
-                            isNew: true,
-                          }));
+                          try {
+                            // Convert all files to WebP
+                            const webpFiles = await Promise.all(
+                              files.map(file => convertToWebP(file))
+                            );
 
-                          updateField('backgroundImages', [...(formData.backgroundImages || []), ...newEntries]);
+                            const newEntries: BackgroundImageEntry[] = webpFiles.map((file) => ({
+                              id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                              preview: URL.createObjectURL(file),
+                              file,
+                              isNew: true,
+                            }));
+
+                            updateField('backgroundImages', [...(formData.backgroundImages || []), ...newEntries]);
+                          } catch (error) {
+                            console.error('Error converting to WebP:', error);
+                            alert('เกิดข้อผิดพลาดในการแปลงรูปภาพเป็น WebP');
+                          }
+                          
                           event.target.value = '';
                         }}
                         className="hidden"
@@ -736,9 +832,9 @@ const AdminSettingsPage = () => {
                       </div>
                     )}
                   </div>
-                </div>
+            </div>
 
-                <div>
+            <div>
                   <label className="text-sm font-medium text-white">ระยะเวลาสลับภาพพื้นหลัง (วินาที)</label>
                   <p className="mt-1 text-xs text-slate-400">กำหนดเวลาในการเปลี่ยนภาพ (อย่างน้อย 3 วินาที)</p>
                   <input
@@ -753,7 +849,6 @@ const AdminSettingsPage = () => {
                     className="px-3 py-2 mt-2 w-full text-sm text-white rounded-lg border border-white/10 bg-slate-900/60 focus:border-indigo-400 focus:outline-none"
                   />
                 </div>
-            </div>
           </div>
         </section>
 
@@ -942,13 +1037,13 @@ const AdminSettingsPage = () => {
                     <span className="text-sm text-slate-300">เพิ่มภาพโปรโมชั่น</span>
                   </div>
                   <p className="mt-2 text-xs text-slate-400 text-center">
-                    PNG, JPG, GIF (สูงสุด 5MB ต่อไฟล์) • อัปโหลดได้สูงสุด 10 รูป
+                    PNG, JPG, GIF → WebP (สูงสุด 5MB ต่อไฟล์) • อัปโหลดได้สูงสุด 10 รูป
                   </p>
                   <input
                     type="file"
                     multiple
                     accept="image/*"
-                    onChange={(event) => {
+                    onChange={async (event) => {
                       const files = Array.from(event.target.files || []);
                       if (files.length === 0) {
                         return;
@@ -968,14 +1063,24 @@ const AdminSettingsPage = () => {
                         return;
                       }
 
-                      const newEntries: PromotionImageEntry[] = files.map((file) => ({
-                        id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-                        preview: URL.createObjectURL(file),
-                        file,
-                        isNew: true,
-                      }));
+                      try {
+                        // Convert all files to WebP
+                        const webpFiles = await Promise.all(
+                          files.map(file => convertToWebP(file))
+                        );
 
-                      updateField('promotionImages', [...(formData.promotionImages || []), ...newEntries]);
+                        const newEntries: PromotionImageEntry[] = webpFiles.map((file) => ({
+                          id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                          preview: URL.createObjectURL(file),
+                          file,
+                          isNew: true,
+                        }));
+
+                        updateField('promotionImages', [...(formData.promotionImages || []), ...newEntries]);
+                      } catch (error) {
+                        console.error('Error converting to WebP:', error);
+                        alert('เกิดข้อผิดพลาดในการแปลงรูปภาพเป็น WebP');
+                      }
 
                       // Reset input so the same file can be selected again if needed
                       event.target.value = '';
@@ -1031,6 +1136,111 @@ const AdminSettingsPage = () => {
             </div>
           </div>
         </div>
+
+        {/* Self-Warp Settings */}
+        <section className="rounded-[32px] border border-white/10 bg-slate-900/70 p-8 shadow-[0_30px_90px_rgba(8,12,24,0.6)] backdrop-blur-xl">
+          <header className="flex gap-3 items-center mb-6">
+            <span className="flex justify-center items-center w-10 h-10 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 rounded-2xl">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+              </svg>
+            </span>
+            <div>
+              <p className="font-en text-[11px] uppercase tracking-[0.45em] text-emerald-300">Self-Warp</p>
+              <h2 lang="th" className="text-lg font-semibold text-white">การตั้งค่า Self-Warp</h2>
+            </div>
+          </header>
+
+          <div className="space-y-6">
+            {/* Enable Self-Warp */}
+            <div className="flex justify-between items-center p-4 rounded-xl border border-white/10 bg-white/5">
+              <div>
+                <h3 className="text-base font-semibold text-white">เปิดใช้งาน Self-Warp</h3>
+                <p className="mt-1 text-xs text-slate-400">
+                  อนุญาตให้ลูกค้าสามารถ Warp ตัวเองได้โดยไม่ต้องรอคนอื่น
+                </p>
+              </div>
+              <label className="inline-flex relative items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.selfWarpEnabled || false}
+                  onChange={(event) => updateField('selfWarpEnabled', event.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+              </label>
+            </div>
+
+            {/* Self-Warp Settings */}
+            {formData.selfWarpEnabled && (
+              <div className="space-y-4 p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5">
+                <div className="grid gap-4 lg:grid-cols-3">
+                  {/* Self-Warp Price */}
+                  <div>
+                    <label className="text-sm font-medium text-white">ราคา Self-Warp (บาท)</label>
+                    <p className="mt-1 text-xs text-slate-400">ค่าธรรมเนียมสำหรับ Self-Warp</p>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={formData.selfWarpPrice || 0}
+                      onChange={(event) => updateField('selfWarpPrice', Number(event.target.value) || 0)}
+                      className="px-3 py-2 mt-2 w-full text-sm text-white rounded-lg border border-white/10 bg-slate-900/60 focus:border-emerald-400 focus:outline-none"
+                      placeholder="0"
+                    />
+                  </div>
+
+                  {/* Minimum Amount */}
+                  <div>
+                    <label className="text-sm font-medium text-white">จำนวนเงินขั้นต่ำ (บาท)</label>
+                    <p className="mt-1 text-xs text-slate-400">จำนวนเงินที่ต้องมีในบัญชี</p>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={formData.selfWarpMinAmount || 0}
+                      onChange={(event) => updateField('selfWarpMinAmount', Number(event.target.value) || 0)}
+                      className="px-3 py-2 mt-2 w-full text-sm text-white rounded-lg border border-white/10 bg-slate-900/60 focus:border-emerald-400 focus:outline-none"
+                      placeholder="0"
+                    />
+                  </div>
+
+                  {/* Maximum Amount */}
+                  <div>
+                    <label className="text-sm font-medium text-white">จำนวนเงินสูงสุด (บาท)</label>
+                    <p className="mt-1 text-xs text-slate-400">จำนวนเงินสูงสุดที่สามารถ Self-Warp ได้</p>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={formData.selfWarpMaxAmount || 0}
+                      onChange={(event) => updateField('selfWarpMaxAmount', Number(event.target.value) || 0)}
+                      className="px-3 py-2 mt-2 w-full text-sm text-white rounded-lg border border-white/10 bg-slate-900/60 focus:border-emerald-400 focus:outline-none"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+
+                {/* Info Box */}
+                <div className="p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10">
+                  <div className="flex gap-2 items-start">
+                    <svg className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <p className="text-xs text-emerald-200 font-medium">ข้อมูล Self-Warp</p>
+                      <p className="mt-1 text-xs text-emerald-300">
+                        • ลูกค้าต้องมีเงินในบัญชีไม่น้อยกว่าจำนวนขั้นต่ำ<br/>
+                        • สามารถ Self-Warp ได้ไม่เกินจำนวนสูงสุด<br/>
+                        • ต้องจ่ายค่าธรรมเนียมตามราคาที่กำหนด
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
 
         {/* Save Button */}
         <div className="flex justify-center">
