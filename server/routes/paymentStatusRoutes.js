@@ -185,6 +185,59 @@ router.post('/check-payment-status', async (req, res) => {
 });
 
 /**
+ * API endpoint สำหรับลูกค้าตรวจสอบสถานะการชำระเงิน (ไม่มี middleware - route ใหม่)
+ */
+router.post('/payment-status', async (req, res) => {
+  try {
+    console.log('Payment status check request (new route):', req.body, req.query);
+    
+    const { transactionId } = req.body || {};
+    const storeSlug = req.query.store;
+
+    if (!transactionId) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'transactionId is required' 
+      });
+    }
+
+    if (!storeSlug) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'store parameter is required' 
+      });
+    }
+
+    // หา store จาก slug
+    const Store = require('../models/Store');
+    const store = await Store.findOne({ slug: storeSlug, isActive: true }).lean();
+    
+    if (!store) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Store not found' 
+      });
+    }
+
+    const result = await checkPaymentStatus(transactionId, store._id, 'customer');
+
+    if (!result.success) {
+      return res.status(404).json(result);
+    }
+
+    return res.status(200).json(result);
+
+  } catch (error) {
+    console.error('Payment status check error:', error);
+    return res.status(500).json({ 
+      success: false,
+      message: 'Failed to check payment status',
+      error: error.message 
+    });
+  }
+});
+
+/**
  * API endpoint สำหรับ admin ตรวจสอบสถานะการชำระเงิน
  */
 router.post('/admin/check-payment-status', adminAuth, storeContext(), async (req, res) => {
