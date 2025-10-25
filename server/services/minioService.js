@@ -84,10 +84,9 @@ async function uploadImageFromBuffer(buffer, fileName, metadata = {}) {
 
     await minioClient.putObject(bucketName, objectName, buffer, buffer.length, metaData);
 
-    // Use Direct IP for all operations (Kong doesn't support MinIO GET requests)
-    // This provides faster, more reliable image loading
-    const protocol = config.minio.useSSL ? 'https' : 'http';
-    const url = `${protocol}://${config.minio.endpoint}:${config.minio.port}/${bucketName}/${objectName}`;
+    // Use Kong domain for public URLs (for display/download)
+    // Direct IP is only for upload/delete operations
+    const url = `https://s3.mee-warp.com/${bucketName}/${objectName}`;
 
     return {
       id: objectName,

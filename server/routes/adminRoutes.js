@@ -119,6 +119,7 @@ router.put(
     { name: 'backgroundImages', maxCount: 15 },
     { name: 'promotionImages', maxCount: 10 },
     { name: 'logo', maxCount: 1 },
+    { name: 'logos', maxCount: 10 },
   ]),
   storeContext(),
   async (req, res) => {
@@ -172,6 +173,21 @@ router.put(
         return parseJsonArray(req.body.promotionImagesRemoved);
       })();
 
+      const existingLogos = (() => {
+        if (req.body.logosExisting) {
+          return parseJsonArray(req.body.logosExisting);
+        }
+        if (req.body.logos) {
+          return parseJsonArray(req.body.logos);
+        }
+        if (req.body.oldLogo) {
+          return [req.body.oldLogo].filter(Boolean);
+        }
+        return [];
+      })();
+
+      const logosToRemove = (() => parseJsonArray(req.body.logosRemoved))();
+
       const files = req.files || {};
 
       let backgroundImages = [...existingBackgroundImages];
@@ -215,18 +231,47 @@ router.put(
       payload.backgroundImages = backgroundImages;
       payload.backgroundImage = backgroundImages[0] || '';
 
+      // Handle multiple logos (like backgroundImages)
+      let logos = [...existingLogos];
+
+      if (files.logos && files.logos.length > 0) {
+        const uploadedLogos = await Promise.all(
+          files.logos.map((file) =>
+            uploadImageFromMulterFile(file, {
+              storeId: req.storeContext.storeId,
+              type: 'logo',
+            })
+          )
+        );
+
+        logos = [
+          ...logos,
+          ...uploadedLogos.map((image) => image.url).filter(Boolean),
+        ];
+      }
+
       if (files.logo && files.logo[0]) {
         const uploaded = await uploadImageFromMulterFile(files.logo[0], {
           storeId: req.storeContext.storeId,
           type: 'logo',
         });
 
-        payload.logo = uploaded.url;
+        logos = [...logos, uploaded.url].filter(Boolean);
 
         if (req.body.oldLogo) {
           await deleteOldImage(req.body.oldLogo);
         }
       }
+
+      if (logosToRemove.length > 0) {
+        logos = logos.filter((logo) => !logosToRemove.includes(logo));
+        await Promise.all(logosToRemove.map((logo) => deleteOldImage(logo)));
+      }
+
+      logos = Array.from(new Set(logos));
+
+      payload.logos = logos;
+      payload.logo = logos[0] || '';
 
       if (files.promotionImages && files.promotionImages.length > 0) {
         const uploadedPromotionImages = await Promise.all(
@@ -257,6 +302,7 @@ router.put(
           await deleteOldImage(req.body.oldLogo);
         }
         payload.logo = '';
+        payload.logos = [];
       }
 
       if (req.body.backgroundRotationDuration !== undefined) {

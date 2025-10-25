@@ -500,14 +500,17 @@ const AdminSettingsPage = () => {
                     อัปโหลดได้หลายภาพ ระบบจะสลับพื้นหลังอัตโนมัติ (แนะนำอัตราส่วน 16:9 เช่น 1920x1080)
                   </p>
 
-                  <div className="mt-3">
-                    <label className="cursor-pointer">
-                      <div className="flex gap-2 justify-center items-center p-4 rounded-lg border-2 border-dashed transition-colors border-white/20 bg-slate-900/30 hover:border-indigo-400 hover:bg-slate-900/50">
-                        <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                        <span className="text-sm text-slate-300">เพิ่มภาพพื้นหลัง</span>
-                      </div>
+              <div className="mt-3">
+                <label className="cursor-pointer">
+                  <div className="flex gap-2 justify-center items-center p-4 rounded-lg border-2 border-dashed transition-colors border-white/20 bg-slate-900/30 hover:border-indigo-400 hover:bg-slate-900/50">
+                    <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    <span className="text-sm text-slate-300">เพิ่มภาพพื้นหลัง</span>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-400 text-center">
+                    PNG, JPG, GIF (สูงสุด 5MB ต่อไฟล์) • อัปโหลดได้สูงสุด 15 รูป
+                  </p>
                       <input
                         type="file"
                         multiple
@@ -515,6 +518,20 @@ const AdminSettingsPage = () => {
                         onChange={(event) => {
                           const files = Array.from(event.target.files || []);
                           if (files.length === 0) return;
+
+                          // Validate file size (5MB limit)
+                          const oversizedFiles = files.filter(file => file.size > 5 * 1024 * 1024);
+                          if (oversizedFiles.length > 0) {
+                            alert(`ไฟล์ต่อไปนี้มีขนาดเกิน 5MB: ${oversizedFiles.map(f => f.name).join(', ')}`);
+                            return;
+                          }
+
+                          // Validate total count (15 limit)
+                          const currentCount = formData.backgroundImages?.length || 0;
+                          if (currentCount + files.length > 15) {
+                            alert(`สามารถอัปโหลดได้สูงสุด 15 รูป (ปัจจุบัน: ${currentCount} รูป)`);
+                            return;
+                          }
 
                           const newEntries: BackgroundImageEntry[] = files.map((file) => ({
                             id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -780,6 +797,9 @@ const AdminSettingsPage = () => {
                     </svg>
                     <span className="text-sm text-slate-300">เพิ่มภาพโปรโมชั่น</span>
                   </div>
+                  <p className="mt-2 text-xs text-slate-400 text-center">
+                    PNG, JPG, GIF (สูงสุด 5MB ต่อไฟล์) • อัปโหลดได้สูงสุด 10 รูป
+                  </p>
                   <input
                     type="file"
                     multiple
@@ -787,6 +807,20 @@ const AdminSettingsPage = () => {
                     onChange={(event) => {
                       const files = Array.from(event.target.files || []);
                       if (files.length === 0) {
+                        return;
+                      }
+
+                      // Validate file size (5MB limit)
+                      const oversizedFiles = files.filter(file => file.size > 5 * 1024 * 1024);
+                      if (oversizedFiles.length > 0) {
+                        alert(`ไฟล์ต่อไปนี้มีขนาดเกิน 5MB: ${oversizedFiles.map(f => f.name).join(', ')}`);
+                        return;
+                      }
+
+                      // Validate total count (10 limit)
+                      const currentCount = formData.promotionImages?.length || 0;
+                      if (currentCount + files.length > 10) {
+                        alert(`สามารถอัปโหลดได้สูงสุด 10 รูป (ปัจจุบัน: ${currentCount} รูป)`);
                         return;
                       }
 
