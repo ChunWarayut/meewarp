@@ -67,7 +67,7 @@ const PromptPayPage = () => {
         throw new Error(result.message || 'ตรวจสอบสถานะไม่สำเร็จ');
       }
 
-      if (result.isAlreadyPaid || result.status === 'paid') {
+      if (result.isAlreadyPaid || result.status === 'paid' || result.status === 'displayed') {
         setStatus('success');
         setMessage('ชำระเงินเรียบร้อยแล้ว! ทีมงานจะดัน Warp ของคุณขึ้นจอทันที');
         setIsPaid(true);
