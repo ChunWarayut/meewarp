@@ -17,6 +17,27 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    build: {
+      // Performance optimizations
+      target: 'es2015',
+      minify: 'esbuild',
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ['react', 'react-dom'],
+            router: ['react-router-dom'],
+          },
+        },
+      },
+      // Enable source maps for production debugging
+      sourcemap: false,
+      // Optimize chunk size
+      chunkSizeWarningLimit: 1000,
+    },
+    // Performance optimizations
+    optimizeDeps: {
+      include: ['react', 'react-dom', 'react-router-dom'],
+    },
     test: {
       environment: 'jsdom',
       setupFiles: './src/test/setup.ts',

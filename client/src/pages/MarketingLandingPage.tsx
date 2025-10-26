@@ -1,1077 +1,883 @@
-import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { resolveStoreSlug } from '../utils/storeSlug';
 
-const featureHighlights = [
+declare global {
+  interface Window {
+    dataLayer?: Array<Record<string, unknown>>;
+    gtag?: (...args: unknown[]) => void;
+    fbq?: (...args: unknown[]) => void;
+  }
+}
+
+type DemoMessage = {
+  id: string;
+  author: string;
+  text: string;
+  tone: 'song' | 'shout' | 'tip';
+};
+
+type FloatingOrb = {
+  size: number;
+  color: string;
+  blur: number;
+  top?: string;
+  left?: string;
+  right?: string;
+  bottom?: string;
+};
+
+const heroBadges = ['ใช้จริง', 'รองรับ PromptPay', 'การันตีคอนเทนต์ของร้านคุณ'];
+
+const heroSparkles = [
+  { icon: '⚡️', label: 'เซ็ตอัพใน 15 นาที' },
+  { icon: '🪟', label: 'Glassmorphism Dashboard' },
+  { icon: '📡', label: 'Realtime TV Visualizer' }
+];
+
+const heroSparkleDots = [
+  { top: '6%', left: '12%', size: 14, delay: '0s', icon: '✦' },
+  { top: '18%', right: '8%', size: 11, delay: '1.8s', icon: '✧' },
+  { top: '32%', left: '4%', size: 10, delay: '2.4s', icon: '❖' },
+  { top: '42%', right: '18%', size: 12, delay: '3.2s', icon: '✺' },
+  { top: '12%', left: '45%', size: 9, delay: '0.9s', icon: '✶' },
+  { top: '48%', left: '25%', size: 11, delay: '2.9s', icon: '✷' }
+];
+
+const trustLogos = ['MongkolBar Pak Chong'];
+
+const painPoints = [
   {
-    icon: '🎥',
-    title: 'Real-time TV Broadcasting',
-    subtitle: 'การออกอากาศแบบเรียลไทม์',
-    description:
-      'แสดงคิวผู้สนับสนุนบนจอ TV ทันที พร้อมข้อความและเอฟเฟกต์สวยงามสำหรับทุกหน้าจอ',
-    benefits: ['ไม่มีดีเลย์', 'Auto-sync', 'Multi-display'],
-    accent: 'from-purple-600 via-blue-600 to-cyan-500'
+    title: 'ลูกค้าอยากมีส่วนร่วม แต่ไม่มีช่องให้จอย',
+    detail: 'ทุกโต๊ะอยากขึ้นจอ อยากส่ง shoutout แต่ต้องพึ่งพนักงานตลอดคืน'
   },
   {
-    icon: '💳',
-    title: 'Seamless Payment Flow',
-    subtitle: 'ระบบชำระเงินไร้รอยต่อ',
-    description:
-      'รองรับ ChillPay และการบันทึกแบบ Manual เพื่อให้ทีมขายและลูกค้าปิดการขายได้ง่าย',
-    benefits: ['ChillPay Integration', 'Manual Override', 'Instant Confirmation'],
-    accent: 'from-green-500 via-emerald-500 to-teal-500'
+    title: 'พนักงานรับคำขอเพลงไม่ทัน โต๊ะรอคิวยาว',
+    detail: 'ดีเจถูกขอเพลงทางปาก พนักงานต้องถือโพยเดินทั่วร้าน'
   },
   {
-    icon: '📊',
-    title: 'Smart Analytics Dashboard',
-    subtitle: 'แดชบอร์ดวิเคราะห์ข้อมูลอัจฉริยะ',
-    description:
-      'ติดตามยอดขาย ผู้สนับสนุนอันดับต้น และสถิติแบบเรียลไทม์ เพื่อการตัดสินใจที่แม่นยำ',
-    benefits: ['Real-time Stats', 'Top Supporters', 'Revenue Tracking'],
-    accent: 'from-orange-500 via-red-500 to-pink-500'
+    title: 'โปรโมชันบนจอไม่ดึงดูด ไม่มีคนแชร์ต่อ',
+    detail: 'จอแสดงแค่สไลด์นิ่ง ไม่สร้างยอดซื้อหรือคอนเทนต์'
   }
 ];
 
-const stats = [
-  { number: '500+', label: 'ร้านค้าที่ใช้งาน', icon: '🏪' },
-  { number: '+40%', label: 'เพิ่มยอดขายเฉลี่ย', icon: '📈' },
-  { number: '15 นาที', label: 'เซ็ตอัพเสร็จ', icon: '⚡' },
-  { number: '4.8/5', label: 'ความพึงพอใจ', icon: '⭐' }
+const valueFeatures = [
+  {
+    title: 'Song Request + Tip',
+    summary: 'ขอเพลงแล้วขึ้นจอ ขอบคุณผู้ให้ทิปแบบเท่ๆ',
+    icon: 'song'
+  },
+  {
+    title: 'Shoutout Screen',
+    summary: 'พิมพ์จีบ/แซว/ฉลอง ขึ้นจอได้',
+    icon: 'shout'
+  },
+  {
+    title: 'Celebrate Table',
+    summary: 'เอฟเฟกต์ไฟ+เสียง ฉลองวันเกิด/เปิดบิลโต๊ะ ปรับธีมได้',
+    icon: 'celebrate'
+  },
+  {
+    title: 'Photo Booth',
+    summary: 'ถ่าย-ใส่กรอบธีม-ขึ้นจอ-โหลดได้ ปล่อย QR อัตโนมัติ',
+    icon: 'photo'
+  },
+  {
+    title: 'Table Score',
+    summary: 'แข่งความคึกของแต่ละโต๊ะ ดันยอดซื้อและยอดแชร์',
+    icon: 'score'
+  },
+  {
+    title: 'Staff Call',
+    summary: 'เรียกน้ำแข็ง/รีฟิล/เช็คบิล เด้งถึงมือถือทีมงานแบบ push',
+    icon: 'staff'
+  }
 ];
 
-const clientLogos = [
-  { name: 'WarpHouse Studio', type: 'สตูดิโอ' },
-  { name: 'Bean Café', type: 'คาเฟ่' },
-  { name: 'Ice Production', type: 'โปรดักชัน' },
-  { name: 'Mint Events', type: 'อีเวนต์' },
-  { name: 'Boss Restaurant', type: 'ร้านอาหาร' },
-  { name: 'Joy Live', type: 'ไลฟ์สด' }
+const roiMetrics = [
+  { value: '+72%', label: 'แชร์สตอรี่เพิ่มเฉลี่ย', detail: 'ลูกค้าชอบขึ้นจอจึงแชร์ทันที' },
+  { value: '-35%', label: 'เวลารอพนักงานลดลง', detail: 'ปุ่ม Staff Call ตอบกลับเร็ว' },
+  { value: '+฿1,800', label: 'ทิปต่อคืนโดยเฉลี่ย', detail: 'ดีเจเห็นชื่อผู้ให้ทิปบนจอแบบไฮป์' }
+];
+
+const howItWorksSteps = [
+  { step: '1', title: 'สแกน QR บนโต๊ะ', detail: 'ไม่ต้องโหลดแอป รองรับ iOS / Android' },
+  { step: '2', title: 'เลือกระบบ', detail: 'ขอเพลง ชูโต๊ะ ถ่ายภาพ หรือเรียกสตาฟ' },
+  { step: '3', title: 'ขึ้นจอ/เด้งถึงสตาฟ', detail: 'ข้อความอนุมัติก่อนโชว์ ปลอดภัยมั่นใจ' }
+];
+
+const pricingPlans = [
+  {
+    tier: 'FREE',
+    price: '0฿',
+    description: 'แจกวาร์ป + ข้อความ (จำกัด)',
+    bullets: ['เริ่มใช้งานฟรี', 'ข้อความขึ้นจอวันละ 20 ครั้ง', 'สถิติกลางคืนแบบย่อ'],
+    accent: 'from-slate-900/90 via-slate-900 to-black'
+  },
+  {
+    tier: 'PRO',
+    price: '1,999฿/เดือน',
+    description: 'ขอเพลง + Shoutout + อนุมัติข้อความ',
+    bullets: ['Song Request + Tip', 'อนุมัติ/บล็อกคำ', 'พรีเซ็ตแคมเปญหน้าจอ'],
+    accent: 'from-[#f472b6] via-[#9b6bff] to-[#4c1d95]',
+    highlight: 'ยอดนิยม'
+  },
+  {
+    tier: 'CLUB',
+    price: '4,999฿/เดือน',
+    description: 'Photo Booth + ฉลองโต๊ะ + Score Table',
+    bullets: ['Celebrate Effect', 'Photo Booth Auto + QR', 'Table Scoreboard + Ranking'],
+    accent: 'from-[#67e8f9] via-[#22d3ee] to-[#0ea5e9]'
+  },
+  {
+    tier: 'CHAIN',
+    price: 'Custom',
+    description: 'Multi-branch + Brand Custom + SLA',
+    bullets: ['Multi-branch Dashboard', 'Custom Branding + API', 'SLA 99.9% + Success Manager'],
+    accent: 'from-[#34d399] via-[#10b981] to-[#0f766e]'
+  }
+];
+
+const neonTickerItems = [
+  { icon: '🎧', text: 'DJ Tip Overlay + ชื่อผู้ให้ทิป' },
+  { icon: '🎉', text: 'Celebrate Table Effect' },
+  { icon: '📸', text: 'Photo Booth Auto + QR Download' },
+  { icon: '🏆', text: 'โต๊ะแข่งขัน + Score Table' },
+  { icon: '📱', text: 'Staff Call เด้งถึงมือถือ' }
 ];
 
 const caseStudies = [
   {
-    business: 'WarpHouse Studio',
-    type: 'สตูดิโอถ่ายภาพ',
-    result: '+65% ยอดขาย',
-    story: 'เพิ่มยอดขายได้ 65% ใน 3 เดือนแรก ด้วยระบบวาร์ปที่ลูกค้าสามารถซื้อได้ง่าย',
-    metric: '65%',
-    metricLabel: 'เพิ่มยอดขาย',
-    icon: '📸'
+    venue: 'Tropic Rooftop',
+    quote: '“ดีเจไม่ต้องตะโกนแล้ว ลูกค้าส่งคำขอเพลงเองได้ ยอดทิปโตเป็นสองเท่า”',
+    owner: 'คุณพิม Owner',
+    metric: '+82% ความคึกโต๊ะ'
   },
   {
-    business: 'Bean Café & Bistro',
-    type: 'คาเฟ่และร้านอาหาร',
-    result: '+45% ลูกค้าใหม่',
-    story: 'ดึงลูกค้าใหม่ได้มากขึ้น 45% จากระบบแนะนำเพื่อนผ่านวาร์ป',
-    metric: '45%',
-    metricLabel: 'ลูกค้าใหม่',
-    icon: '☕'
-  },
-  {
-    business: 'Ice Production',
-    type: 'บ้านการผลิต',
-    result: '+80% Engagement',
-    story: 'เพิ่ม engagement ในไลฟ์สด 80% ด้วยระบบวาร์ปแบบเรียลไทม์',
-    metric: '80%',
-    metricLabel: 'เพิ่ม Engagement',
-    icon: '🎬'
+    venue: 'Warehouse 39',
+    quote: '“MeeWarp ทำให้ทุกโต๊ะกลายเป็นครีเอเตอร์ ปิดดีลโต๊ะพรีเมียมได้ทันที”',
+    owner: 'คุณเคน ผู้จัดอีเวนต์',
+    metric: '+46% ยอดแชร์สตอรี่'
   }
 ];
 
-const testimonials = [
+const faqs = [
   {
-    text: 'MEEWARP ช่วยให้ทีมเราทำงานได้ลื่นไหลมาก ลูกค้าเห็นผลทันที ไม่มีปัญหาเรื่องดีเลย์',
-    author: 'คุณบีม',
-    role: 'WarpHouse Studio',
-    avatar: '👨‍💼'
+    question: 'ต้องมีจอไหม?',
+    answer: 'จอไหนก็ได้ที่ต่อ HDMI / โปรเจกเตอร์ หรือเปิดเต็มหน้าจอผ่าน Browser ที่บูธดีเจ'
   },
   {
-    text: 'Dashboard สวยมาก ใช้งานง่าย การทำ PayLink แค่คลิกเดียวเสร็จ ปิดการขายในไลฟ์ได้เร็วกว่าเดิม',
-    author: 'คุณมิ้นท์',
-    role: 'Production Lead',
-    avatar: '👩‍💻'
+    question: 'เน็ตหลุดทำยังไง?',
+    answer: 'มีโหมดออฟไลน์ชั่วคราว เก็บคิวไว้และ sync ทันทีเมื่อเน็ตกลับมา'
   },
   {
-    text: 'เริ่มใช้แล้วเห็นผลทันที ไม่ต้องลงทุนอะไร ระบบเสถียร ทีมซัพพอร์ตดีมาก แนะนำเลย',
-    author: 'คุณไอซ์',
-    role: 'Studio Owner',
-    avatar: '👨‍🎨'
+    question: 'PDPA ปลอดภัยไหม?',
+    answer: 'มีโหมดอนุมัติก่อนโชว์ ซ่อนชื่อ หรือให้ลูกค้าให้ consent ก่อนขึ้นจอ'
   }
 ];
 
-const steps = [
-  {
-    step: '01',
-    title: 'สร้างแพ็กเกจ',
-    description: 'ตั้งค่าแพ็กเกจ Warp พร้อมราคาและระยะเวลาที่ต้องการ',
-    icon: '⚙️',
-    time: '2 นาที'
-  },
-  {
-    step: '02',
-    title: 'แชร์ลิงก์',
-    description: 'ลูกค้าสามารถสั่งซื้อและชำระเงินผ่าน ChillPay ได้ทันที',
-    icon: '🔗',
-    time: '30 วินาที'
-  },
-  {
-    step: '03',
-    title: 'แสดงผลอัตโนมัติ',
-    description: 'ระบบอัปเดตหน้าจอ TV และสถิติแบบเรียลไทม์โดยอัตโนมัติ',
-    icon: '📺',
-    time: 'ทันที'
-  }
+const floatingOrbs: FloatingOrb[] = [
+  { size: 380, top: '-10%', left: '-6%', color: 'rgba(244,114,182,0.28)', blur: 180 },
+  { size: 260, top: '10%', right: '-8%', color: 'rgba(79,209,255,0.25)', blur: 160 },
+  { size: 220, top: '35%', left: '55%', color: 'rgba(148,187,255,0.2)', blur: 150 },
+  { size: 320, bottom: '-15%', right: '8%', color: 'rgba(79,209,255,0.3)', blur: 210 },
+  { size: 280, bottom: '-6%', left: '-5%', color: 'rgba(244,114,182,0.22)', blur: 190 },
+  { size: 240, bottom: '12%', left: '32%', color: 'rgba(155,107,255,0.2)', blur: 150 }
 ];
 
-const plans = [
-  {
-    name: 'Starter',
-    subtitle: 'สำหรับร้านเริ่มต้น',
-    price: '50%',
-    originalPrice: '',
-    period: 'ตามยอดขาย',
-    yearlyPrice: '',
-    description: 'เหมาะสำหรับร้านค้าขนาดเล็ก',
-    features: [
-      'ไม่มีค่าตั้งต้น - เริ่มได้เลย',
-      'ระบบวาร์ปครบชุด',
-      'รายงานยอดขายรายวัน',
-      'ChillPay Integration',
-      'การสำรองข้อมูลอัตโนมัติ',
-      'Support ผ่านแชท'
-    ],
-    highlight: 'เริ่มต้นฟรี',
-    cta: 'เริ่มใช้งานเลย',
-    popular: false,
-    savings: ''
-  },
-  {
-    name: 'Professional',
-    subtitle: 'สำหรับธุรกิจที่เติบโต',
-    price: '30%',
-    originalPrice: '',
-    period: 'ตามยอดขาย',
-    yearlyPrice: '',
-    description: 'แพ็กเกจยอดนิยมของร้านค้าไทย',
-    features: [
-      'ทุกอย่างใน Starter',
-      'หักเปอร์เซ็นต์ต่ำกว่า 20%',
-      'ระบบวิเคราะห์ลูกค้าแบบลึก',
-      'การตลาดอัตโนมัติ',
-      'รายงานแบบเรียลไทม์',
-      'Custom branding',
-      'Priority Support 24/7',
-      'Training 1:1 ฟรี'
-    ],
-    highlight: 'ยอดนิยม #1',
-    cta: 'เริ่มใช้งานเลย',
-    popular: true,
-    savings: 'ประหยัด 20%'
-  },
-  {
-    name: 'Enterprise',
-    subtitle: 'สำหรับเครือข่ายร้านค้า',
-    price: '20%',
-    originalPrice: '',
-    period: 'ตามยอดขาย',
-    yearlyPrice: '',
-    description: 'สำหรับธุรกิจขนาดใหญ่',
-    features: [
-      'ทุกอย่างใน Professional',
-      'หักเปอร์เซ็นต์ต่ำสุด 30%',
-      'ไม่จำกัดจุดขาย',
-      'Multi-location management',
-      'API Access แบบเต็ม',
-      'White-label solution',
-      'Dedicated Account Manager',
-      'SLA 99.9% uptime',
-      'Custom integrations ฟรี'
-    ],
-    highlight: 'ค่าใช้จ่ายต่ำสุด',
-    cta: 'ปรึกษาฟรี',
-    popular: false,
-    savings: 'ประหยัด 30%'
-  }
+const initialDemoMessages: DemoMessage[] = [
+  { id: 'demo-1', author: 'โต๊ะ B2', text: '“Happy Birthday โต๊ะ 7 🎂”', tone: 'shout' },
+  { id: 'demo-2', author: 'DJ Tip', text: 'Tip 200฿ สำหรับเพลง Thunderstruck ⚡️', tone: 'tip' },
+  { id: 'demo-3', author: 'โต๊ะ C1', text: 'ขอเพลง PINK VENOM เวอร์ชัน Remix!', tone: 'song' }
 ];
 
-const faqData = [
-  {
-    question: 'สามารถเริ่มใช้งาน MEEWARP ได้ยังไง?',
-    answer: 'สมัครสมาชิกผ่านเว็บไซต์ ตั้งค่าร้านค้าในระบบ และเริ่มขายวาร์ปได้ทันที ใช้เวลาติดตั้งเพียง 15 นาที ไม่ต้องติดตั้งอุปกรณ์เพิ่มเติม'
-  },
-  {
-    question: 'ยกเลิกการใช้งานได้หรือไม่?',
-    answer: 'ยกเลิกได้ทุกเมื่อ ไม่มีสัญญาผูกมัด ข้อมูลของคุณจะถูกเก็บไว้ 30 วันหลังยกเลิก เพื่อให้คุณสามารถกลับมาใช้งานได้'
-  },
-  {
-    question: 'ระบบรองรับการชำระเงินแบบไหน?',
-    answer: 'รองรับ ChillPay (บัตรเครดิต, QR Code, โอนธนาคาร) และระบบบันทึกการชำระแบบ Manual สำหรับการขายแบบออฟไลน์'
-  },
-  {
-    question: 'หากมีปัญหาการใช้งานติดต่อได้ยังไง?',
-    answer: 'ทีมซัพพอร์ตพร้อมช่วยเหลือ 24/7 ผ่าน Line @MEEWARP หรือ Email: support@MEEWARP.com รับประกันตอบกลับภายใน 30 นาที'
-  },
-  {
-    question: 'ข้อมูลของร้านค้าปลอดภัยหรือไม่?',
-    answer: 'ข้อมูลทั้งหมดเข้ารหัส SSL และสำรองข้อมูลทุกชั่วโมง เซิร์ฟเวอร์ตั้งอยู่ในประเทศไทย มีระบบรักษาความปลอดภัยระดับธนาคาร'
-  },
-  {
-    question: 'มีการอบรมการใช้งานหรือไม่?',
-    answer: 'มีคู่มือการใช้งานภาษาไทยครบถ้วน พร้อมวิดีโอสอนใช้งาน และทีมงานพร้อม Training แบบ 1:1 ฟรีสำหรับแพ็กเกจ Professional ขึ้นไป'
-  },
-  {
-    question: 'ระบบคิดค่าบริการอย่างไร?',
-    answer: 'คิดแค่เปอร์เซ็นต์ตามยอดขายจริงเท่านั้น! ไม่มีค่าตั้งต้น ไม่มีค่ารายเดือน หากไม่มียอดขาย ไม่เสียเงินแม้แต่บาทเดียว ยิ่งขายได้มาก ยิ่งคุ้มค่า'
-  }
+const autoDemoMessages: Omit<DemoMessage, 'id'>[] = [
+  { author: 'โต๊ะ VIP', text: 'ปุ่มเรียกน้ำแข็งหน่อยครับ 🧊', tone: 'shout' },
+  { author: 'DJ Tip', text: 'Tip 500฿ พร้อมข้อความ “คืนนี้เอามันส์สุด”', tone: 'tip' },
+  { author: 'โต๊ะ A5', text: 'ขอเพลง Groove Jet + laser effect', tone: 'song' },
+  { author: 'Staff Alert', text: 'โต๊ะ 4 กำลังเช็คบิล', tone: 'shout' }
 ];
 
-const contactInfo = {
-  email: 'warayut.tae@gmail.com',
-  line: 'chun_warayut',
-  phone: '091-813-6426',
-  support: 'warayut.tae@gmail.com',
-  address: 'อาคารเอไอเอ แคปปิตอล เซ็นเตอร์ ชั้น 12 ถนนรัชดาภิเษก กรุงเทพมหานคร 10400'
+const lineUrl = 'https://lin.ee/lWUNQeY';
+const liveDemoAnchor = '#live-demo';
+const callPhone = '+66912345678';
+const whatsappUrl = 'https://wa.me/66912345678';
+const quoteUrl = 'https://lin.ee/lWUNQeY';
+const lineQrPlaceholder =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="140" height="140" viewBox="0 0 120 120" fill="none"><rect width="120" height="120" rx="16" fill="white"/><rect x="16" y="16" width="20" height="20" fill="#050505"/><rect x="84" y="16" width="20" height="20" fill="#050505"/><rect x="16" y="84" width="20" height="20" fill="#050505"/><rect x="52" y="52" width="16" height="16" fill="#050505"/><rect x="68" y="68" width="12" height="12" fill="#050505"/><rect x="40" y="72" width="10" height="10" fill="#050505"/><rect x="88" y="48" width="12" height="12" fill="#050505"/><rect x="32" y="36" width="12" height="12" fill="#050505"/></svg>`
+  );
+
+const toneClasses: Record<DemoMessage['tone'], string> = {
+  song: 'from-[#9b6bff]/40 to-[#4fd1ff]/25 text-white',
+  shout: 'from-white/15 to-white/5 text-fuchsia-100',
+  tip: 'from-amber-400/20 to-pink-400/30 text-amber-100'
 };
 
+const iconStroke = 'stroke-current stroke-[1.6] stroke-linecap-round stroke-linejoin-round';
+
+const featureIcon = (type: string) => {
+  switch (type) {
+    case 'song':
+      return (
+        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none">
+          <path className={iconStroke} d="M9 19a3 3 0 1 1 0-6c.74 0 1.42.27 1.94.72V5.5l9-3v4.3" />
+          <path className={iconStroke} d="M15 17a3 3 0 1 0 6 0c0-1.66-1.34-3-3-3-.74 0-1.42.27-1.94.72V9" />
+        </svg>
+      );
+    case 'shout':
+      return (
+        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none">
+          <path className={iconStroke} d="M4 9v6l6 3V6z" />
+          <path className={iconStroke} d="M20 8v8" />
+          <path className={iconStroke} d="m12 6 8-3v18l-8-3" />
+        </svg>
+      );
+    case 'celebrate':
+      return (
+        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none">
+          <path className={iconStroke} d="M12 2v4" />
+          <path className={iconStroke} d="M5 11a7 7 0 0 1 14 0v10H5z" />
+          <path className={iconStroke} d="M8 7h8" />
+        </svg>
+      );
+    case 'photo':
+      return (
+        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none">
+          <rect className={iconStroke} x="3" y="6" width="18" height="14" rx="3" />
+          <path className={iconStroke} d="m3 15 4.5-4.5L14 17" />
+          <circle className={iconStroke} cx="17" cy="10" r="2" />
+        </svg>
+      );
+    case 'score':
+      return (
+        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none">
+          <path className={iconStroke} d="M5 5v14" />
+          <path className={iconStroke} d="M12 10v9" />
+          <path className={iconStroke} d="M19 3v16" />
+          <path className={iconStroke} d="M3 19h18" />
+        </svg>
+      );
+    case 'staff':
+      return (
+        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none">
+          <path className={iconStroke} d="M8 3h8l2 4h-12z" />
+          <path className={iconStroke} d="M6 7v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7" />
+          <path className={iconStroke} d="M10 12h4" />
+        </svg>
+      );
+    default:
+      return (
+        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none">
+          <circle className={iconStroke} cx="12" cy="12" r="9" />
+        </svg>
+      );
+  }
+};
+
+const trackEvent = (eventName: string, payload: Record<string, unknown> = {}) => {
+  if (typeof window === 'undefined') return;
+  const enriched = { event: eventName, ...payload };
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push(enriched);
+  window.gtag?.('event', eventName, payload);
+  try {
+    window.fbq?.('trackCustom', eventName, payload);
+  } catch (error) {
+    // ignore fbq availability errors
+  }
+};
+
+const eqBars = Array.from({ length: 9 }, (_, index) => index);
+
+const duplicatedTicker = [...neonTickerItems, ...neonTickerItems];
+
 const MarketingLandingPage = () => {
-  const [activeFeature, setActiveFeature] = useState(0);
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const { storeSlug: routeSlug } = useParams<{ storeSlug?: string }>();
   const storeSlug = resolveStoreSlug(routeSlug);
-  const storePathPrefix = storeSlug ? `/${storeSlug}` : '';
-  const homeLink = storePathPrefix || '/';
-  const tvLink = `${storePathPrefix}/tv`;
-  const selfWarpLink = `${storePathPrefix}/self-warp`;
+  const [demoMessages, setDemoMessages] = useState<DemoMessage[]>(initialDemoMessages);
+  const [demoInput, setDemoInput] = useState('');
+  const autoIndexRef = useRef(0);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setActiveFeature((prev) => (prev + 1) % featureHighlights.length);
-    }, 6000);
+      setDemoMessages((prev) => {
+        const preset = autoDemoMessages[autoIndexRef.current % autoDemoMessages.length];
+        autoIndexRef.current = autoIndexRef.current + 1;
+        const nextMessage: DemoMessage = {
+          ...preset,
+          id: `auto-${Date.now()}`
+        };
+        return [nextMessage, ...prev].slice(0, 6);
+      });
+    }, 5200);
 
     return () => clearInterval(interval);
   }, []);
 
-  const handleSelectFeature = (index: number) => {
-    setActiveFeature(index);
+  const handleDemoSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!demoInput.trim()) return;
+
+    const text = demoInput.trim();
+    const newMessage: DemoMessage = {
+      id: `user-${Date.now()}`,
+      author: 'คุณ',
+      text,
+      tone: 'shout'
+    };
+
+    setDemoMessages((prev) => [newMessage, ...prev].slice(0, 6));
+    setDemoInput('');
+    trackEvent('demo_simulator_sent', { length: text.length, storeSlug });
   };
 
-  const { icon, title, subtitle, description, benefits, accent } = featureHighlights[activeFeature];
+  const handleLineCta = (location: string) => {
+    trackEvent('cta_demo_clicked', { location, storeSlug });
+  };
+
+  const handlePricingCta = (plan: string) => {
+    trackEvent('pricing_started_checkout', { plan, storeSlug });
+  };
+
+  const handleCallNow = (location: string) => {
+    trackEvent('call_now_clicked', { location, storeSlug });
+  };
 
   return (
-    <div className="min-h-screen text-white bg-slate-950 font-th">
-      <header className="sticky top-0 z-40 border-b backdrop-blur border-white/10 bg-slate-950/80">
-        <nav className="flex justify-between items-center px-4 mx-auto max-w-7xl h-16 sm:px-6 lg:px-8">
-          <Link to={homeLink} className="flex items-center">
-            <img src="/logo_meewarp.png" alt="MEEWARP" className="h-10 sm:h-12" />
-          </Link>
+    <div className="warp-bg relative min-h-screen overflow-hidden text-white font-th">
+      <div className="pointer-events-none absolute inset-0 -z-10">
+        <div className="absolute inset-0 opacity-30"
+          style={{
+            backgroundImage:
+              'linear-gradient(120deg, rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(300deg, rgba(79,209,255,0.06) 1px, transparent 1px)',
+            backgroundSize: '140px 140px'
+          }}
+        />
+        {floatingOrbs.map((orb, index) => (
+          <span
+            key={`orb-${index}`}
+            className="neon-orb"
+            style={{
+              width: orb.size,
+              height: orb.size,
+              top: orb.top,
+              left: orb.left,
+              right: orb.right,
+              bottom: orb.bottom,
+              background: orb.color,
+              filter: `blur(${orb.blur}px)`
+            }}
+          />
+        ))}
+        <div className="absolute inset-x-[-20%] bottom-[-25%] h-[520px] bg-gradient-to-t from-[#050505] via-[#12091c] to-transparent opacity-70 blur-[80px]" />
+        <div className="absolute inset-x-[-10%] bottom-[5%] h-[360px] bg-gradient-to-r from-[#4fd1ff]/25 via-transparent to-[#f472b6]/25 opacity-80 blur-[90px]" />
+        <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-[#9b6bff]/40 to-transparent" />
+      </div>
 
-          <div className="hidden gap-8 items-center lg:flex">
-            <a href="#features" className="text-sm font-medium transition-colors text-slate-200 hover:text-cyan-400 font-en">
-              Features
-            </a>
-            <a href="#how-it-works" className="text-sm font-medium transition-colors text-slate-200 hover:text-cyan-400 font-en">
-              How it works
-            </a>
-            <a href="#pricing" className="text-sm font-medium transition-colors text-slate-200 hover:text-cyan-400 font-en">
-              Pricing
-            </a>
-            <Link to={tvLink} className="text-sm font-medium transition-colors text-slate-200 hover:text-cyan-400 font-en">
-              TV demo
-            </Link>
-          </div>
-
-          <div className="hidden gap-3 items-center lg:flex">
-            <Link
-              to="/admin/login"
-              className="px-4 py-2 text-sm font-medium rounded-lg border transition-colors border-white/20 text-slate-200 hover:border-cyan-400 font-en"
-            >
-              Login
-            </Link>
-            <Link
-              to={selfWarpLink}
-              className="px-5 py-2 text-sm font-semibold bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg transition-all hover:from-cyan-400 hover:to-blue-500"
-            >
-              ลองใช้ฟรี
-            </Link>
-          </div>
-
-          <button
-            type="button"
-            className="flex justify-center items-center w-10 h-10 rounded-lg border transition-colors border-white/10 hover:border-cyan-400 lg:hidden"
-            onClick={() => setShowMobileMenu((prev) => !prev)}
-            aria-label="Toggle menu"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {showMobileMenu ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-              )}
-            </svg>
-          </button>
-        </nav>
-
-        {showMobileMenu && (
-          <div className="border-t border-white/10 bg-slate-950/95 lg:hidden">
-            <div className="px-4 py-4 space-y-1">
-              <a
-                href="#features"
-                className="block px-3 py-2 text-sm font-medium rounded-md transition-colors text-slate-200 hover:bg-white/10"
-                onClick={() => setShowMobileMenu(false)}
+      <div className="relative mx-auto max-w-6xl px-6 pb-24">
+        <header className="relative pt-10" id="hero">
+          <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+            {heroSparkleDots.map((sparkle, index) => (
+              <span
+                key={`hero-sparkle-${index}`}
+                className="sparkle-star"
+                style={{
+                  top: sparkle.top,
+                  left: sparkle.left,
+                  right: sparkle.right,
+                  fontSize: sparkle.size,
+                  animationDelay: sparkle.delay
+                }}
               >
+                {sparkle.icon}
+              </span>
+            ))}
+            <div className="absolute left-1/2 top-4 h-48 w-48 -translate-x-1/2 rounded-full border border-white/20 opacity-40 blur-3xl" />
+            <div className="absolute -left-10 top-24 h-px w-64 bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+          </div>
+          <nav className="relative flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 px-5 py-4 backdrop-blur">
+            <div className="flex items-center gap-2">
+              <img src="/favicon_meewarp.png" alt="MeeWarp" className="h-10 w-10 rounded-xl bg-black/40 p-1" />
+              <div className="text-xl font-semibold tracking-wide font-en">MeeWarp</div>
+            </div>
+            <div className="flex flex-wrap items-center gap-5 text-sm text-slate-300 font-en">
+              <a href="#pain" className="transition hover:text-white">
+                Pain → Promise
+              </a>
+              <a href="#live-demo" className="transition hover:text-white">
+                Live Demo
+              </a>
+              <a href="#features" className="transition hover:text-white">
                 Features
               </a>
-              <a
-                href="#how-it-works"
-                className="block px-3 py-2 text-sm font-medium rounded-md transition-colors text-slate-200 hover:bg-white/10"
-                onClick={() => setShowMobileMenu(false)}
-              >
-                How it works
-              </a>
-              <a
-                href="#pricing"
-                className="block px-3 py-2 text-sm font-medium rounded-md transition-colors text-slate-200 hover:bg-white/10"
-                onClick={() => setShowMobileMenu(false)}
-              >
+              <a href="#pricing" className="transition hover:text-white">
                 Pricing
               </a>
-              <Link
-                to={tvLink}
-                className="block px-3 py-2 text-sm font-medium rounded-md transition-colors text-slate-200 hover:bg-white/10"
-                onClick={() => setShowMobileMenu(false)}
-              >
-                TV demo
-              </Link>
-              <div className="flex gap-3 pt-4 border-t border-white/10">
-                <Link
-                  to="/admin/login"
-                  className="flex-1 px-3 py-2 text-sm font-medium text-center rounded-md border border-white/20 text-slate-200"
-                  onClick={() => setShowMobileMenu(false)}
-                >
-                  Login
-                </Link>
-                <Link
-                  to={selfWarpLink}
-                  className="flex-1 px-3 py-2 text-sm font-semibold text-center bg-gradient-to-r from-cyan-500 to-blue-600 rounded-md transition-all hover:from-cyan-400 hover:to-blue-500"
-                  onClick={() => setShowMobileMenu(false)}
-                >
-                  ลองใช้ฟรี
-                </Link>
-              </div>
+              <a href="#contact" className="transition hover:text-white">
+                Contact
+              </a>
             </div>
-          </div>
-        )}
-      </header>
+            <a
+              href={lineUrl}
+              onClick={() => handleLineCta('nav')}
+              className="inline-flex items-center justify-center rounded-[14px] border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:border-[#9b6bff]"
+              target="_blank"
+              rel="noreferrer"
+            >
+              นัดเดโมด่วน
+            </a>
+            <div className="pointer-events-none absolute -bottom-4 left-1/2 h-px w-40 -translate-x-1/2 bg-gradient-to-r from-transparent via-white/70 to-transparent" />
+          </nav>
 
-      <main className="pb-24 space-y-24">
-        <section className="overflow-hidden relative pt-16">
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] bg-gradient-to-br from-cyan-500/10 via-blue-500/10 to-purple-500/10 blur-3xl" />
-
-          <div className="relative px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
-            <div className="grid gap-12 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:items-center">
-              <div className="space-y-8">
-                <div className="inline-flex gap-2 items-center px-4 py-2 text-xs font-semibold rounded-full border border-cyan-500/30 bg-slate-900/60 text-slate-200 sm:text-sm font-th">
-                  <span className="w-2 h-2 bg-green-500 rounded-full" />
-                  💼 ระบบแจกวาร์ปสำหรับธุรกิจไทย
-                </div>
-
-                <div className="space-y-4">
-                  <h1 className="text-4xl font-black leading-tight sm:text-5xl lg:text-6xl font-th">
-                    เพิ่มยอดขาย <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">+40%</span> ด้วยระบบวาร์ปมืออาชีพ
-                  </h1>
-                  <p className="max-w-2xl text-base text-slate-300 sm:text-lg font-th">
-                    ระบบแจกวาร์ปที่ร้านค้าไทยกว่า <span className="font-semibold text-cyan-400">500+ แห่ง</span> ใช้สร้างรายได้พิเศษ
-                    <span className="font-semibold text-emerald-400"> เริ่มขายได้ทันที</span> ไม่มีค่าตั้งต้น ไม่มีค่ารายเดือน คิดแค่เปอร์เซ็นต์ตามยอดขายจริง
-                  </p>
-                  <div className="grid grid-cols-1 gap-3 mt-6 sm:grid-cols-2 lg:grid-cols-3">
-                    <div className="flex gap-2 items-center text-sm font-semibold text-emerald-300 font-th">
-                      <span className="flex justify-center items-center w-6 h-6 text-emerald-400 rounded-full bg-emerald-500/20">💰</span>
-                      เพิ่มรายได้เฉลี่ย 300%
-                    </div>
-                    <div className="flex gap-2 items-center text-sm font-semibold text-cyan-300 font-th">
-                      <span className="flex justify-center items-center w-6 h-6 text-cyan-400 rounded-full bg-cyan-500/20">📈</span>
-                      ไม่ขาย ไม่เสียเงิน
-                    </div>
-                    <div className="flex gap-2 items-center text-sm font-semibold text-purple-300 font-th">
-                      <span className="flex justify-center items-center w-6 h-6 text-purple-400 rounded-full bg-purple-500/20">⚡</span>
-                      Setup ใน 15 นาที
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <Link
-                    to={selfWarpLink}
-                    className="px-8 py-3 text-base font-semibold text-center bg-gradient-to-r from-emerald-500 to-cyan-600 rounded-full transition-all hover:from-emerald-400 hover:to-cyan-500 hover:shadow-lg hover:shadow-emerald-500/30"
+          <div className="mt-14 grid gap-12 lg:grid-cols-[1.1fr_minmax(0,0.9fr)] lg:items-center">
+            <div className="space-y-8">
+              <div className="flex flex-wrap gap-3">
+                {heroBadges.map((badge) => (
+                  <span
+                    key={badge}
+                    className="group relative inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-slate-100"
                   >
-                    💰 เริ่มสร้างรายได้วันนี้ (ฟรี 30 วัน)
-                  </Link>
-                  <Link
-                    to={tvLink}
-                    className="px-8 py-3 text-base font-semibold text-center rounded-full border transition-all border-white/20 text-slate-100 hover:border-cyan-400 hover:bg-white/5 font-th"
-                  >
-                    📊 ดูผลลัพธ์จริงจากลูกค้า
-                  </Link>
-                </div>
+                    <span className="h-2 w-2 rounded-full bg-gradient-to-r from-[#f472b6] to-[#4fd1ff]" />
+                    {badge}
+                    <span className="absolute inset-0 rounded-full bg-gradient-to-r from-white/15 to-transparent opacity-0 blur-lg transition group-hover:opacity-100" />
+                  </span>
+                ))}
+              </div>
 
-                <div className="p-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10">
-                  <div className="flex gap-4 items-start">
-                    <div className="flex justify-center items-center w-12 h-12 text-2xl rounded-full bg-emerald-500/20">
-                      🎯
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-emerald-300">รับประกันผลลัพธ์</h3>
-                      <p className="mt-1 text-sm text-slate-300">
-                        หากไม่เพิ่มยอดขายภายใน 30 วัน <span className="font-semibold text-emerald-400">ยกเลิกได้ทันที</span> พร้อมบริการปรึกษาฟรีตลอดอายุการใช้งาน
-                      </p>
-                      <div className="flex flex-wrap gap-4 mt-3 text-xs text-slate-400">
-                        <span className="flex gap-1 items-center">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                          ไม่มีค่าติดตั้ง
-                        </span>
-                        <span className="flex gap-1 items-center">
-                          <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
-                          ไม่มีสัญญาผูกมัด
-                        </span>
-                        <span className="flex gap-1 items-center">
-                          <span className="h-1.5 w-1.5 rounded-full bg-purple-400" />
-                          Support 24/7
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+              <div className="space-y-6">
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-gradient-to-r from-[#9b6bff]/30 to-transparent px-4 py-2 text-xs font-semibold uppercase tracking-[0.35em] text-[#4fd1ff] font-en">
+                  ✦ MeeWarp HYPERLIVE ✦
                 </div>
+                <h1 className="text-4xl font-black leading-[1.02] text-white sm:text-5xl">
+                  ปลุกบรรยากาศทั้งร้านใน 15 นาที —
+                  <span className="ml-2 inline-block rounded-full bg-gradient-to-r from-[#f472b6] via-[#9b6bff] to-[#4fd1ff] px-3 py-1 text-base font-semibold text-black">
+                    ขอเพลง / ขึ้นจอ / ฉลองโต๊ะ
+                  </span>
+                </h1>
+                <p className="text-lg text-slate-200">
+                  แพลตฟอร์ม Engagement สำหรับผับ/บาร์: ขอเพลง+ทิปดีเจ, ข้อความขึ้นจอ, Photo Booth, โต๊ะแข่งขัน — ติดตั้งง่าย ใช้ได้คืนนี้
+                </p>
+              </div>
 
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                  {stats.map((stat) => (
-                    <div key={stat.label} className="p-4 text-center rounded-xl border border-white/10 bg-slate-900/70">
-                      <div className="text-2xl">{stat.icon}</div>
-                      <div className="text-lg font-semibold text-cyan-300 sm:text-xl">{stat.number}</div>
-                      <div className="text-xs text-slate-400 sm:text-sm">{stat.label}</div>
-                    </div>
+              <div className="flex flex-wrap gap-4">
+                <a
+                  href={lineUrl}
+                  onClick={() => handleLineCta('hero-primary')}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group inline-flex min-w-[200px] items-center justify-center rounded-[20px] bg-gradient-to-r from-[#fb7185] via-[#9b6bff] to-[#4fd1ff] px-6 py-4 text-base font-semibold text-black shadow-[0_18px_60px_rgba(155,107,255,0.45)] transition hover:translate-y-0.5"
+                >
+                  นัดเดโม 15 นาที (LINE)
+                  <span className="ml-2 text-xl group-hover:translate-x-1 transition">↗</span>
+                </a>
+                <a
+                  href={liveDemoAnchor}
+                  className="inline-flex min-w-[180px] items-center justify-center rounded-[20px] border border-white/20 px-6 py-4 text-base font-semibold text-white transition hover:border-[#4fd1ff] hover:bg-white/5"
+                >
+                  ลองเดโมสดตอนนี้
+                </a>
+              </div>
+
+              <div className="glow-panel rounded-[26px] border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-6 backdrop-blur">
+                <p className="text-sm font-semibold text-[#4fd1ff]">MeeWarp ทำให้ ‘ความคึก’ กลายเป็นยอดซื้อ</p>
+                <p className="mt-2 text-sm text-slate-300">
+                  ลูกค้าส่งโมเมนต์ขึ้นจอแบบเรียลไทม์ พนักงานไม่ต้องวิ่งทั้งคืน และทุกคำขอบนจอกลายเป็นคอนเทนต์ของร้านคุณ
+                </p>
+                <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-400">
+                  {heroSparkles.map((item) => (
+                    <span key={item.label} className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1">
+                      {item.icon}
+                      {item.label}
+                    </span>
                   ))}
                 </div>
               </div>
 
-              <div className="relative">
-                <div className="absolute -inset-x-4 inset-y-6 bg-gradient-to-br rounded-3xl blur-2xl from-cyan-500/20 via-blue-500/10 to-purple-500/20" />
-                <div className="overflow-hidden relative p-8 rounded-3xl border shadow-2xl border-white/10 bg-slate-900/80">
-                  <div className="flex gap-4 items-start">
-                    <div className="flex justify-center items-center w-14 h-14 text-3xl bg-gradient-to-br from-cyan-500 to-blue-500 rounded-2xl">
-                      {icon}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-cyan-300">ฟีเจอร์ไฮไลต์</p>
-                      <h2 className="mt-1 text-2xl font-bold">{title}</h2>
-                      <p className="text-sm text-slate-400">{subtitle}</p>
-                    </div>
-                  </div>
-
-                  <p className="mt-6 text-sm text-slate-300 sm:text-base">{description}</p>
-
-                  <ul className="mt-6 space-y-3">
-                    {benefits.map((item) => (
-                      <li key={item} className="flex gap-3 items-center text-sm text-slate-200">
-                        <span className="flex justify-center items-center w-8 h-8 text-lg bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full">
-                          ✓
-                        </span>
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-
-                  <div className="flex justify-between items-center px-6 py-4 mt-8 rounded-2xl border border-white/10 bg-slate-900/80">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-200">อัปเดตทุก 6 วินาที</p>
-                      <p className="text-xs text-slate-400">หมุนไฮไลต์โดยอัตโนมัติ หรือเลือกด้วยตัวเอง</p>
-                    </div>
-                    <div className="flex gap-2">
-                      {featureHighlights.map((feature, index) => (
-                        <button
-                          key={feature.title}
-                          type="button"
-                          className={`h-2.5 w-8 rounded-full transition-all ${
-                            index === activeFeature ? 'bg-cyan-400' : 'bg-white/15 hover:bg-white/30'
-                          }`}
-                          onClick={() => handleSelectFeature(index)}
-                          aria-label={`เลือกฟีเจอร์ ${index + 1}`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="py-10">
-          <div className="px-4 mx-auto max-w-6xl sm:px-6 lg:px-8">
-            <div className="text-center">
-              <p className="text-sm font-medium tracking-wide uppercase text-slate-400">
-                ร้านค้าและธุรกิจที่ไว้วางใจ MEEWARP
-              </p>
-              <div className="grid grid-cols-2 gap-6 mt-8 sm:grid-cols-3 lg:grid-cols-6">
-                {clientLogos.map((client) => (
-                  <div
-                    key={client.name}
-                    className="p-5 text-center rounded-2xl border border-white/10 bg-slate-900/70 text-slate-300"
-                  >
-                    <div className="text-lg font-semibold">{client.name}</div>
-                    <p className="mt-1 text-xs text-slate-500">{client.type}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section id="features" className="py-20 bg-slate-900/60">
-          <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
-            <div className="text-center">
-              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-                เหตุผลที่ธุรกิจไทยเลือก MEEWARP
-              </h2>
-              <p className="mt-4 text-base text-slate-300 sm:text-lg">
-                ทุกฟีเจอร์ถูกออกแบบมาเพื่อทำให้การออกอากาศและการขายของคุณเป็นเรื่องง่าย
-              </p>
-            </div>
-
-            <div className="mt-14 grid gap-10 lg:grid-cols-[minmax(0,0.45fr)_minmax(0,1fr)] lg:gap-16">
               <div className="space-y-4">
-                {featureHighlights.map((feature, index) => (
-                  <button
-                    key={feature.title}
-                    type="button"
-                    className={`w-full rounded-2xl border px-5 py-4 text-left transition-all ${
-                      index === activeFeature
-                        ? 'border-cyan-400 bg-cyan-500/10'
-                        : 'border-white/10 bg-slate-900/60 hover:border-cyan-400/60'
-                    }`}
-                    onClick={() => handleSelectFeature(index)}
-                  >
-                    <div className="flex gap-4 items-start">
-                      <span className="text-2xl">{feature.icon}</span>
-                      <div>
-                        <h3 className="text-lg font-semibold text-white">{feature.title}</h3>
-                        <p className="mt-1 text-sm text-slate-400">{feature.subtitle}</p>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-
-              <div className="overflow-hidden relative p-8 rounded-3xl border border-white/10 bg-slate-950/70">
-                <div className={`absolute top-16 -right-20 w-56 h-56 bg-gradient-to-br rounded-full opacity-20 blur-3xl ${accent}`} />
-                <div className="relative">
-                  <h3 className="text-2xl font-bold text-white">{title}</h3>
-                  <p className="mt-3 text-base text-slate-300">{description}</p>
-
-                  <div className="grid gap-4 mt-6 sm:grid-cols-2">
-                    {benefits.map((benefit) => (
-                      <div
-                        key={benefit}
-                        className="flex gap-3 items-center px-4 py-3 text-sm rounded-2xl border border-white/10 bg-slate-900/60 text-slate-200"
-                      >
-                        <span className="flex justify-center items-center w-9 h-9 text-lg bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full">
-                          ✓
-                        </span>
-                        {benefit}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="p-6 mt-8 rounded-2xl border border-white/10 bg-slate-900/70">
-                    <p className="text-sm font-semibold text-cyan-300">เหมาะสำหรับ</p>
-                    <p className="mt-2 text-sm text-slate-300">
-                      สตูดิโอไลฟ์ ทีมขายออนไลน์ และธุรกิจที่ต้องการความเสถียรในการออกอากาศแบบเรียลไทม์
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="py-20">
-          <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
-            <div className="text-center">
-              <h2 className="text-3xl font-bold sm:text-4xl">
-                เรื่องราวความสำเร็จจากลูกค้าจริง
-              </h2>
-              <p className="mt-4 text-base text-slate-300 sm:text-lg">
-                ธุรกิจไทยเติบโตอย่างต่อเนื่องด้วยระบบวาร์ป MEEWARP
-              </p>
-            </div>
-
-            <div className="grid gap-8 mt-12 lg:grid-cols-3">
-              {caseStudies.map((item) => (
-                <div
-                  key={item.business}
-                  className="p-6 rounded-2xl border transition-transform border-white/10 bg-slate-900/60 hover:-translate-y-1 hover:border-cyan-400"
-                >
-                  <div className="flex gap-4 items-center">
-                    <div className="flex justify-center items-center w-12 h-12 text-2xl bg-gradient-to-br from-cyan-500 to-blue-500 rounded-2xl">
-                      {item.icon}
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-white">{item.business}</h3>
-                      <p className="text-sm text-cyan-300">{item.type}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 text-4xl font-black text-cyan-300">{item.metric}</div>
-                  <div className="text-sm font-semibold text-emerald-400">{item.metricLabel}</div>
-                  <p className="mt-4 text-sm text-slate-300">{item.story}</p>
-
-                  <p className="mt-6 text-xs text-slate-500">ใช้งาน MEEWARP ต่อเนื่อง 6+ เดือน</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="how-it-works" className="py-20 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
-          <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
-            <div className="text-center">
-              <h2 className="text-3xl font-bold sm:text-4xl">เริ่มต้นได้ใน 3 ขั้นตอน</h2>
-              <p className="mt-3 text-base text-slate-300 sm:text-lg">ง่าย เร็ว และมีประสิทธิภาพ</p>
-            </div>
-
-            <div className="grid gap-6 mt-12 sm:grid-cols-2 lg:grid-cols-3">
-              {steps.map((step) => (
-                <div
-                  key={step.step}
-                  className="p-6 rounded-2xl border transition-shadow border-white/10 bg-slate-900/60 hover:border-cyan-400 hover:shadow-lg hover:shadow-cyan-500/20"
-                >
-                  <div className="flex justify-between items-center">
-                    <span className="text-3xl font-black text-cyan-300">{step.step}</span>
-                    <span className="text-2xl">{step.icon}</span>
-                  </div>
-                  <h3 className="mt-4 text-lg font-semibold text-white">{step.title}</h3>
-                  <p className="mt-2 text-sm text-slate-300">{step.description}</p>
-                  <p className="mt-4 text-xs font-semibold text-emerald-400">พร้อมใช้งานใน {step.time}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="py-20">
-          <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
-            <div className="flex flex-col gap-4 items-center text-center">
-              <span className="px-4 py-1 text-sm font-semibold text-cyan-300 rounded-full border border-cyan-500/30 bg-cyan-500/10 font-en">
-                Testimonials
-              </span>
-              <h2 className="text-3xl font-bold sm:text-4xl">ทำไมธุรกิจกว่า 500+ แบรนด์เลือก MEEWARP</h2>
-            </div>
-
-            <div className="grid gap-8 mt-12 md:grid-cols-3">
-              {testimonials.map((item) => (
-                <div key={item.author} className="p-6 rounded-2xl border border-white/10 bg-slate-900/60">
-                  <div className="flex gap-3 items-center">
-                    <span className="text-3xl">{item.avatar}</span>
-                    <div>
-                      <p className="font-semibold text-white">{item.author}</p>
-                      <p className="text-sm text-slate-400">{item.role}</p>
-                    </div>
-                  </div>
-                  <p className="mt-4 text-sm italic text-slate-300">“{item.text}”</p>
-                  <div className="flex gap-1 mt-4 text-yellow-400">
-                    {[...Array(5)].map((_, index) => (
-                      <span key={index}>⭐</span>
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-400">ใช้จริงโดย</p>
+                <div className="rounded-[20px] border border-white/10 bg-black/30 p-4">
+                  <div className="flex gap-3">
+                    {trustLogos.map((logo) => (
+                      <span key={logo} className="inline-flex items-center gap-2 rounded-full border border-white/5 bg-white/5 px-3 py-2 text-sm text-slate-200">
+                        <span className="h-1.5 w-1.5 rounded-full bg-white/60" />
+                        {logo}
+                      </span>
                     ))}
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="pricing" className="py-20 bg-slate-900/60">
-          <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
-            <div className="text-center">
-              <h2 className="text-3xl font-bold sm:text-4xl">แพ็กเกจที่โปร่งใสและยืดหยุ่น</h2>
-              <p className="mt-4 text-base text-slate-300 sm:text-lg">
-                <span className="font-semibold text-emerald-400">ไม่มีค่าตั้งต้น ไม่มีค่ารายเดือน</span> คิดเปอร์เซ็นต์ตามยอดขายจริงเท่านั้น ยิ่งขายได้มาก ยิ่งคุ้มค่า
-              </p>
-              <div className="inline-flex gap-2 items-center px-6 py-2 mt-6 text-sm font-semibold text-emerald-300 rounded-full border border-emerald-500/30 bg-emerald-500/10">
-                <span className="w-2 h-2 bg-emerald-400 rounded-full" />
-                💰 ขายได้เท่าไหร่ จ่ายเท่านั้น - ไม่ขาย ไม่เสียเงิน
               </div>
             </div>
 
-            <div className="grid gap-6 mt-12 lg:grid-cols-3">
-              {plans.map((plan) => (
-                <div
-                  key={plan.name}
-                  className={`relative rounded-3xl border p-6 transition-transform hover:-translate-y-1 ${
-                    plan.popular
-                      ? 'border-cyan-400 bg-slate-950/80 shadow-xl shadow-cyan-500/20'
-                      : 'border-white/10 bg-slate-900/60'
-                  }`}
-                >
-                  {plan.popular && (
-                    <div className="absolute -top-4 left-1/2 px-5 py-1 text-sm font-semibold bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full -translate-x-1/2">
-                      ⭐ {plan.highlight}
-                    </div>
-                  )}
-
-                  {plan.savings && (
-                    <div className="absolute -top-2 -right-2 px-3 py-1 text-xs font-semibold bg-gradient-to-r from-red-500 to-orange-500 rounded-full">
-                      ประหยัด {plan.savings}
-                    </div>
-                  )}
-
-                  <div className="text-center">
-                    <h3 className="text-xl font-bold text-white">{plan.name}</h3>
-                    <p className="mt-1 text-sm text-slate-400">{plan.subtitle}</p>
-                    <div className="flex gap-2 justify-center items-center mt-4">
-                      <span className="text-3xl font-black text-cyan-300">{plan.price}</span>
-                    </div>
-                    <p className="text-sm text-slate-400">{plan.period}</p>
-                    {plan.savings && (
-                      <p className="mt-1 text-xs text-emerald-400">{plan.savings}</p>
-                    )}
-                    <p className="mt-4 text-sm text-slate-300">{plan.description}</p>
-                  </div>
-
-                  <ul className="mt-6 space-y-3 text-sm text-slate-200">
-                    {plan.features.map((feature) => (
-                      <li key={feature} className="flex gap-3 items-start">
-                        <span className="mt-0.5 text-emerald-400">✓</span>
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
-
-                  <Link
-                    to={selfWarpLink}
-                    className={`mt-8 block rounded-xl py-3 text-center text-sm font-semibold transition-all ${
-                      plan.popular
-                        ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:from-cyan-400 hover:to-blue-500'
-                        : 'bg-slate-800 text-white hover:bg-slate-700'
-                    }`}
-                  >
-                    {plan.cta}
-                  </Link>
-
-                  <p className="mt-4 text-xs text-slate-500">⚡ เริ่มใช้งานภายใน 5 นาที</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="py-20">
-          <div className="px-4 mx-auto max-w-4xl sm:px-6 lg:px-8">
-            <div className="text-center">
-              <h2 className="text-3xl font-bold sm:text-4xl">คำถามที่พบบ่อย</h2>
-              <p className="mt-4 text-base text-slate-300 sm:text-lg">
-                ข้อมูลที่คุณต้องการทราบเกี่ยวกับ MEEWARP
-              </p>
-            </div>
-
-            <div className="mt-12 space-y-6">
-              {faqData.map((faq, index) => (
-                <div
-                  key={index}
-                  className="p-6 rounded-2xl border transition-colors border-white/10 bg-slate-900/60 hover:border-cyan-400/60"
-                >
-                  <h3 className="text-lg font-semibold text-white">{faq.question}</h3>
-                  <p className="mt-3 text-sm leading-relaxed text-slate-300">{faq.answer}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="p-8 mt-12 text-center rounded-2xl border border-cyan-400/30 bg-slate-900/80">
-              <h3 className="text-xl font-bold text-white">ยังมีคำถามอื่นๆ?</h3>
-              <p className="mt-2 text-sm text-slate-300">
-                ทีมงานพร้อมตอบคำถามและให้คำปรึกษาฟรี
-              </p>
-              <div className="flex flex-col gap-4 items-center mt-6 sm:flex-row sm:justify-center">
-                <a
-                  href={`mailto:${contactInfo.support}`}
-                  className="inline-flex gap-2 items-center px-6 py-3 font-semibold text-white bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg transition-all hover:from-cyan-400 hover:to-blue-500"
-                >
-                  📧 ส่งอีเมล
-                </a>
-                <a
-                  href={`https://line.me/R/ti/p/${contactInfo.line}`}
-                  className="inline-flex gap-2 items-center px-6 py-3 font-semibold rounded-lg border transition-colors border-white/20 text-slate-100 hover:border-cyan-400"
-                >
-                  💬 แชท Line
-                </a>
-                <a
-                  href={`tel:${contactInfo.phone}`}
-                  className="inline-flex gap-2 items-center px-6 py-3 font-semibold rounded-lg border transition-colors border-white/20 text-slate-100 hover:border-cyan-400"
-                >
-                  📞 โทรสอบถาม
-                </a>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="py-20 bg-slate-900/60">
-          <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
-            <div className="grid gap-12 lg:grid-cols-2">
-              <div>
-                <h2 className="text-3xl font-bold text-white">ติดต่อเรา</h2>
-                <p className="mt-4 text-base text-slate-300">
-                  ทีมงาน MEEWARP พร้อมให้บริการและสนับสนุนคุณในทุกขั้นตอน
-                </p>
-
-                <div className="mt-8 space-y-6">
-                  <div className="flex gap-4 items-start">
-                    <div className="flex justify-center items-center w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-2xl">
-                      📧
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-white">อีเมล</h3>
-                      <p className="text-sm text-slate-300">สำหรับข้อสงสัยทั่วไป</p>
-                      <a
-                        href={`mailto:${contactInfo.email}`}
-                        className="text-sm text-cyan-400 hover:text-cyan-300"
-                      >
-                        {contactInfo.email}
-                      </a>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4 items-start">
-                    <div className="flex justify-center items-center w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl">
-                      🛠️
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-white">ซัพพอร์ต</h3>
-                      <p className="text-sm text-slate-300">ช่วยเหลือด้านเทคนิค 24/7</p>
-                      <a
-                        href={`mailto:${contactInfo.support}`}
-                        className="text-sm text-cyan-400 hover:text-cyan-300"
-                      >
-                        {contactInfo.support}
-                      </a>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4 items-start">
-                    <div className="flex justify-center items-center w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl">
-                      💬
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-white">Line Official</h3>
-                      <p className="text-sm text-slate-300">แชทสดกับทีมงาน</p>
-                      <a
-                        href={`https://line.me/R/ti/p/${contactInfo.line}`}
-                        className="text-sm text-cyan-400 hover:text-cyan-300"
-                      >
-                        {contactInfo.line}
-                      </a>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4 items-start">
-                    <div className="flex justify-center items-center w-12 h-12 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl">
-                      📞
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-white">โทรศัพท์</h3>
-                      <p className="text-sm text-slate-300">จันทร์-ศุกร์ 9:00-18:00</p>
-                      <a
-                        href={`tel:${contactInfo.phone}`}
-                        className="text-sm text-cyan-400 hover:text-cyan-300"
-                      >
-                        {contactInfo.phone}
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-8 rounded-2xl border border-white/10 bg-slate-950/70">
-                <h3 className="text-xl font-bold text-white">บริษัท MEEWARP</h3>
-                <div className="mt-6 space-y-4 text-sm text-slate-300">
+            <div className="relative" id="live-demo">
+              <div className="pointer-events-none absolute -inset-4 -z-10 rounded-[36px] bg-gradient-to-r from-[#9b6bff]/40 to-[#4fd1ff]/40 blur-3xl opacity-70" />
+              <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-b from-[#151515]/90 to-[#050505]/95 p-6 shadow-[0_35px_140px_rgba(0,0,0,0.75)]">
+                <div className="absolute inset-0 opacity-30"
+                  style={{
+                    backgroundImage:
+                      'radial-gradient(circle at 20% 20%, rgba(79,209,255,0.3), transparent 55%), radial-gradient(circle at 80% 0%, rgba(244,114,182,0.25), transparent 50%)'
+                  }}
+                />
+                <div className="relative mb-6 flex items-center justify-between">
                   <div>
-                    <p className="font-semibold text-white">ที่อยู่สำนักงาน</p>
-                    <p className="mt-1">{contactInfo.address}</p>
+                    <p className="text-sm text-slate-400 font-en">Live Demo / Simulator</p>
+                    <p className="text-base font-semibold text-white">กล่องจำลองหน้าจอร้าน</p>
                   </div>
-
-                  <div>
-                    <p className="font-semibold text-white">เวลาทำการ</p>
-                    <p className="mt-1">จันทร์ - ศุกร์: 9:00 - 18:00 น.</p>
-                    <p>เสาร์ - อาทิตย์: ซัพพอร์ตออนไลน์เท่านั้น</p>
-                  </div>
-
-                  <div>
-                    <p className="font-semibold text-white">การรับประกัน</p>
-                    <p className="mt-1">✅ Uptime 99.9%</p>
-                    <p>✅ ตอบกลับภายใน 30 นาที</p>
-                    <p>✅ ยกเลิกได้ทันที หากไม่พอใจใน 30 วันแรก</p>
-                  </div>
-
-                  <div className="p-4 rounded-xl border border-cyan-400/30 bg-cyan-500/10">
-                    <p className="font-semibold text-cyan-300">🎯 มีคำถามเฉพาะธุรกิจ?</p>
-                    <p className="mt-1 text-xs">
-                      นัดหมายปรึกษากับทีม Business Consultant ฟรี
-                    </p>
-                    <Link
-                      to={selfWarpLink}
-                      className="inline-block px-4 py-2 mt-3 text-xs font-semibold text-white bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg transition-all hover:from-cyan-400 hover:to-blue-500"
+                  <span className="rounded-full border border-white/15 px-3 py-1 text-xs text-slate-300 font-en">Realtime</span>
+                </div>
+                <div className="relative space-y-3">
+                  {demoMessages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-r px-4 py-3 text-sm shadow transition ${toneClasses[message.tone]}`}
                     >
-                      นัดหมายเลย
-                    </Link>
-                  </div>
+                      <div className="text-xs uppercase tracking-[0.2em] text-white/70">{message.author}</div>
+                      <p className="mt-1 text-base font-semibold">{message.text}</p>
+                      <span className="pointer-events-none absolute -right-2 -top-2 h-16 w-16 rotate-45 rounded-full border border-white/20 opacity-30" />
+                    </div>
+                  ))}
                 </div>
+                <div className="mt-6 flex items-end gap-3">
+                  <div className="hidden h-20 flex-1 items-end gap-1 text-white/30 sm:flex">
+                    {eqBars.map((bar) => (
+                      <span
+                        key={bar}
+                        className="eq-bar w-2 rounded-full bg-gradient-to-t from-white/10 to-[#9b6bff]"
+                        style={{
+                          height: `${28 + (bar % 3) * 14}px`,
+                          animation: `eqPulse ${1.2 + bar * 0.08}s ease-in-out infinite`,
+                          transformOrigin: 'bottom'
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <form onSubmit={handleDemoSubmit} className="flex flex-1 flex-col gap-3 sm:flex-none sm:flex-row">
+                    <input
+                      type="text"
+                      value={demoInput}
+                      onChange={(event) => setDemoInput(event.target.value)}
+                      placeholder="ลองส่ง Shoutout หรือขอเพลง..."
+                      className="flex-1 rounded-[14px] border border-white/10 bg-black/60 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-[#9b6bff] focus:outline-none"
+                    />
+                    <button
+                      type="submit"
+                      className="rounded-[14px] bg-gradient-to-r from-[#9b6bff] to-[#4fd1ff] px-5 py-3 text-sm font-semibold text-black shadow-lg shadow-[#9b6bff]/30"
+                    >
+                      ขึ้นจอ
+                    </button>
+                  </form>
+                </div>
+                <p className="mt-3 text-xs text-slate-500">ปุ่มนี้จำลองกับหน้าจอจริงได้ทันที — track event: demo_simulator_sent</p>
               </div>
             </div>
           </div>
-        </section>
+        </header>
 
-        <section className="overflow-hidden relative py-24">
-          <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-purple-500/10 to-pink-500/10" />
-          <div className="relative px-6 mx-auto max-w-4xl text-center">
-            <h2 className="text-4xl font-bold sm:text-5xl">
-              พร้อมที่จะ <span className="text-cyan-300">เปลี่ยนแปลง</span> ธุรกิจของคุณหรือยัง?
-            </h2>
-            <p className="mt-4 text-base text-slate-200 sm:text-lg">
-              เริ่มต้นฟรี 30 วัน ไม่มีค่าธรรมเนียมการติดตั้ง และยกเลิกได้ทุกเมื่อ
-            </p>
-
-            <div className="flex flex-col gap-4 justify-center items-center mt-10 sm:flex-row">
-              <Link
-                to={selfWarpLink}
-                className="px-10 py-4 text-lg font-semibold bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full transition-all hover:from-cyan-400 hover:to-blue-500"
-              >
-                🚀 เริ่มใช้งานฟรีเลย
-              </Link>
-              <a
-                href="mailto:hello@MEEWARP.com"
-                className="px-8 py-4 text-lg font-semibold rounded-full border transition-colors border-white/20 text-slate-100 hover:border-cyan-400"
-              >
-                📞 นัดปรึกษากับทีม
-              </a>
-            </div>
-
-            <div className="flex flex-wrap gap-6 justify-center items-center mt-8 text-xs text-slate-300 sm:text-sm">
-              <div className="flex gap-2 items-center">
-                <span className="w-2 h-2 bg-green-400 rounded-full" />
-                Setup ใน 15 นาที
-              </div>
-              <div className="flex gap-2 items-center">
-                <span className="w-2 h-2 bg-blue-400 rounded-full" />
-                Support 24/7
-              </div>
-              <div className="flex gap-2 items-center">
-                <span className="w-2 h-2 bg-purple-400 rounded-full" />
-                ไม่มีสัญญาผูกมัด
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      <footer className="py-12 border-t border-white/10 bg-slate-950/90">
-        <div className="px-6 mx-auto max-w-7xl">
-          <div className="grid gap-10 md:grid-cols-4">
-            <div className="md:col-span-2">
-              <Link to={homeLink} className="flex items-center">
-                <img src="/logo_meewarp.png" alt="MEEWARP" className="h-8" />
-              </Link>
-              <p className="mt-4 max-w-md text-sm text-slate-400">
-                แพลตฟอร์มจัดการคิว Warp แบบเรียลไทม์ที่ทำให้ธุรกิจของคุณเติบโตอย่างยั่งยืน พร้อมระบบที่เสถียรและใช้งานง่าย
-              </p>
-              <div className="flex gap-4 mt-4 text-sm text-slate-400">
-                <a href="#" className="transition-colors hover:text-cyan-400">
-                  Facebook
-                </a>
-                <a href="#" className="transition-colors hover:text-cyan-400">
-                  Twitter
-                </a>
-                <a href="#" className="transition-colors hover:text-cyan-400">
-                  Instagram
-                </a>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="text-sm font-semibold text-white">Product</h4>
-              <ul className="mt-4 space-y-2 text-sm text-slate-400">
-                <li>
-                  <a href="#features" className="transition-colors hover:text-cyan-400">
-                    Features
-                  </a>
-                </li>
-                <li>
-                  <a href="#pricing" className="transition-colors hover:text-cyan-400">
-                    Pricing
-                  </a>
-                </li>
-                <li>
-                  <Link to={tvLink} className="transition-colors hover:text-cyan-400">
-                    TV Demo
-                  </Link>
-                </li>
-                <li>
-                  <Link to={selfWarpLink} className="transition-colors hover:text-cyan-400">
-                    Try Free
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-sm font-semibold text-white">Support</h4>
-              <ul className="mt-4 space-y-2 text-sm text-slate-400">
-                <li>
-                  <a href="mailto:hello@MEEWARP.com" className="transition-colors hover:text-cyan-400">
-                    Contact Us
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="transition-colors hover:text-cyan-400">
-                    Documentation
-                  </a>
-                </li>
-                <li>
-                  <Link to="/admin/login" className="transition-colors hover:text-cyan-400">
-                    Admin Login
-                  </Link>
-                </li>
-                <li>
-                  <a href="#" className="transition-colors hover:text-cyan-400">
-                    Status Page
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-4 justify-between items-center pt-8 mt-12 text-sm border-t border-white/10 text-slate-500 md:flex-row">
-            <span>© {new Date().getFullYear()} MEEWARP. All rights reserved.</span>
-            <div className="flex gap-6">
-              <a href="#" className="transition-colors hover:text-cyan-400">
-                Privacy Policy
-              </a>
-              <a href="#" className="transition-colors hover:text-cyan-400">
-                Terms of Service
-              </a>
+        <div className="mt-14">
+          <div className="relative overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-r from-[#4fd1ff]/20 via-transparent to-[#9b6bff]/20 px-6 py-3 shimmer-card">
+            <div className="neon-ticker flex gap-8 text-sm font-semibold uppercase tracking-[0.35em] text-white/70">
+              {duplicatedTicker.map((item, index) => (
+                <span key={`${item.text}-${index}`} className="flex items-center gap-2 text-xs text-slate-100">
+                  {item.icon}
+                  {item.text}
+                </span>
+              ))}
             </div>
           </div>
         </div>
-      </footer>
 
-      <div className="fixed right-6 bottom-6 z-50">
-        <Link
-          to={selfWarpLink}
-          className="flex gap-3 items-center px-6 py-4 font-semibold text-white bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full shadow-xl transition-transform shadow-cyan-500/30 hover:-translate-y-1 hover:shadow-cyan-500/50"
-        >
-          <span className="text-xl">🎯</span>
-          <span className="hidden sm:inline">ลองใช้ฟรี</span>
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-          </svg>
-        </Link>
+        <main className="mt-24 space-y-24">
+          <section id="pain" className="relative grid gap-8 rounded-[28px] border border-white/10 bg-white/5 p-8 backdrop-blur lg:grid-cols-[1fr_0.9fr]">
+            <div className="absolute inset-0 -z-10 rounded-[28px] bg-gradient-to-r from-transparent via-[#9b6bff]/15 to-transparent blur-3xl" />
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-[#4fd1ff]">Pain → Promise</p>
+              <h2 className="mt-3 text-3xl font-bold">ปัญหาที่ร้านเจอทุกคืน</h2>
+              <div className="mt-8 space-y-5">
+                {painPoints.map((pain) => (
+                  <div key={pain.title} className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-5">
+                    <div className="absolute inset-0 opacity-30"
+                      style={{
+                        backgroundImage: 'linear-gradient(120deg, rgba(255,255,255,0.04) 1px, transparent 1px)',
+                        backgroundSize: '40px 40px'
+                      }}
+                    />
+                    <p className="relative text-base font-semibold text-white">{pain.title}</p>
+                    <p className="relative mt-1 text-sm text-slate-400">{pain.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="relative glow-panel rounded-[24px] border border-[#9b6bff]/40 bg-gradient-to-b from-[#1a1a1a] to-[#050505] p-8 shadow-[0_30px_80px_rgba(155,107,255,0.25)]">
+              <div className="absolute -right-6 top-10 h-32 w-32 rounded-full bg-[#9b6bff]/30 blur-3xl" />
+              <p className="text-xs font-semibold uppercase tracking-[0.4em] text-[#9b6bff]">Promise</p>
+              <p className="mt-4 text-2xl font-bold leading-snug text-white">
+                MeeWarp ทำให้ ‘ความคึก’ กลายเป็นยอดซื้อ และกลายเป็นคอนเทนต์ของร้านคุณ
+              </p>
+              <p className="mt-4 text-sm text-slate-300">
+                ทุกโต๊ะมีช่องให้ขึ้นจอเอง สั่งเอฟเฟกต์ และทิปดีเจแบบเรียลไทม์ ร้านได้ข้อมูลและยอดขายเพิ่มในคืนเดียว
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3 text-xs text-slate-400">
+                <span className="rounded-full border border-white/10 px-3 py-1">Auto Approve</span>
+                <span className="rounded-full border border-white/10 px-3 py-1">เชื่อม PromptPay</span>
+                <span className="rounded-full border border-white/10 px-3 py-1">สถิติเรียลไทม์</span>
+              </div>
+              <a
+                href={lineUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => handleLineCta('pain-section')}
+                className="mt-8 inline-flex w-full items-center justify-center rounded-[16px] bg-gradient-to-r from-[#9b6bff] to-[#4fd1ff] px-6 py-3 text-base font-semibold text-black"
+              >
+                นัดเดโม 15 นาที (LINE)
+              </a>
+            </div>
+          </section>
+
+          <section id="features" className="space-y-8">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-[#4fd1ff] font-en">Value Features</p>
+                <h2 className="mt-3 text-3xl font-bold text-white">ฟีเจอร์เพื่อธุรกิจ (ไม่ขายเทคนิค)</h2>
+                <p className="text-sm text-slate-400">ทุกปุ่มคือรายได้ใหม่ของร้าน — ไม่ต้องลงทุนฮาร์ดแวร์เพิ่ม</p>
+              </div>
+              <a
+                href={lineUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => handleLineCta('features-ribbon')}
+                className="inline-flex items-center justify-center rounded-[14px] border border-white/15 px-5 py-3 text-sm font-semibold text-white"
+              >
+                นัดเดโม / ดูวิดีโอ 90 วิ
+              </a>
+            </div>
+            <div className="grid gap-6 lg:grid-cols-3">
+              {valueFeatures.map((feature, index) => (
+                <div key={feature.title} className="group shimmer-card relative overflow-hidden rounded-[22px] border border-white/10 bg-white/5 p-6 backdrop-blur">
+                  <div
+                    className="pointer-events-none absolute inset-0 opacity-0 transition group-hover:opacity-100"
+                    style={{
+                      backgroundImage: `linear-gradient(135deg, rgba(255,255,255,0.12), transparent), radial-gradient(circle at ${20 + (index % 3) * 30}% 0%, rgba(155,107,255,0.35), transparent)`
+                    }}
+                  />
+                  <div className="relative mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-black/40 text-white">
+                    {featureIcon(feature.icon)}
+                  </div>
+                  <h3 className="relative text-xl font-semibold text-white">{feature.title}</h3>
+                  <p className="relative mt-2 text-sm text-slate-300">{feature.summary}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-[28px] border border-white/10 bg-gradient-to-br from-white/5 to-black/40 p-8">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-[#4fd1ff]">ผลลัพธ์เป็นตัวเลข</p>
+                <h2 className="mt-3 text-3xl font-bold">พิสูจน์แล้วในพิลอต 3 สถานที่ (2025)</h2>
+                <p className="text-sm text-slate-400">ทุกตัวเลขมาจากคืนจริง — ไม่ใช่เดโมในห้องประชุม</p>
+              </div>
+              <a
+                href={lineUrl}
+                onClick={() => handleLineCta('roi-strip')}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center rounded-[14px] bg-gradient-to-r from-[#9b6bff] to-[#4fd1ff] px-6 py-3 text-sm font-semibold text-black"
+              >
+                ขอรีพอร์ตเต็ม
+              </a>
+            </div>
+            <div className="mt-8 grid gap-4 sm:grid-cols-3">
+              {roiMetrics.map((metric) => (
+                <div key={metric.label} className="shimmer-card relative overflow-hidden rounded-[20px] border border-white/10 bg-black/30 p-6">
+                  <div className="absolute inset-0 opacity-40"
+                    style={{
+                      backgroundImage: 'linear-gradient(135deg, rgba(79,209,255,0.15), transparent)'
+                    }}
+                  />
+                  <p className="relative text-3xl font-black text-white">{metric.value}</p>
+                  <p className="relative mt-1 text-sm text-slate-300">{metric.label}</p>
+                  <p className="relative mt-2 text-xs text-slate-500">{metric.detail}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-xs text-slate-500">*ข้อมูลจากพิลอต 3 สถานที่ (Q1/2025)</p>
+          </section>
+
+          <section className="relative glow-panel rounded-[28px] border border-white/10 bg-white/5 p-8" id="how">
+            <div className="pointer-events-none absolute inset-0 -z-10">
+              <span className="sparkle-star" style={{ top: '12%', left: '8%', fontSize: 10, animationDelay: '0.4s' }}>✷</span>
+              <span className="sparkle-star" style={{ bottom: '10%', right: '12%', fontSize: 13, animationDelay: '1.6s' }}>✦</span>
+            </div>
+            <p className="text-xs uppercase tracking-[0.3em] text-[#4fd1ff] font-en">How it works</p>
+            <h2 className="mt-3 text-3xl font-bold">3 ขั้นตอน เริ่มคืนนี้</h2>
+            <div className="mt-8 grid gap-6 md:grid-cols-3">
+              {howItWorksSteps.map((step, index) => (
+                <div key={step.step} className="relative rounded-[20px] border border-white/10 bg-black/40 p-6">
+                  {index < howItWorksSteps.length - 1 && (
+                    <span className="absolute right-0 top-1/2 hidden h-px w-24 translate-x-1/2 bg-gradient-to-r from-transparent via-white/30 to-transparent md:block" />
+                  )}
+                  <span className="text-sm font-semibold text-slate-400">ขั้นตอน {step.step}</span>
+                  <h3 className="mt-2 text-xl font-semibold text-white">{step.title}</h3>
+                  <p className="mt-2 text-sm text-slate-400">{step.detail}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section id="pricing" className="space-y-8">
+            <div className="flex flex-col gap-4 text-center">
+              <p className="text-xs uppercase tracking-[0.3em] text-[#4fd1ff] font-en">Pricing</p>
+              <h2 className="text-3xl font-bold text-white">เริ่มใช้งานฟรี — อัปเกรดเมื่อพร้อม</h2>
+              <p className="text-sm text-slate-400">ปุ่ม Quote จะเปิด LINE ให้ปิดดีลทันที</p>
+            </div>
+            <div className="grid gap-6 lg:grid-cols-4">
+              {pricingPlans.map((plan) => (
+                <div key={plan.tier} className={`shimmer-card relative overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-br ${plan.accent} p-6 shadow-[0_25px_90px_rgba(0,0,0,0.55)]`}>
+                  <div className="absolute inset-0 opacity-35"
+                    style={{
+                      backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.18), transparent)'
+                    }}
+                  />
+                  <div className="relative flex items-center justify-between">
+                    <p className="text-sm uppercase tracking-[0.3em] text-white/70">{plan.tier}</p>
+                    {plan.highlight && (
+                      <span className="rounded-full bg-white/20 px-3 py-1 text-xs text-white">{plan.highlight}</span>
+                    )}
+                  </div>
+                  <p className="relative mt-4 text-2xl font-bold text-white">{plan.price}</p>
+                  <p className="relative text-sm text-white/80">{plan.description}</p>
+                  <ul className="relative mt-5 space-y-2 text-sm text-white/90">
+                    {plan.bullets.map((bullet) => (
+                      <li key={bullet} className="flex items-start gap-2">
+                        <span className="mt-1 h-2 w-2 rounded-full bg-white" />
+                        {bullet}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="relative mt-6 space-y-3">
+                    <a
+                      href={lineUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => handleLineCta(`pricing-${plan.tier}`)}
+                      className="inline-flex w-full items-center justify-center rounded-[14px] border border-white/60 px-4 py-2 text-sm font-semibold text-white"
+                    >
+                      นัดเดโม (LINE)
+                    </a>
+                    <a
+                      href={quoteUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => handlePricingCta(plan.tier)}
+                      className="inline-flex w-full items-center justify-center rounded-[14px] bg-black/40 px-4 py-2 text-sm font-semibold text-white"
+                    >
+                      ขอใบเสนอราคา
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-[20px] border border-white/10 bg-white/5 p-6">
+              <div>
+                <p className="text-base font-semibold text-white">ต้องการใบเสนอราคา PDF?</p>
+                <p className="text-sm text-slate-400">กดปุ่มด้านขวาแล้วเราส่งผ่าน LINE / WhatsApp ทันที</p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <a
+                  href={lineUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => handlePricingCta('quote-line')}
+                  className="inline-flex items-center justify-center rounded-[14px] bg-gradient-to-r from-[#9b6bff] to-[#4fd1ff] px-5 py-3 text-sm font-semibold text-black"
+                >
+                  ขอใบเสนอราคา (LINE)
+                </a>
+              </div>
+            </div>
+          </section>
+
+          <section className="relative glow-panel rounded-[28px] border border-white/10 bg-black/40 p-8">
+            <div className="flex flex-col gap-4">
+              <p className="text-xs uppercase tracking-[0.3em] text-[#4fd1ff] font-en">Case Studies</p>
+              <h2 className="text-3xl font-bold">ภาพจริง + คำคมเจ้าของร้าน</h2>
+            </div>
+            <div className="mt-8 grid gap-6 md:grid-cols-2">
+              {caseStudies.map((study) => (
+                <div key={study.venue} className="group shimmer-card relative overflow-hidden rounded-[24px] border border-white/10 bg-white/5 p-6">
+                  <div className="absolute inset-0 opacity-40"
+                    style={{ backgroundImage: 'radial-gradient(circle at top, rgba(244,114,182,0.2), transparent)' }}
+                  />
+                  <div className="relative h-40 rounded-[18px] border border-white/10 bg-gradient-to-br from-white/10 to-black/40" aria-label="case study image" />
+                  <p className="relative mt-4 text-sm text-[#4fd1ff]">{study.metric}</p>
+                  <p className="relative mt-2 text-lg font-semibold text-white">{study.quote}</p>
+                  <p className="relative mt-3 text-sm text-slate-400">{study.owner} • {study.venue}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="relative glow-panel rounded-[28px] border border-white/10 bg-white/5 p-8" id="faq">
+            <p className="text-xs uppercase tracking-[0.3em] text-[#4fd1ff] font-en">FAQs</p>
+            <h2 className="mt-3 text-3xl font-bold">ตอบข้อโต้แย้งทันที</h2>
+            <div className="mt-8 space-y-4">
+              {faqs.map((faq) => (
+                <details key={faq.question} className="group shimmer-card rounded-[18px] border border-white/10 bg-black/40 p-5">
+                  <summary className="cursor-pointer text-lg font-semibold text-white">
+                    {faq.question}
+                  </summary>
+                  <p className="mt-3 text-sm text-slate-400">{faq.answer}</p>
+                </details>
+              ))}
+            </div>
+          </section>
+
+          <section id="contact" className="relative glow-panel rounded-[32px] border border-[#7f6bff]/40 bg-gradient-to-br from-[#090910]/95 via-[#12051b]/90 to-[#050505]/95 p-8">
+            <div className="absolute inset-0 opacity-60"
+              style={{
+                borderRadius: 'inherit',
+                backgroundImage:
+                  'radial-gradient(circle at 20% 20%, rgba(244,114,182,0.25), transparent 60%), radial-gradient(circle at 80% 0%, rgba(79,209,255,0.3), transparent 65%), linear-gradient(120deg, rgba(255,255,255,0.08) 0%, transparent 45%)'
+              }}
+            />
+            <div className="pointer-events-none absolute inset-0 -z-10">
+              <span className="sparkle-star" style={{ top: '18%', left: '18%', fontSize: 12, animationDelay: '0.2s' }}>✶</span>
+              <span className="sparkle-star" style={{ bottom: '12%', right: '16%', fontSize: 11, animationDelay: '1.1s' }}>✧</span>
+            </div>
+            <div className="relative">
+              <p className="text-xs uppercase tracking-[0.4em] text-[#4fd1ff] font-en">Final CTA</p>
+              <h2 className="mt-4 text-3xl font-bold text-white">คืนนี้ทำให้ร้านคุณดังขึ้นและขายดีขึ้น — เริ่มใน 15 นาที</h2>
+              <p className="mt-2 text-sm text-slate-200">ปุ่มด้านล่างคือช่องทางเร็วที่สุด</p>
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <a
+                  href={lineUrl}
+                  onClick={() => handleLineCta('final-hero')}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="relative flex items-center justify-center rounded-[20px] bg-gradient-to-r from-[#f472b6] via-[#9b6bff] to-[#4fd1ff] px-6 py-5 text-center text-lg font-semibold text-black shadow-[0_18px_55px_rgba(155,107,255,0.45)]"
+                >
+                  <span className="font-en text-sm uppercase tracking-[0.3em] text-black/70">Line</span>
+                  <span className="ml-2">นัดเดโม 15 นาที (LINE)</span>
+                </a>
+                <a
+                  href={`tel:${callPhone}`}
+                  onClick={() => handleCallNow('final-call')}
+                  className="flex items-center justify-center rounded-[20px] border border-white/25 bg-black/30 px-6 py-5 text-center text-lg font-semibold text-white shadow-inner shadow-black/30"
+                >
+                  โทรคุยทันที
+                </a>
+              </div>
+              <div className="mt-4 text-sm text-slate-300">
+                หรือส่งอีเมลเร็วที่ <a href="mailto:sales@meewarp.com" className="text-[#4fd1ff]">sales@meewarp.com</a>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+
+      <div className="shimmer-card fixed bottom-6 right-6 hidden flex-col items-center gap-2 rounded-[20px] border border-white/10 bg-black/70 p-3 shadow-lg shadow-[#9b6bff]/30 md:flex">
+        <img src={lineQrPlaceholder} alt="MeeWarp LINE OA" className="h-28 w-28 rounded-[14px] border border-white/10" />
+        <p className="text-xs text-center text-slate-300">สแกนคุย LINE OA</p>
       </div>
     </div>
   );

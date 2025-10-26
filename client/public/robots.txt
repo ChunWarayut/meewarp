@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /api/v1/
+
+# Sitemap
+Sitemap: https://mee-warp.com/sitemap.xml

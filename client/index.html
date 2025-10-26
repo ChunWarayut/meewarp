@@ -1,13 +1,104 @@
 <!doctype html>
-<html lang="en">
+<html lang="th">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/favicon_meewarp.png" />
     <link rel="apple-touch-icon" href="/favicon_meewarp.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#ff6b35" />
-    <title>MeeWarp - ระบบแจกวาร์ปสำหรับผับและอีเวนต์</title>
-    <meta name="description" content="สแกน QR Code เพื่อดูข้อมูลและลิงก์โซเชียลของคนในร้าน - ระบบแจกวาร์ปสำหรับผับ บาร์ และอีเวนต์" />
+    
+    <!-- Primary Meta Tags -->
+    <title>MeeWarp - ระบบแจกวาร์ปสำหรับผับและอีเวนต์ | สแกน QR Code เชื่อมต่อสังคม</title>
+    <meta name="title" content="MeeWarp - ระบบแจกวาร์ปสำหรับผับและอีเวนต์ | สแกน QR Code เชื่อมต่อสังคม" />
+    <meta name="description" content="ระบบแจกวาร์ปสำหรับผับ บาร์ และอีเวนต์ สแกน QR Code เพื่อดูข้อมูลและลิงก์โซเชียลของคนในร้าน เชื่อมต่อสังคมได้ง่ายๆ ด้วยเทคโนโลยีล้ำสมัย" />
+    <meta name="keywords" content="วาร์ป, QR Code, ผับ, บาร์, อีเวนต์, เชื่อมต่อสังคม, สแกน QR, ระบบวาร์ป, MeeWarp, สังคม, เทคโนโลยี" />
+    <meta name="author" content="MeeWarp" />
+    <meta name="robots" content="index, follow" />
+    <meta name="language" content="Thai" />
+    <meta name="revisit-after" content="7 days" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://mee-warp.com/" />
+    <meta property="og:title" content="MeeWarp - ระบบแจกวาร์ปสำหรับผับและอีเวนต์" />
+    <meta property="og:description" content="ระบบแจกวาร์ปสำหรับผับ บาร์ และอีเวนต์ สแกน QR Code เพื่อดูข้อมูลและลิงก์โซเชียลของคนในร้าน เชื่อมต่อสังคมได้ง่ายๆ" />
+    <meta property="og:image" content="https://mee-warp.com/cover.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="MeeWarp - ระบบแจกวาร์ปสำหรับผับและอีเวนต์" />
+    <meta property="og:site_name" content="MeeWarp" />
+    <meta property="og:locale" content="th_TH" />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://mee-warp.com/" />
+    <meta property="twitter:title" content="MeeWarp - ระบบแจกวาร์ปสำหรับผับและอีเวนต์" />
+    <meta property="twitter:description" content="ระบบแจกวาร์ปสำหรับผับ บาร์ และอีเวนต์ สแกน QR Code เพื่อดูข้อมูลและลิงก์โซเชียลของคนในร้าน เชื่อมต่อสังคมได้ง่ายๆ" />
+    <meta property="twitter:image" content="https://mee-warp.com/cover.png" />
+    <meta property="twitter:image:alt" content="MeeWarp - ระบบแจกวาร์ปสำหรับผับและอีเวนต์" />
+    
+    <!-- Additional SEO Meta Tags -->
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="MeeWarp" />
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://mee-warp.com/" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Preconnect to external domains -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://www.google-analytics.com" />
+    <link rel="preconnect" href="https://www.googletagmanager.com" />
+    
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "MeeWarp",
+      "description": "ระบบแจกวาร์ปสำหรับผับ บาร์ และอีเวนต์ สแกน QR Code เพื่อดูข้อมูลและลิงก์โซเชียลของคนในร้าน",
+      "url": "https://mee-warp.com",
+      "image": "https://mee-warp.com/cover.png",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "THB"
+      },
+      "creator": {
+        "@type": "Organization",
+        "name": "MeeWarp",
+        "url": "https://mee-warp.com"
+      },
+      "keywords": "วาร์ป, QR Code, ผับ, บาร์, อีเวนต์, เชื่อมต่อสังคม, สแกน QR, ระบบวาร์ป, MeeWarp, สังคม, เทคโนโลยี"
+    }
+    </script>
+    
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-FD5NP37F65"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-FD5NP37F65', {
+        page_title: 'MeeWarp - ระบบแจกวาร์ปสำหรับผับและอีเวนต์',
+        page_location: window.location.href,
+        custom_map: {
+          'custom_parameter_1': 'warp_system',
+          'custom_parameter_2': 'qr_code'
+        }
+      });
+    </script>
+    
+    <!-- Google Search Console -->
+    <meta name="google-site-verification" content="nfp4WdcXR_qgWOFJF6IWyw" />
   </head>
   <body>
     <div id="root"></div>
