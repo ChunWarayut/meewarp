@@ -21,7 +21,26 @@ export type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-// Helper function to check if token is expired
+// Helper function to properly decode base64url JWT payload with UTF-8 support
+function base64UrlDecodeUTF8(str: string): string {
+  // Replace base64url characters with base64
+  const padding = '='.repeat((4 - (str.length % 4)) % 4);
+  const base64 = (str + padding).replace(/-/g, '+').replace(/_/g, '/');
+  
+  // Decode base64 to binary string
+  const binary = atob(base64);
+  
+  // Convert binary string to UTF-8 encoded string
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  
+  // Decode UTF-8 bytes to string
+  const decoder = new TextDecoder('utf-8');
+  return decoder.decode(bytes);
+}
+
 type TokenPayload = {
   exp: number;
   email?: string;
@@ -34,7 +53,8 @@ type TokenPayload = {
 
 const decodeToken = (token: string): TokenPayload | null => {
   try {
-    return JSON.parse(atob(token.split('.')[1]));
+    const [, payload] = token.split('.');
+    return JSON.parse(base64UrlDecodeUTF8(payload));
   } catch {
     return null;
   }

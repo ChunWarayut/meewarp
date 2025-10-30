@@ -489,7 +489,7 @@ const SelfWarpPage = () => {
                       type="email"
                       value={form.customerEmail}
                       onChange={(event) => handleChange('customerEmail', event.target.value)}
-                      placeholder="ตัวอย่าง: yourname@meewarp.com"
+                      placeholder="ตัวอย่าง: yourname@mee-warp.com"
                       className="mt-2 w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(8,12,24,0.55)] focus:border-indigo-400/70 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
                       style={{ letterSpacing: '-0.02em' }}
                     />

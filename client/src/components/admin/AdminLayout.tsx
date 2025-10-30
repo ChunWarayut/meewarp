@@ -56,12 +56,15 @@ const AdminLayout = () => {
         <div className="absolute inset-0 bg-[radial-gradient(160%_160%_at_50%_120%,_rgba(192,132,252,0.3)_0%,_transparent_65%)] mix-blend-screen" />
       </div>
 
-      <aside className="fixed inset-y-0 left-0 z-30 flex w-72 flex-col border-r border-white/10 bg-slate-950/85 p-6 backdrop-blur-xl">
-        <div className="mb-8">
+      <aside className="fixed inset-y-0 left-0 z-30 flex w-72 flex-col border-r border-white/10 bg-slate-950/85 backdrop-blur-xl">
+        {/* Header - Fixed */}
+        <div className="flex-shrink-0 p-6 pb-4">
           <p className="text-xs uppercase tracking-[0.5em] text-indigo-300">meeWarp Admin</p>
           <h1 className="mt-2 text-2xl font-bold text-white drop-shadow-[0_0_20px_rgba(99,102,241,0.5)]">Control Center</h1>
         </div>
-        <div className="mb-6 space-y-2">
+        
+        {/* Store Selector - Fixed */}
+        <div className="flex-shrink-0 px-6 pb-4 space-y-2">
           <label className="text-[11px] uppercase tracking-[0.35em] text-indigo-200">Store</label>
           {locked ? (
             <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200">
@@ -83,7 +86,9 @@ const AdminLayout = () => {
             </select>
           )}
         </div>
-        <nav className="flex-1 space-y-2">
+
+        {/* Navigation - Scrollable */}
+        <nav className="flex-1 overflow-y-auto px-6 space-y-2 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800">
           {filteredNav.map((item) => (
             <NavLink
               key={item.to}
@@ -112,7 +117,9 @@ const AdminLayout = () => {
             </NavLink>
           ))}
         </nav>
-        <div className="mt-auto space-y-3">
+
+        {/* Footer - Fixed */}
+        <div className="flex-shrink-0 p-6 pt-4 space-y-3">
           <div className="rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
             {admin?.displayName ? (
               <p className="text-slate-200 font-medium">{admin.displayName}</p>

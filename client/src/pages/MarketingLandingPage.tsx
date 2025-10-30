@@ -101,7 +101,7 @@ const roiMetrics = [
 ];
 
 const howItWorksSteps = [
-  { step: '1', title: 'สแกน QR บนโต๊ะ', detail: 'ไม่ต้องโหลดแอป รองรับ iOS / Android' },
+  { step: '1', title: 'สแกน QR บน TV', detail: 'ไม่ต้องโหลดแอป รองรับ iOS / Android' },
   { step: '2', title: 'เลือกระบบ', detail: 'ขอเพลง ชูโต๊ะ ถ่ายภาพ หรือเรียกสตาฟ' },
   { step: '3', title: 'ขึ้นจอ/เด้งถึงสตาฟ', detail: 'ข้อความอนุมัติก่อนโชว์ ปลอดภัยมั่นใจ' }
 ];
@@ -148,15 +148,15 @@ const neonTickerItems = [
 
 const caseStudies = [
   {
-    venue: 'Tropic Rooftop',
+    venue: 'MongkolBar Pak Chong',
     quote: '“ดีเจไม่ต้องตะโกนแล้ว ลูกค้าส่งคำขอเพลงเองได้ ยอดทิปโตเป็นสองเท่า”',
-    owner: 'คุณพิม Owner',
+    owner: 'คุณปอนด์ Owner',
     metric: '+82% ความคึกโต๊ะ'
   },
   {
-    venue: 'Warehouse 39',
+    venue: 'MongkolBar Pak Chong',
     quote: '“MeeWarp ทำให้ทุกโต๊ะกลายเป็นครีเอเตอร์ ปิดดีลโต๊ะพรีเมียมได้ทันที”',
-    owner: 'คุณเคน ผู้จัดอีเวนต์',
+    owner: 'คุณเอส ผู้จัดอีเวนต์',
     metric: '+46% ยอดแชร์สตอรี่'
   }
 ];
@@ -346,7 +346,7 @@ const MarketingLandingPage = () => {
   };
 
   return (
-    <div className="warp-bg relative min-h-screen overflow-hidden text-white font-th">
+    <div className="relative min-h-screen overflow-hidden text-white font-th">
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute inset-0 opacity-30"
           style={{
@@ -701,7 +701,7 @@ const MarketingLandingPage = () => {
                 </div>
               ))}
             </div>
-            <p className="mt-4 text-xs text-slate-500">*ข้อมูลจากพิลอต 3 สถานที่ (Q1/2025)</p>
+            <p className="mt-4 text-xs text-slate-500">*ข้อมูลจากพิลอตสถานที่จริง (Q1/2025)</p>
           </section>
 
           <section className="relative glow-panel rounded-[28px] border border-white/10 bg-white/5 p-8" id="how">
